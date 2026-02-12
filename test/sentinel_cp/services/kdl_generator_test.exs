@@ -1,7 +1,7 @@
 defmodule SentinelCp.Services.KdlGeneratorTest do
   use SentinelCp.DataCase
 
-  alias SentinelCp.Services.{KdlGenerator, ProjectConfig, Service, Certificate}
+  alias SentinelCp.Services.{KdlGenerator, ProjectConfig, Service, Certificate, AuthPolicy}
 
   import SentinelCp.ProjectsFixtures
   import SentinelCp.ServicesFixtures
@@ -527,6 +527,366 @@ defmodule SentinelCp.Services.KdlGeneratorTest do
 
       kdl = KdlGenerator.build_kdl(services, config)
       assert kdl =~ "max_connections 1000"
+    end
+  end
+
+  describe "security block KDL" do
+    test "generates security block for service" do
+      services = [
+        %Service{
+          name: "API",
+          slug: "api",
+          route_path: "/api/*",
+          upstream_url: "http://api:8080",
+          security: %{
+            "block_sqli" => "true",
+            "block_xss" => "true",
+            "max_body_size" => 1_048_576
+          },
+          retry: %{},
+          cache: %{},
+          rate_limit: %{},
+          health_check: %{},
+          headers: %{},
+          cors: %{},
+          access_control: %{},
+          compression: %{},
+          path_rewrite: %{},
+          request_transform: %{},
+          response_transform: %{}
+        }
+      ]
+
+      kdl = KdlGenerator.build_kdl(services, default_config())
+      assert kdl =~ "security {"
+      assert kdl =~ ~s(block_sqli "true")
+      assert kdl =~ ~s(block_xss "true")
+      assert kdl =~ "max_body_size 1048576"
+    end
+
+    test "does not generate security block when empty" do
+      services = [
+        %Service{
+          name: "API",
+          slug: "api",
+          route_path: "/api/*",
+          upstream_url: "http://api:8080",
+          security: %{},
+          retry: %{},
+          cache: %{},
+          rate_limit: %{},
+          health_check: %{},
+          headers: %{}
+        }
+      ]
+
+      kdl = KdlGenerator.build_kdl(services, default_config())
+      refute kdl =~ "security {"
+    end
+
+    test "generates global security in settings" do
+      config = %ProjectConfig{
+        log_level: "info",
+        metrics_port: 9090,
+        custom_settings: %{},
+        default_cors: %{},
+        default_compression: %{},
+        global_access_control: %{},
+        default_security: %{"max_body_size" => 2_097_152, "block_sqli" => "true"}
+      }
+
+      services = [
+        %Service{
+          name: "API",
+          slug: "api",
+          route_path: "/api/*",
+          upstream_url: "http://api:8080",
+          retry: %{},
+          cache: %{},
+          rate_limit: %{},
+          health_check: %{},
+          headers: %{},
+          cors: %{},
+          access_control: %{},
+          compression: %{},
+          path_rewrite: %{},
+          security: %{},
+          request_transform: %{},
+          response_transform: %{}
+        }
+      ]
+
+      kdl = KdlGenerator.build_kdl(services, config)
+      assert kdl =~ "settings {"
+      assert kdl =~ "security {"
+      assert kdl =~ "max_body_size 2097152"
+    end
+  end
+
+  describe "transform block KDL" do
+    test "generates request_transform block" do
+      services = [
+        %Service{
+          name: "API",
+          slug: "api",
+          route_path: "/api/*",
+          upstream_url: "http://api:8080",
+          request_transform: %{
+            "add_headers" => "X-Custom: value",
+            "remove_headers" => "X-Forwarded-For"
+          },
+          response_transform: %{},
+          security: %{},
+          retry: %{},
+          cache: %{},
+          rate_limit: %{},
+          health_check: %{},
+          headers: %{},
+          cors: %{},
+          access_control: %{},
+          compression: %{},
+          path_rewrite: %{}
+        }
+      ]
+
+      kdl = KdlGenerator.build_kdl(services, default_config())
+      assert kdl =~ "request_transform {"
+      assert kdl =~ ~s(add_headers "X-Custom: value")
+      assert kdl =~ ~s(remove_headers "X-Forwarded-For")
+    end
+
+    test "generates response_transform block" do
+      services = [
+        %Service{
+          name: "API",
+          slug: "api",
+          route_path: "/api/*",
+          upstream_url: "http://api:8080",
+          response_transform: %{
+            "add_headers" => "X-Frame-Options: DENY",
+            "remove_headers" => "Server"
+          },
+          request_transform: %{},
+          security: %{},
+          retry: %{},
+          cache: %{},
+          rate_limit: %{},
+          health_check: %{},
+          headers: %{},
+          cors: %{},
+          access_control: %{},
+          compression: %{},
+          path_rewrite: %{}
+        }
+      ]
+
+      kdl = KdlGenerator.build_kdl(services, default_config())
+      assert kdl =~ "response_transform {"
+      assert kdl =~ ~s(add_headers "X-Frame-Options: DENY")
+      assert kdl =~ ~s(remove_headers "Server")
+    end
+
+    test "does not generate transform blocks when empty" do
+      services = [
+        %Service{
+          name: "API",
+          slug: "api",
+          route_path: "/api/*",
+          upstream_url: "http://api:8080",
+          request_transform: %{},
+          response_transform: %{},
+          security: %{},
+          retry: %{},
+          cache: %{},
+          rate_limit: %{},
+          health_check: %{},
+          headers: %{}
+        }
+      ]
+
+      kdl = KdlGenerator.build_kdl(services, default_config())
+      refute kdl =~ "request_transform {"
+      refute kdl =~ "response_transform {"
+    end
+  end
+
+  describe "auth block KDL" do
+    test "generates auth block when service has auth_policy_id" do
+      policy = %AuthPolicy{
+        id: "policy-1",
+        slug: "jwt-validator",
+        name: "JWT Validator",
+        auth_type: "jwt",
+        config: %{
+          "audience" => "my-api",
+          "issuer" => "https://auth.example.com",
+          "jwks_url" => "https://auth.example.com/.well-known/jwks.json"
+        },
+        enabled: true
+      }
+
+      services = [
+        %Service{
+          name: "API",
+          slug: "api",
+          route_path: "/api/*",
+          upstream_url: "http://api:8080",
+          auth_policy_id: "policy-1",
+          retry: %{},
+          cache: %{},
+          rate_limit: %{},
+          health_check: %{},
+          headers: %{},
+          cors: %{},
+          access_control: %{},
+          compression: %{},
+          path_rewrite: %{}
+        }
+      ]
+
+      kdl = KdlGenerator.build_kdl(services, default_config(), [], [], [policy])
+      assert kdl =~ "auth {"
+      assert kdl =~ ~s(type "jwt")
+      assert kdl =~ ~s(issuer "https://auth.example.com")
+      assert kdl =~ ~s(audience "my-api")
+      assert kdl =~ ~s(jwks_url "https://auth.example.com/.well-known/jwks.json")
+    end
+
+    test "does not generate auth block when auth_policy_id is nil" do
+      services = [
+        %Service{
+          name: "API",
+          slug: "api",
+          route_path: "/api/*",
+          upstream_url: "http://api:8080",
+          auth_policy_id: nil,
+          retry: %{},
+          cache: %{},
+          rate_limit: %{},
+          health_check: %{},
+          headers: %{}
+        }
+      ]
+
+      kdl = KdlGenerator.build_kdl(services, default_config())
+      refute kdl =~ "auth {"
+    end
+
+    test "generates auth block for api_key type" do
+      policy = %AuthPolicy{
+        id: "policy-2",
+        slug: "api-key-check",
+        name: "API Key Check",
+        auth_type: "api_key",
+        config: %{"header" => "X-API-Key", "query_param" => "api_key"},
+        enabled: true
+      }
+
+      services = [
+        %Service{
+          name: "API",
+          slug: "api",
+          route_path: "/api/*",
+          upstream_url: "http://api:8080",
+          auth_policy_id: "policy-2",
+          retry: %{},
+          cache: %{},
+          rate_limit: %{},
+          health_check: %{},
+          headers: %{},
+          cors: %{},
+          access_control: %{},
+          compression: %{},
+          path_rewrite: %{}
+        }
+      ]
+
+      kdl = KdlGenerator.build_kdl(services, default_config(), [], [], [policy])
+      assert kdl =~ "auth {"
+      assert kdl =~ ~s(type "api_key")
+      assert kdl =~ ~s(header "X-API-Key")
+      assert kdl =~ ~s(query_param "api_key")
+    end
+  end
+
+  describe "circuit_breaker KDL" do
+    test "generates circuit_breaker block inside upstream group" do
+      group = %SentinelCp.Services.UpstreamGroup{
+        id: "group-1",
+        slug: "api-backends",
+        name: "API Backends",
+        algorithm: "round_robin",
+        targets: [],
+        health_check: %{},
+        sticky_sessions: %{},
+        circuit_breaker: %{
+          "failure_threshold" => 5,
+          "success_threshold" => 3,
+          "timeout" => 30,
+          "half_open_max_requests" => 1
+        }
+      }
+
+      services = [
+        %Service{
+          name: "API",
+          slug: "api",
+          route_path: "/api/*",
+          upstream_group_id: "group-1",
+          upstream_url: nil,
+          retry: %{},
+          cache: %{},
+          rate_limit: %{},
+          health_check: %{},
+          headers: %{},
+          cors: %{},
+          access_control: %{},
+          compression: %{},
+          path_rewrite: %{}
+        }
+      ]
+
+      kdl = KdlGenerator.build_kdl(services, default_config(), [group])
+      assert kdl =~ "circuit_breaker {"
+      assert kdl =~ "failure_threshold 5"
+      assert kdl =~ "success_threshold 3"
+      assert kdl =~ "timeout 30"
+      assert kdl =~ "half_open_max_requests 1"
+    end
+
+    test "does not generate circuit_breaker block when config is empty" do
+      group = %SentinelCp.Services.UpstreamGroup{
+        id: "group-1",
+        slug: "api-backends",
+        name: "API Backends",
+        algorithm: "round_robin",
+        targets: [],
+        health_check: %{},
+        sticky_sessions: %{},
+        circuit_breaker: %{}
+      }
+
+      services = [
+        %Service{
+          name: "API",
+          slug: "api",
+          route_path: "/api/*",
+          upstream_group_id: "group-1",
+          upstream_url: nil,
+          retry: %{},
+          cache: %{},
+          rate_limit: %{},
+          health_check: %{},
+          headers: %{},
+          cors: %{},
+          access_control: %{},
+          compression: %{},
+          path_rewrite: %{}
+        }
+      ]
+
+      kdl = KdlGenerator.build_kdl(services, default_config(), [group])
+      refute kdl =~ "circuit_breaker {"
     end
   end
 

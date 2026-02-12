@@ -14,12 +14,16 @@ defmodule SentinelCpWeb.ServicesLive.Show do
       {:ok, config} = Services.get_or_create_project_config(project.id)
       kdl_preview = generate_service_preview(service, config)
 
+      auth_policy =
+        if service.auth_policy_id, do: Services.get_auth_policy(service.auth_policy_id), else: nil
+
       {:ok,
        assign(socket,
          page_title: "Service #{service.name} — #{project.name}",
          org: org,
          project: project,
          service: service,
+         auth_policy: auth_policy,
          kdl_preview: kdl_preview
        )}
     else
@@ -123,6 +127,12 @@ defmodule SentinelCpWeb.ServicesLive.Show do
             <:item label="Access Control">{format_map(@service.access_control)}</:item>
             <:item label="Compression">{format_map(@service.compression)}</:item>
             <:item label="Path Rewrite">{format_map(@service.path_rewrite)}</:item>
+            <:item label="Auth Policy">
+              {if @auth_policy, do: "#{@auth_policy.name} (#{@auth_policy.auth_type})", else: "—"}
+            </:item>
+            <:item label="Security">{format_map(@service.security)}</:item>
+            <:item label="Request Transform">{format_map(@service.request_transform)}</:item>
+            <:item label="Response Transform">{format_map(@service.response_transform)}</:item>
           </.definition_list>
         </.k8s_section>
 

@@ -18,12 +18,19 @@ defmodule SentinelCpWeb.UpstreamGroupsLive.Edit do
          org: org,
          project: project,
          group: group,
-         algorithms: @algorithms
+         algorithms: @algorithms,
+         show_circuit_breaker: group.circuit_breaker != %{} && group.circuit_breaker != nil
        )}
     else
       _ ->
         {:ok, push_navigate(socket, to: ~p"/orgs")}
     end
+  end
+
+  @impl true
+  def handle_event("toggle_section", %{"section" => section}, socket) do
+    key = String.to_existing_atom("show_#{section}")
+    {:noreply, assign(socket, [{key, !socket.assigns[key]}])}
   end
 
   @impl true
@@ -36,6 +43,8 @@ defmodule SentinelCpWeb.UpstreamGroupsLive.Edit do
       description: params["description"],
       algorithm: params["algorithm"]
     }
+
+    attrs = maybe_put_circuit_breaker(attrs, params)
 
     case Services.update_upstream_group(group, attrs) do
       {:ok, updated} ->
@@ -84,6 +93,65 @@ defmodule SentinelCpWeb.UpstreamGroupsLive.Edit do
             </select>
           </div>
 
+          <div class="divider text-xs text-base-content/50">Advanced Settings</div>
+
+          <div>
+            <button
+              type="button"
+              phx-click="toggle_section"
+              phx-value-section="circuit_breaker"
+              class="btn btn-ghost btn-xs"
+            >
+              {if @show_circuit_breaker, do: "▼", else: "▶"} Circuit Breaker
+            </button>
+            <div :if={@show_circuit_breaker} class="ml-4 mt-2 space-y-2">
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Failure Threshold</span></label>
+                <input
+                  type="number"
+                  name="circuit_breaker[failure_threshold]"
+                  value={@group.circuit_breaker["failure_threshold"]}
+                  class="input input-bordered input-xs w-24"
+                  placeholder="5"
+                  min="1"
+                />
+              </div>
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Success Threshold</span></label>
+                <input
+                  type="number"
+                  name="circuit_breaker[success_threshold]"
+                  value={@group.circuit_breaker["success_threshold"]}
+                  class="input input-bordered input-xs w-24"
+                  placeholder="3"
+                  min="1"
+                />
+              </div>
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Timeout (seconds)</span></label>
+                <input
+                  type="number"
+                  name="circuit_breaker[timeout]"
+                  value={@group.circuit_breaker["timeout"]}
+                  class="input input-bordered input-xs w-24"
+                  placeholder="30"
+                  min="1"
+                />
+              </div>
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Half-Open Max Requests</span></label>
+                <input
+                  type="number"
+                  name="circuit_breaker[half_open_max_requests]"
+                  value={@group.circuit_breaker["half_open_max_requests"]}
+                  class="input input-bordered input-xs w-24"
+                  placeholder="1"
+                  min="1"
+                />
+              </div>
+            </div>
+          </div>
+
           <div class="flex gap-2 pt-4">
             <button type="submit" class="btn btn-primary btn-sm">Save Changes</button>
             <.link navigate={group_show_path(@org, @project, @group)} class="btn btn-ghost btn-sm">Cancel</.link>
@@ -102,4 +170,27 @@ defmodule SentinelCpWeb.UpstreamGroupsLive.Edit do
 
   defp group_show_path(nil, project, group),
     do: ~p"/projects/#{project.slug}/upstream-groups/#{group.id}"
+
+  defp maybe_put_circuit_breaker(attrs, params) do
+    case params["circuit_breaker"] do
+      nil ->
+        attrs
+
+      %{} = map ->
+        cleaned =
+          map
+          |> Enum.reject(fn {_, v} -> v == "" || is_nil(v) end)
+          |> Map.new(fn {k, v} ->
+            case Integer.parse(v) do
+              {n, ""} -> {k, n}
+              _ -> {k, v}
+            end
+          end)
+
+        Map.put(attrs, :circuit_breaker, cleaned)
+
+      _ ->
+        attrs
+    end
+  end
 end

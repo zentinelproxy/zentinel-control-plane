@@ -30,11 +30,15 @@ defmodule SentinelCp.Services.Service do
     field :access_control, :map, default: %{}
     field :compression, :map, default: %{}
     field :path_rewrite, :map, default: %{}
+    field :security, :map, default: %{}
+    field :request_transform, :map, default: %{}
+    field :response_transform, :map, default: %{}
     field :redirect_url, :string
 
     belongs_to :project, SentinelCp.Projects.Project
     belongs_to :upstream_group, SentinelCp.Services.UpstreamGroup
     belongs_to :certificate, SentinelCp.Services.Certificate
+    belongs_to :auth_policy, SentinelCp.Services.AuthPolicy
 
     timestamps(type: :utc_datetime)
   end
@@ -60,9 +64,13 @@ defmodule SentinelCp.Services.Service do
       :access_control,
       :compression,
       :path_rewrite,
+      :security,
+      :request_transform,
+      :response_transform,
       :redirect_url,
       :upstream_group_id,
       :certificate_id,
+      :auth_policy_id,
       :project_id
     ])
     |> validate_required([:name, :route_path, :project_id])
@@ -96,9 +104,13 @@ defmodule SentinelCp.Services.Service do
       :access_control,
       :compression,
       :path_rewrite,
+      :security,
+      :request_transform,
+      :response_transform,
       :redirect_url,
       :upstream_group_id,
-      :certificate_id
+      :certificate_id,
+      :auth_policy_id
     ])
     |> validate_required([:name, :route_path])
     |> validate_length(:name, min: 1, max: 100)

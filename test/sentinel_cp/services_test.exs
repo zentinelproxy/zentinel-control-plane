@@ -6,6 +6,7 @@ defmodule SentinelCp.ServicesTest do
 
   import SentinelCp.ProjectsFixtures
   import SentinelCp.ServicesFixtures
+  import SentinelCp.AuthPolicyFixtures
 
   describe "create_service/1" do
     test "creates a service with valid attributes" do
@@ -338,6 +339,173 @@ defmodule SentinelCp.ServicesTest do
 
       services = Services.list_services(project.id)
       assert hd(services).id == s2.id
+    end
+  end
+
+  describe "service with security config" do
+    test "creates service with security config" do
+      project = project_fixture()
+
+      security = %{
+        "max_body_size" => 1_048_576,
+        "block_sqli" => "true",
+        "block_xss" => "true"
+      }
+
+      assert {:ok, %Service{} = service} =
+               Services.create_service(%{
+                 project_id: project.id,
+                 name: "Secure API",
+                 route_path: "/api/*",
+                 upstream_url: "http://localhost:3000",
+                 security: security
+               })
+
+      assert service.security == security
+    end
+
+    test "updates service security config" do
+      service = service_fixture()
+
+      security = %{"max_body_size" => 2_097_152, "allowed_content_types" => "application/json"}
+
+      assert {:ok, updated} = Services.update_service(service, %{security: security})
+      assert updated.security == security
+    end
+  end
+
+  describe "service with transform configs" do
+    test "creates service with request_transform" do
+      project = project_fixture()
+
+      rt = %{"add_headers" => "X-Custom: value", "remove_headers" => "X-Forwarded-For"}
+
+      assert {:ok, %Service{} = service} =
+               Services.create_service(%{
+                 project_id: project.id,
+                 name: "Transform API",
+                 route_path: "/api/*",
+                 upstream_url: "http://localhost:3000",
+                 request_transform: rt
+               })
+
+      assert service.request_transform == rt
+    end
+
+    test "creates service with response_transform" do
+      project = project_fixture()
+
+      rt = %{"add_headers" => "X-Frame-Options: DENY", "remove_headers" => "Server"}
+
+      assert {:ok, %Service{} = service} =
+               Services.create_service(%{
+                 project_id: project.id,
+                 name: "Response Transform API",
+                 route_path: "/api/*",
+                 upstream_url: "http://localhost:3000",
+                 response_transform: rt
+               })
+
+      assert service.response_transform == rt
+    end
+
+    test "updates service transform configs" do
+      service = service_fixture()
+
+      req_t = %{"add_headers" => "X-Req: true"}
+      res_t = %{"remove_headers" => "Server"}
+
+      assert {:ok, updated} =
+               Services.update_service(service, %{
+                 request_transform: req_t,
+                 response_transform: res_t
+               })
+
+      assert updated.request_transform == req_t
+      assert updated.response_transform == res_t
+    end
+  end
+
+  describe "service with auth_policy_id" do
+    test "creates service bound to auth policy" do
+      project = project_fixture()
+      policy = auth_policy_fixture(%{project: project})
+
+      assert {:ok, %Service{} = service} =
+               Services.create_service(%{
+                 project_id: project.id,
+                 name: "Authed API",
+                 route_path: "/api/*",
+                 upstream_url: "http://api:8080",
+                 auth_policy_id: policy.id
+               })
+
+      assert service.auth_policy_id == policy.id
+    end
+
+    test "can update service auth_policy_id" do
+      project = project_fixture()
+      policy = auth_policy_fixture(%{project: project})
+      service = service_fixture(%{project: project})
+
+      assert {:ok, updated} =
+               Services.update_service(service, %{auth_policy_id: policy.id})
+
+      assert updated.auth_policy_id == policy.id
+    end
+
+    test "can clear auth_policy_id" do
+      project = project_fixture()
+      policy = auth_policy_fixture(%{project: project})
+
+      {:ok, service} =
+        Services.create_service(%{
+          project_id: project.id,
+          name: "Authed",
+          route_path: "/api/*",
+          upstream_url: "http://api:8080",
+          auth_policy_id: policy.id
+        })
+
+      assert {:ok, updated} = Services.update_service(service, %{auth_policy_id: nil})
+      assert is_nil(updated.auth_policy_id)
+    end
+  end
+
+  describe "upstream group with circuit_breaker" do
+    test "creates upstream group with circuit_breaker config" do
+      project = project_fixture()
+
+      cb = %{
+        "failure_threshold" => 5,
+        "success_threshold" => 3,
+        "timeout" => 30,
+        "half_open_max_requests" => 1
+      }
+
+      assert {:ok, group} =
+               Services.create_upstream_group(%{
+                 project_id: project.id,
+                 name: "CB Group",
+                 circuit_breaker: cb
+               })
+
+      assert group.circuit_breaker == cb
+    end
+
+    test "updates upstream group circuit_breaker config" do
+      project = project_fixture()
+
+      {:ok, group} =
+        Services.create_upstream_group(%{
+          project_id: project.id,
+          name: "CB Group"
+        })
+
+      cb = %{"failure_threshold" => 10, "timeout" => 60}
+
+      assert {:ok, updated} = Services.update_upstream_group(group, %{circuit_breaker: cb})
+      assert updated.circuit_breaker == cb
     end
   end
 

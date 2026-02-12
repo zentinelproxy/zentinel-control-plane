@@ -19,6 +19,7 @@ defmodule SentinelCp.Services.ProjectConfig do
     field :default_cors, :map, default: %{}
     field :default_compression, :map, default: %{}
     field :global_access_control, :map, default: %{}
+    field :default_security, :map, default: %{}
 
     belongs_to :project, SentinelCp.Projects.Project
 
@@ -34,6 +35,7 @@ defmodule SentinelCp.Services.ProjectConfig do
       :default_cors,
       :default_compression,
       :global_access_control,
+      :default_security,
       :project_id
     ])
     |> validate_required([:project_id])

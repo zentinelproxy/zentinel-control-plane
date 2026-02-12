@@ -6,7 +6,7 @@ defmodule SentinelCp.Services.KdlGenerator do
   """
 
   alias SentinelCp.Services
-  alias SentinelCp.Services.{Service, ProjectConfig, UpstreamGroup, Certificate}
+  alias SentinelCp.Services.{Service, ProjectConfig, UpstreamGroup, Certificate, AuthPolicy}
 
   @doc """
   Generates KDL configuration for a project from its services and config.
@@ -22,7 +22,8 @@ defmodule SentinelCp.Services.KdlGenerator do
       {:ok, config} = Services.get_or_create_project_config(project_id)
       upstream_groups = Services.list_upstream_groups(project_id)
       certificates = Services.list_certificates(project_id)
-      kdl = build_kdl(services, config, upstream_groups, certificates)
+      auth_policies = Services.list_auth_policies(project_id)
+      kdl = build_kdl(services, config, upstream_groups, certificates, auth_policies)
       {:ok, kdl}
     end
   end
@@ -31,7 +32,7 @@ defmodule SentinelCp.Services.KdlGenerator do
   Generates KDL from provided services, config, and upstream groups (no DB access).
   Useful for testing.
   """
-  def build_kdl(services, %ProjectConfig{} = config, upstream_groups \\ [], certificates \\ []) do
+  def build_kdl(services, %ProjectConfig{} = config, upstream_groups \\ [], certificates \\ [], auth_policies \\ []) do
     # Build lookup maps
     group_map =
       upstream_groups
@@ -40,6 +41,10 @@ defmodule SentinelCp.Services.KdlGenerator do
     cert_map =
       certificates
       |> Enum.into(%{}, fn c -> {c.id, c} end)
+
+    auth_policy_map =
+      auth_policies
+      |> Enum.into(%{}, fn a -> {a.id, a} end)
 
     # Determine which certificates are used by services
     used_cert_ids =
@@ -58,7 +63,7 @@ defmodule SentinelCp.Services.KdlGenerator do
       "",
       build_tls_certificates(used_certs),
       build_upstream_groups(upstream_groups),
-      build_routes(services, group_map, cert_map),
+      build_routes(services, group_map, cert_map, auth_policy_map),
       build_rate_limits(services)
     ]
 
@@ -85,6 +90,7 @@ defmodule SentinelCp.Services.KdlGenerator do
 
     lines = lines ++ build_global_compression(config)
     lines = lines ++ build_global_access_control(config)
+    lines = lines ++ build_global_security(config)
 
     lines ++ ["}"]
   end
@@ -95,6 +101,10 @@ defmodule SentinelCp.Services.KdlGenerator do
 
   defp build_global_access_control(%ProjectConfig{} = config) do
     build_nested_map_block(config.global_access_control, "access_control", "    ")
+  end
+
+  defp build_global_security(%ProjectConfig{} = config) do
+    build_nested_map_block(config.default_security, "security", "    ")
   end
 
   defp build_upstream_groups([]), do: []
@@ -136,16 +146,16 @@ defmodule SentinelCp.Services.KdlGenerator do
     lines ++ ["    }"]
   end
 
-  defp build_routes(services, group_map, cert_map) do
+  defp build_routes(services, group_map, cert_map, auth_policy_map) do
     route_blocks =
       services
-      |> Enum.map(&build_route(&1, group_map, cert_map))
+      |> Enum.map(&build_route(&1, group_map, cert_map, auth_policy_map))
       |> Enum.intersperse([""])
 
     ["routes {"] ++ List.flatten(route_blocks) ++ ["}"]
   end
 
-  defp build_route(%Service{} = service, group_map, cert_map) do
+  defp build_route(%Service{} = service, group_map, cert_map, auth_policy_map) do
     lines = ["    route #{inspect(service.route_path)} {"]
 
     lines =
@@ -182,6 +192,10 @@ defmodule SentinelCp.Services.KdlGenerator do
     lines = lines ++ build_compression_block(service.compression)
     lines = lines ++ build_path_rewrite_block(service.path_rewrite)
     lines = lines ++ build_tls_ref(service.certificate_id, cert_map)
+    lines = lines ++ build_auth_block(service.auth_policy_id, auth_policy_map)
+    lines = lines ++ build_security_block(service.security)
+    lines = lines ++ build_request_transform_block(service.request_transform)
+    lines = lines ++ build_response_transform_block(service.response_transform)
 
     lines ++ ["    }"]
   end
@@ -290,6 +304,45 @@ defmodule SentinelCp.Services.KdlGenerator do
           "            certificate #{inspect(cert.slug)}",
           "        }"
         ]
+    end
+  end
+
+  defp build_security_block(sec) when sec == %{} or sec == nil, do: []
+
+  defp build_security_block(sec) do
+    build_nested_map_block(sec, "security", "        ")
+  end
+
+  defp build_request_transform_block(rt) when rt == %{} or rt == nil, do: []
+
+  defp build_request_transform_block(rt) do
+    build_nested_map_block(rt, "request_transform", "        ")
+  end
+
+  defp build_response_transform_block(rt) when rt == %{} or rt == nil, do: []
+
+  defp build_response_transform_block(rt) do
+    build_nested_map_block(rt, "response_transform", "        ")
+  end
+
+  defp build_auth_block(nil, _auth_policy_map), do: []
+
+  defp build_auth_block(auth_policy_id, auth_policy_map) do
+    case Map.get(auth_policy_map, auth_policy_id) do
+      nil ->
+        []
+
+      %AuthPolicy{} = policy ->
+        lines = ["        auth {"]
+        lines = lines ++ ["            type #{inspect(policy.auth_type)}"]
+
+        config_lines =
+          (policy.config || %{})
+          |> Enum.sort_by(fn {k, _} -> k end)
+          |> Enum.map(fn {key, value} -> "            #{key} #{format_value(value)}" end)
+
+        lines = lines ++ config_lines
+        lines ++ ["        }"]
     end
   end
 

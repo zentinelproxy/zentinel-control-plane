@@ -144,6 +144,10 @@ defmodule SentinelCpWeb.Router do
     live "/projects/:project_slug/certificates/new", CertificatesLive.New, :new
     live "/projects/:project_slug/certificates/:id", CertificatesLive.Show, :show
     live "/projects/:project_slug/certificates/:id/edit", CertificatesLive.Edit, :edit
+    live "/projects/:project_slug/auth-policies", AuthPoliciesLive.Index, :index
+    live "/projects/:project_slug/auth-policies/new", AuthPoliciesLive.New, :new
+    live "/projects/:project_slug/auth-policies/:id", AuthPoliciesLive.Show, :show
+    live "/projects/:project_slug/auth-policies/:id/edit", AuthPoliciesLive.Edit, :edit
 
     # Org-scoped dashboard
     live "/orgs/:org_slug/dashboard", DashboardLive.Index, :index
@@ -200,6 +204,22 @@ defmodule SentinelCpWeb.Router do
 
     live "/orgs/:org_slug/projects/:project_slug/certificates/:id/edit",
          CertificatesLive.Edit,
+         :edit
+
+    live "/orgs/:org_slug/projects/:project_slug/auth-policies",
+         AuthPoliciesLive.Index,
+         :index
+
+    live "/orgs/:org_slug/projects/:project_slug/auth-policies/new",
+         AuthPoliciesLive.New,
+         :new
+
+    live "/orgs/:org_slug/projects/:project_slug/auth-policies/:id",
+         AuthPoliciesLive.Show,
+         :show
+
+    live "/orgs/:org_slug/projects/:project_slug/auth-policies/:id/edit",
+         AuthPoliciesLive.Edit,
          :edit
   end
 
@@ -333,6 +353,9 @@ defmodule SentinelCpWeb.Router do
       get "/certificates", CertificateController, :index
       get "/certificates/:id", CertificateController, :show
       get "/certificates/:id/download", CertificateController, :download
+
+      get "/auth-policies", AuthPolicyController, :index
+      get "/auth-policies/:id", AuthPolicyController, :show
     end
   end
 
@@ -357,6 +380,10 @@ defmodule SentinelCpWeb.Router do
       post "/certificates", CertificateController, :create
       put "/certificates/:id", CertificateController, :update
       delete "/certificates/:id", CertificateController, :delete
+
+      post "/auth-policies", AuthPolicyController, :create
+      put "/auth-policies/:id", AuthPolicyController, :update
+      delete "/auth-policies/:id", AuthPolicyController, :delete
     end
   end
 

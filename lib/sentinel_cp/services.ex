@@ -8,7 +8,7 @@ defmodule SentinelCp.Services do
 
   import Ecto.Query, warn: false
   alias SentinelCp.Repo
-  alias SentinelCp.Services.{Service, ProjectConfig, UpstreamGroup, UpstreamTarget, Certificate}
+  alias SentinelCp.Services.{Service, ProjectConfig, UpstreamGroup, UpstreamTarget, Certificate, AuthPolicy}
 
   ## Services
 
@@ -202,6 +202,54 @@ defmodule SentinelCp.Services do
   """
   def remove_upstream_target(%UpstreamTarget{} = target) do
     Repo.delete(target)
+  end
+
+  ## Auth Policies
+
+  @doc """
+  Lists auth policies for a project, ordered by name.
+  """
+  def list_auth_policies(project_id) do
+    from(a in AuthPolicy,
+      where: a.project_id == ^project_id,
+      order_by: [asc: a.name]
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Gets a single auth policy by ID.
+  """
+  def get_auth_policy(id), do: Repo.get(AuthPolicy, id)
+
+  @doc """
+  Gets a single auth policy by ID, raises if not found.
+  """
+  def get_auth_policy!(id), do: Repo.get!(AuthPolicy, id)
+
+  @doc """
+  Creates an auth policy.
+  """
+  def create_auth_policy(attrs) do
+    %AuthPolicy{}
+    |> AuthPolicy.create_changeset(attrs)
+    |> Repo.insert()
+  end
+
+  @doc """
+  Updates an auth policy.
+  """
+  def update_auth_policy(%AuthPolicy{} = policy, attrs) do
+    policy
+    |> AuthPolicy.update_changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  Deletes an auth policy.
+  """
+  def delete_auth_policy(%AuthPolicy{} = policy) do
+    Repo.delete(policy)
   end
 
   ## Certificates

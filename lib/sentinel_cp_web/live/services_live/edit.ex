@@ -17,6 +17,8 @@ defmodule SentinelCpWeb.ServicesLive.Edit do
           true -> "static"
         end
 
+      auth_policies = Services.list_auth_policies(project.id)
+
       {:ok,
        assign(socket,
          page_title: "Edit Service #{service.name} — #{project.name}",
@@ -24,6 +26,7 @@ defmodule SentinelCpWeb.ServicesLive.Edit do
          project: project,
          service: service,
          route_type: route_type,
+         auth_policies: auth_policies,
          show_retry: service.retry != %{} && service.retry != nil,
          show_cache: service.cache != %{} && service.cache != nil,
          show_rate_limit: service.rate_limit != %{} && service.rate_limit != nil,
@@ -31,7 +34,10 @@ defmodule SentinelCpWeb.ServicesLive.Edit do
          show_cors: service.cors != %{} && service.cors != nil,
          show_access_control: service.access_control != %{} && service.access_control != nil,
          show_compression: service.compression != %{} && service.compression != nil,
-         show_path_rewrite: service.path_rewrite != %{} && service.path_rewrite != nil
+         show_path_rewrite: service.path_rewrite != %{} && service.path_rewrite != nil,
+         show_security: service.security != %{} && service.security != nil,
+         show_request_transform: service.request_transform != %{} && service.request_transform != nil,
+         show_response_transform: service.response_transform != %{} && service.response_transform != nil
        )}
     else
       _ ->
@@ -86,6 +92,14 @@ defmodule SentinelCpWeb.ServicesLive.Edit do
           |> Map.put(:redirect_url, params["redirect_url"])
       end
 
+    # auth_policy_id: empty string means clear, non-empty means set
+    attrs =
+      case params["auth_policy_id"] do
+        "" -> Map.put(attrs, :auth_policy_id, nil)
+        nil -> attrs
+        id -> Map.put(attrs, :auth_policy_id, id)
+      end
+
     attrs = maybe_put_map(attrs, :retry, params, "retry")
     attrs = maybe_put_map(attrs, :cache, params, "cache")
     attrs = maybe_put_map(attrs, :rate_limit, params, "rate_limit")
@@ -94,6 +108,9 @@ defmodule SentinelCpWeb.ServicesLive.Edit do
     attrs = maybe_put_map(attrs, :access_control, params, "access_control")
     attrs = maybe_put_map(attrs, :compression, params, "compression")
     attrs = maybe_put_map(attrs, :path_rewrite, params, "path_rewrite")
+    attrs = maybe_put_map(attrs, :security, params, "security")
+    attrs = maybe_put_map(attrs, :request_transform, params, "request_transform")
+    attrs = maybe_put_map(attrs, :response_transform, params, "response_transform")
 
     case Services.update_service(service, attrs) do
       {:ok, updated} ->
@@ -252,6 +269,14 @@ defmodule SentinelCpWeb.ServicesLive.Edit do
               class="input input-bordered input-sm w-32"
               min="1"
             />
+          </div>
+
+          <div :if={@auth_policies != []} class="form-control">
+            <label class="label"><span class="label-text font-medium">Auth Policy</span></label>
+            <select name="auth_policy_id" class="select select-bordered select-sm w-64">
+              <option value="">None</option>
+              <option :for={p <- @auth_policies} value={p.id} selected={p.id == @service.auth_policy_id}>{p.name} ({p.auth_type})</option>
+            </select>
           </div>
 
           <%!-- Advanced Sections --%>
@@ -565,6 +590,102 @@ defmodule SentinelCpWeb.ServicesLive.Edit do
                   value={@service.path_rewrite["add_prefix"]}
                   class="input input-bordered input-xs w-48"
                 />
+              </div>
+            </div>
+          </div>
+
+          <div class="divider text-xs text-base-content/50">Security & Transforms</div>
+
+          <div>
+            <button type="button" phx-click="toggle_section" phx-value-section="security" class="btn btn-ghost btn-xs">
+              {if @show_security, do: "▼", else: "▶"} Security / WAF
+            </button>
+            <div :if={@show_security} class="ml-4 mt-2 space-y-2">
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Max Body Size (bytes)</span></label>
+                <input type="number" name="security[max_body_size]" value={@service.security["max_body_size"]} class="input input-bordered input-xs w-32" min="0" />
+              </div>
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Max Header Size (bytes)</span></label>
+                <input type="number" name="security[max_header_size]" value={@service.security["max_header_size"]} class="input input-bordered input-xs w-32" min="0" />
+              </div>
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Max URI Length</span></label>
+                <input type="number" name="security[max_uri_length]" value={@service.security["max_uri_length"]} class="input input-bordered input-xs w-32" min="0" />
+              </div>
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Allowed Content Types</span></label>
+                <input type="text" name="security[allowed_content_types]" value={@service.security["allowed_content_types"]} class="input input-bordered input-xs w-full" />
+              </div>
+              <div class="form-control">
+                <label class="label cursor-pointer gap-2 justify-start">
+                  <input type="checkbox" name="security[block_sqli]" value="true" checked={@service.security["block_sqli"] == "true"} class="checkbox checkbox-xs" />
+                  <span class="label-text text-xs">Block SQL Injection</span>
+                </label>
+              </div>
+              <div class="form-control">
+                <label class="label cursor-pointer gap-2 justify-start">
+                  <input type="checkbox" name="security[block_xss]" value="true" checked={@service.security["block_xss"] == "true"} class="checkbox checkbox-xs" />
+                  <span class="label-text text-xs">Block XSS</span>
+                </label>
+              </div>
+              <div class="form-control">
+                <label class="label cursor-pointer gap-2 justify-start">
+                  <input type="checkbox" name="security[block_path_traversal]" value="true" checked={@service.security["block_path_traversal"] == "true"} class="checkbox checkbox-xs" />
+                  <span class="label-text text-xs">Block Path Traversal</span>
+                </label>
+              </div>
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Custom Rules</span></label>
+                <textarea name="security[custom_rules]" rows="3" class="textarea textarea-bordered textarea-xs w-full font-mono">{@service.security["custom_rules"]}</textarea>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <button type="button" phx-click="toggle_section" phx-value-section="request_transform" class="btn btn-ghost btn-xs">
+              {if @show_request_transform, do: "▼", else: "▶"} Request Transform
+            </button>
+            <div :if={@show_request_transform} class="ml-4 mt-2 space-y-2">
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Add Headers</span></label>
+                <textarea name="request_transform[add_headers]" rows="3" class="textarea textarea-bordered textarea-xs w-full font-mono">{@service.request_transform["add_headers"]}</textarea>
+              </div>
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Remove Headers</span></label>
+                <input type="text" name="request_transform[remove_headers]" value={@service.request_transform["remove_headers"]} class="input input-bordered input-xs w-full" />
+              </div>
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Rename Headers</span></label>
+                <textarea name="request_transform[rename_headers]" rows="2" class="textarea textarea-bordered textarea-xs w-full font-mono">{@service.request_transform["rename_headers"]}</textarea>
+              </div>
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Add Query Params</span></label>
+                <textarea name="request_transform[add_query_params]" rows="2" class="textarea textarea-bordered textarea-xs w-full font-mono">{@service.request_transform["add_query_params"]}</textarea>
+              </div>
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Remove Query Params</span></label>
+                <input type="text" name="request_transform[remove_query_params]" value={@service.request_transform["remove_query_params"]} class="input input-bordered input-xs w-full" />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <button type="button" phx-click="toggle_section" phx-value-section="response_transform" class="btn btn-ghost btn-xs">
+              {if @show_response_transform, do: "▼", else: "▶"} Response Transform
+            </button>
+            <div :if={@show_response_transform} class="ml-4 mt-2 space-y-2">
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Add Headers</span></label>
+                <textarea name="response_transform[add_headers]" rows="3" class="textarea textarea-bordered textarea-xs w-full font-mono">{@service.response_transform["add_headers"]}</textarea>
+              </div>
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Remove Headers</span></label>
+                <input type="text" name="response_transform[remove_headers]" value={@service.response_transform["remove_headers"]} class="input input-bordered input-xs w-full" />
+              </div>
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Rename Headers</span></label>
+                <textarea name="response_transform[rename_headers]" rows="2" class="textarea textarea-bordered textarea-xs w-full font-mono">{@service.response_transform["rename_headers"]}</textarea>
               </div>
             </div>
           </div>

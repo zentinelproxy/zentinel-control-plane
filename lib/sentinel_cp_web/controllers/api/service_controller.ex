@@ -295,9 +295,13 @@ defmodule SentinelCpWeb.Api.ServiceController do
       access_control: service.access_control,
       compression: service.compression,
       path_rewrite: service.path_rewrite,
+      security: service.security,
+      request_transform: service.request_transform,
+      response_transform: service.response_transform,
       redirect_url: service.redirect_url,
       upstream_group_id: service.upstream_group_id,
       certificate_id: service.certificate_id,
+      auth_policy_id: service.auth_policy_id,
       project_id: service.project_id,
       inserted_at: service.inserted_at,
       updated_at: service.updated_at

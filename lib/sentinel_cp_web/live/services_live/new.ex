@@ -12,12 +12,15 @@ defmodule SentinelCpWeb.ServicesLive.New do
         {:ok, push_navigate(socket, to: ~p"/orgs")}
 
       project ->
+        auth_policies = Services.list_auth_policies(project.id)
+
         {:ok,
          assign(socket,
            page_title: "New Service — #{project.name}",
            org: org,
            project: project,
            route_type: "upstream",
+           auth_policies: auth_policies,
            show_retry: false,
            show_cache: false,
            show_rate_limit: false,
@@ -25,7 +28,10 @@ defmodule SentinelCpWeb.ServicesLive.New do
            show_cors: false,
            show_access_control: false,
            show_compression: false,
-           show_path_rewrite: false
+           show_path_rewrite: false,
+           show_security: false,
+           show_request_transform: false,
+           show_response_transform: false
          )}
     end
   end
@@ -69,6 +75,8 @@ defmodule SentinelCpWeb.ServicesLive.New do
           |> Map.put(:respond_status, parse_int(params["redirect_status"]))
       end
 
+    attrs = maybe_put_fk(attrs, :auth_policy_id, params["auth_policy_id"])
+
     attrs = maybe_put_map(attrs, :retry, params, "retry")
     attrs = maybe_put_map(attrs, :cache, params, "cache")
     attrs = maybe_put_map(attrs, :rate_limit, params, "rate_limit")
@@ -77,6 +85,9 @@ defmodule SentinelCpWeb.ServicesLive.New do
     attrs = maybe_put_map(attrs, :access_control, params, "access_control")
     attrs = maybe_put_map(attrs, :compression, params, "compression")
     attrs = maybe_put_map(attrs, :path_rewrite, params, "path_rewrite")
+    attrs = maybe_put_map(attrs, :security, params, "security")
+    attrs = maybe_put_map(attrs, :request_transform, params, "request_transform")
+    attrs = maybe_put_map(attrs, :response_transform, params, "response_transform")
 
     case Services.create_service(attrs) do
       {:ok, service} ->
@@ -240,6 +251,14 @@ defmodule SentinelCpWeb.ServicesLive.New do
               placeholder="30"
               min="1"
             />
+          </div>
+
+          <div :if={@auth_policies != []} class="form-control">
+            <label class="label"><span class="label-text font-medium">Auth Policy</span></label>
+            <select name="auth_policy_id" class="select select-bordered select-sm w-64">
+              <option value="">None</option>
+              <option :for={p <- @auth_policies} value={p.id}>{p.name} ({p.auth_type})</option>
+            </select>
           </div>
 
           <%!-- Advanced Sections --%>
@@ -553,6 +572,117 @@ defmodule SentinelCpWeb.ServicesLive.New do
             </div>
           </div>
 
+          <div class="divider text-xs text-base-content/50">Security & Transforms</div>
+
+          <div>
+            <button
+              type="button"
+              phx-click="toggle_section"
+              phx-value-section="security"
+              class="btn btn-ghost btn-xs"
+            >
+              {if @show_security, do: "▼", else: "▶"} Security / WAF
+            </button>
+            <div :if={@show_security} class="ml-4 mt-2 space-y-2">
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Max Body Size (bytes)</span></label>
+                <input type="number" name="security[max_body_size]" class="input input-bordered input-xs w-32" placeholder="1048576" min="0" />
+              </div>
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Max Header Size (bytes)</span></label>
+                <input type="number" name="security[max_header_size]" class="input input-bordered input-xs w-32" placeholder="8192" min="0" />
+              </div>
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Max URI Length</span></label>
+                <input type="number" name="security[max_uri_length]" class="input input-bordered input-xs w-32" placeholder="2048" min="0" />
+              </div>
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Allowed Content Types (comma-separated)</span></label>
+                <input type="text" name="security[allowed_content_types]" class="input input-bordered input-xs w-full" placeholder="application/json, text/plain" />
+              </div>
+              <div class="form-control">
+                <label class="label cursor-pointer gap-2 justify-start">
+                  <input type="checkbox" name="security[block_sqli]" value="true" class="checkbox checkbox-xs" />
+                  <span class="label-text text-xs">Block SQL Injection</span>
+                </label>
+              </div>
+              <div class="form-control">
+                <label class="label cursor-pointer gap-2 justify-start">
+                  <input type="checkbox" name="security[block_xss]" value="true" class="checkbox checkbox-xs" />
+                  <span class="label-text text-xs">Block XSS</span>
+                </label>
+              </div>
+              <div class="form-control">
+                <label class="label cursor-pointer gap-2 justify-start">
+                  <input type="checkbox" name="security[block_path_traversal]" value="true" class="checkbox checkbox-xs" />
+                  <span class="label-text text-xs">Block Path Traversal</span>
+                </label>
+              </div>
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Custom Rules</span></label>
+                <textarea name="security[custom_rules]" rows="3" class="textarea textarea-bordered textarea-xs w-full font-mono" placeholder="Custom WAF rules"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <button
+              type="button"
+              phx-click="toggle_section"
+              phx-value-section="request_transform"
+              class="btn btn-ghost btn-xs"
+            >
+              {if @show_request_transform, do: "▼", else: "▶"} Request Transform
+            </button>
+            <div :if={@show_request_transform} class="ml-4 mt-2 space-y-2">
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Add Headers (key: value, one per line)</span></label>
+                <textarea name="request_transform[add_headers]" rows="3" class="textarea textarea-bordered textarea-xs w-full font-mono" placeholder="X-Custom: value"></textarea>
+              </div>
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Remove Headers (comma-separated)</span></label>
+                <input type="text" name="request_transform[remove_headers]" class="input input-bordered input-xs w-full" placeholder="X-Forwarded-For, X-Real-IP" />
+              </div>
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Rename Headers (old: new, one per line)</span></label>
+                <textarea name="request_transform[rename_headers]" rows="2" class="textarea textarea-bordered textarea-xs w-full font-mono" placeholder="X-Old: X-New"></textarea>
+              </div>
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Add Query Params (key=value, one per line)</span></label>
+                <textarea name="request_transform[add_query_params]" rows="2" class="textarea textarea-bordered textarea-xs w-full font-mono" placeholder="version=2"></textarea>
+              </div>
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Remove Query Params (comma-separated)</span></label>
+                <input type="text" name="request_transform[remove_query_params]" class="input input-bordered input-xs w-full" placeholder="debug, trace" />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <button
+              type="button"
+              phx-click="toggle_section"
+              phx-value-section="response_transform"
+              class="btn btn-ghost btn-xs"
+            >
+              {if @show_response_transform, do: "▼", else: "▶"} Response Transform
+            </button>
+            <div :if={@show_response_transform} class="ml-4 mt-2 space-y-2">
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Add Headers (key: value, one per line)</span></label>
+                <textarea name="response_transform[add_headers]" rows="3" class="textarea textarea-bordered textarea-xs w-full font-mono" placeholder="X-Frame-Options: DENY"></textarea>
+              </div>
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Remove Headers (comma-separated)</span></label>
+                <input type="text" name="response_transform[remove_headers]" class="input input-bordered input-xs w-full" placeholder="Server, X-Powered-By" />
+              </div>
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Rename Headers (old: new, one per line)</span></label>
+                <textarea name="response_transform[rename_headers]" rows="2" class="textarea textarea-bordered textarea-xs w-full font-mono" placeholder="X-Old: X-New"></textarea>
+              </div>
+            </div>
+          </div>
+
           <div class="flex gap-2 pt-4">
             <button type="submit" class="btn btn-primary btn-sm">Create Service</button>
             <.link navigate={project_services_path(@org, @project)} class="btn btn-ghost btn-sm">
@@ -591,6 +721,10 @@ defmodule SentinelCpWeb.ServicesLive.New do
   end
 
   defp parse_int(n) when is_integer(n), do: n
+
+  defp maybe_put_fk(attrs, _key, nil), do: attrs
+  defp maybe_put_fk(attrs, _key, ""), do: attrs
+  defp maybe_put_fk(attrs, key, value), do: Map.put(attrs, key, value)
 
   defp maybe_put_map(attrs, key, params, param_key) do
     case params[param_key] do
