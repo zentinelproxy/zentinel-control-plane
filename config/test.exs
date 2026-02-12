@@ -51,6 +51,9 @@ config :sentinel_cp, :github_webhook, secret: "test_webhook_secret"
 # Use mock GitHub client in tests
 config :sentinel_cp, :github_client, SentinelCp.Webhooks.GitHubClient.Mock
 
+# Use mock DNS resolver in tests
+config :sentinel_cp, :dns_resolver, SentinelCp.Services.DnsResolver.Mock
+
 # Wallaby E2E test configuration
 config :wallaby,
   otp_app: :sentinel_cp,

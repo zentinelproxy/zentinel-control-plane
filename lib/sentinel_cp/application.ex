@@ -30,6 +30,7 @@ defmodule SentinelCp.Application do
     SentinelCp.Nodes.DriftWorker.ensure_started()
     SentinelCp.Services.CertificateExpiryWorker.ensure_started()
     SentinelCp.Analytics.PruneWorker.ensure_started()
+    SentinelCp.Services.DiscoverySyncWorker.ensure_started()
 
     result
   end

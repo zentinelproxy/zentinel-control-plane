@@ -385,6 +385,7 @@ defmodule SentinelCpWeb.Router do
 
       get "/upstream-groups", UpstreamGroupController, :index
       get "/upstream-groups/:id", UpstreamGroupController, :show
+      get "/upstream-groups/:id/discovery", UpstreamGroupController, :show_discovery
 
       get "/certificates", CertificateController, :index
       get "/certificates/:id", CertificateController, :show
@@ -418,6 +419,10 @@ defmodule SentinelCpWeb.Router do
       post "/upstream-groups/:id/targets", UpstreamGroupController, :add_target
       put "/upstream-groups/:id/targets/:target_id", UpstreamGroupController, :update_target
       delete "/upstream-groups/:id/targets/:target_id", UpstreamGroupController, :delete_target
+      post "/upstream-groups/:id/discovery", UpstreamGroupController, :create_discovery
+      put "/upstream-groups/:id/discovery", UpstreamGroupController, :update_discovery
+      delete "/upstream-groups/:id/discovery", UpstreamGroupController, :delete_discovery
+      post "/upstream-groups/:id/discovery/sync", UpstreamGroupController, :sync_discovery
 
       post "/certificates", CertificateController, :create
       put "/certificates/:id", CertificateController, :update

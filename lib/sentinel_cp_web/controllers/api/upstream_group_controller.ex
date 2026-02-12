@@ -179,6 +179,117 @@ defmodule SentinelCpWeb.Api.UpstreamGroupController do
     end
   end
 
+  # Discovery endpoints
+
+  def show_discovery(conn, %{"project_slug" => project_slug, "id" => group_id}) do
+    with {:ok, project} <- get_project(project_slug),
+         {:ok, _group} <- get_group(group_id, project.id),
+         source when not is_nil(source) <- Services.get_discovery_source_for_group(group_id) do
+      conn
+      |> put_status(:ok)
+      |> json(%{discovery_source: discovery_source_to_json(source)})
+    else
+      nil ->
+        conn |> put_status(:not_found) |> json(%{error: "No discovery source for this group"})
+
+      {:error, :project_not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Project not found"})
+
+      {:error, :not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Upstream group not found"})
+    end
+  end
+
+  def create_discovery(conn, %{"project_slug" => project_slug, "id" => group_id} = params) do
+    with {:ok, project} <- get_project(project_slug),
+         {:ok, _group} <- get_group(group_id, project.id),
+         attrs <- Map.merge(params, %{"upstream_group_id" => group_id, "project_id" => project.id}),
+         {:ok, source} <- Services.create_discovery_source(attrs) do
+      conn
+      |> put_status(:created)
+      |> json(%{discovery_source: discovery_source_to_json(source)})
+    else
+      {:error, :project_not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Project not found"})
+
+      {:error, :not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Upstream group not found"})
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        conn |> put_status(:unprocessable_entity) |> json(%{error: format_errors(changeset)})
+    end
+  end
+
+  def update_discovery(conn, %{"project_slug" => project_slug, "id" => group_id} = params) do
+    with {:ok, project} <- get_project(project_slug),
+         {:ok, _group} <- get_group(group_id, project.id),
+         source when not is_nil(source) <- Services.get_discovery_source_for_group(group_id),
+         {:ok, updated} <- Services.update_discovery_source(source, params) do
+      conn
+      |> put_status(:ok)
+      |> json(%{discovery_source: discovery_source_to_json(updated)})
+    else
+      nil ->
+        conn |> put_status(:not_found) |> json(%{error: "No discovery source for this group"})
+
+      {:error, :project_not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Project not found"})
+
+      {:error, :not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Upstream group not found"})
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        conn |> put_status(:unprocessable_entity) |> json(%{error: format_errors(changeset)})
+    end
+  end
+
+  def delete_discovery(conn, %{"project_slug" => project_slug, "id" => group_id}) do
+    with {:ok, project} <- get_project(project_slug),
+         {:ok, _group} <- get_group(group_id, project.id),
+         source when not is_nil(source) <- Services.get_discovery_source_for_group(group_id),
+         {:ok, _} <- Services.delete_discovery_source(source) do
+      send_resp(conn, :no_content, "")
+    else
+      nil ->
+        conn |> put_status(:not_found) |> json(%{error: "No discovery source for this group"})
+
+      {:error, :project_not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Project not found"})
+
+      {:error, :not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Upstream group not found"})
+    end
+  end
+
+  def sync_discovery(conn, %{"project_slug" => project_slug, "id" => group_id}) do
+    with {:ok, project} <- get_project(project_slug),
+         {:ok, _group} <- get_group(group_id, project.id),
+         source when not is_nil(source) <- Services.get_discovery_source_for_group(group_id),
+         {:ok, result} <- Services.sync_discovery_source(source) do
+      conn
+      |> put_status(:ok)
+      |> json(%{
+        sync_result: %{
+          added: result.added,
+          removed: result.removed,
+          kept: result.kept
+        }
+      })
+    else
+      nil ->
+        conn |> put_status(:not_found) |> json(%{error: "No discovery source for this group"})
+
+      {:error, :project_not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Project not found"})
+
+      {:error, :not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Upstream group not found"})
+
+      {:error, reason} ->
+        conn |> put_status(:unprocessable_entity) |> json(%{error: reason})
+    end
+  end
+
   # Helpers
 
   defp get_project(slug) do
@@ -223,6 +334,24 @@ defmodule SentinelCpWeb.Api.UpstreamGroupController do
       enabled: target.enabled,
       inserted_at: target.inserted_at,
       updated_at: target.updated_at
+    }
+  end
+
+  defp discovery_source_to_json(source) do
+    %{
+      id: source.id,
+      source_type: source.source_type,
+      hostname: source.hostname,
+      sync_interval_seconds: source.sync_interval_seconds,
+      auto_sync: source.auto_sync,
+      last_synced_at: source.last_synced_at,
+      last_sync_status: source.last_sync_status,
+      last_sync_error: source.last_sync_error,
+      last_sync_targets_count: source.last_sync_targets_count,
+      upstream_group_id: source.upstream_group_id,
+      project_id: source.project_id,
+      inserted_at: source.inserted_at,
+      updated_at: source.updated_at
     }
   end
 

@@ -8,7 +8,7 @@ defmodule SentinelCp.Services do
 
   import Ecto.Query, warn: false
   alias SentinelCp.Repo
-  alias SentinelCp.Services.{Service, ServiceTemplate, ProjectConfig, UpstreamGroup, UpstreamTarget, Certificate, AuthPolicy, OpenApiSpec}
+  alias SentinelCp.Services.{Service, ServiceTemplate, ProjectConfig, UpstreamGroup, UpstreamTarget, Certificate, AuthPolicy, OpenApiSpec, DiscoverySource, DiscoverySync}
 
   ## Services
 
@@ -481,6 +481,140 @@ defmodule SentinelCp.Services do
         auth_policies_count: map_size(policy_map)
       }
     end)
+  end
+
+  ## Discovery Sources
+
+  @doc """
+  Lists discovery sources for a project, preloading upstream_group.
+  """
+  def list_discovery_sources(project_id) do
+    from(d in DiscoverySource,
+      where: d.project_id == ^project_id,
+      preload: [:upstream_group]
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Gets a single discovery source by ID.
+  """
+  def get_discovery_source(id), do: Repo.get(DiscoverySource, id)
+
+  @doc """
+  Gets a single discovery source by ID, raises if not found.
+  """
+  def get_discovery_source!(id), do: Repo.get!(DiscoverySource, id)
+
+  @doc """
+  Gets the discovery source for an upstream group, if any.
+  """
+  def get_discovery_source_for_group(upstream_group_id) do
+    from(d in DiscoverySource, where: d.upstream_group_id == ^upstream_group_id)
+    |> Repo.one()
+  end
+
+  @doc """
+  Creates a discovery source.
+  """
+  def create_discovery_source(attrs) do
+    %DiscoverySource{}
+    |> DiscoverySource.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  @doc """
+  Updates a discovery source (hostname, interval, auto_sync).
+  """
+  def update_discovery_source(%DiscoverySource{} = source, attrs) do
+    source
+    |> DiscoverySource.update_changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  Deletes a discovery source.
+  """
+  def delete_discovery_source(%DiscoverySource{} = source) do
+    Repo.delete(source)
+  end
+
+  @doc """
+  Lists all discovery sources with auto_sync enabled (across all projects).
+  """
+  def list_auto_sync_sources do
+    from(d in DiscoverySource, where: d.auto_sync == true)
+    |> Repo.all()
+  end
+
+  @doc """
+  Synchronizes a discovery source by resolving DNS SRV records and reconciling targets.
+
+  Returns `{:ok, %{added: N, removed: N, kept: N}}` on success or `{:error, reason}` on failure.
+  """
+  def sync_discovery_source(%DiscoverySource{} = source) do
+    # Mark as syncing
+    {:ok, source} =
+      source
+      |> DiscoverySource.sync_changeset(%{last_sync_status: "syncing"})
+      |> Repo.update()
+
+    case dns_resolver().resolve_srv(source.hostname) do
+      {:ok, records} ->
+        group = get_upstream_group!(source.upstream_group_id)
+        current_targets = group.targets || []
+
+        result = DiscoverySync.reconcile(current_targets, records)
+
+        # Apply additions
+        for target_attrs <- result.add do
+          add_upstream_target(
+            Map.merge(target_attrs, %{upstream_group_id: source.upstream_group_id})
+          )
+        end
+
+        # Apply removals
+        for target <- result.remove do
+          remove_upstream_target(target)
+        end
+
+        total_count = length(result.add) + length(result.keep)
+
+        {:ok, source} =
+          source
+          |> DiscoverySource.sync_changeset(%{
+            last_synced_at: DateTime.utc_now() |> DateTime.truncate(:second),
+            last_sync_status: "synced",
+            last_sync_error: nil,
+            last_sync_targets_count: total_count
+          })
+          |> Repo.update()
+
+        Phoenix.PubSub.broadcast(
+          SentinelCp.PubSub,
+          "discovery:#{source.id}",
+          {:discovery_synced, source.id}
+        )
+
+        {:ok, %{added: length(result.add), removed: length(result.remove), kept: length(result.keep)}}
+
+      {:error, reason} ->
+        error_msg = if is_binary(reason), do: reason, else: inspect(reason)
+
+        source
+        |> DiscoverySource.sync_changeset(%{
+          last_synced_at: DateTime.utc_now() |> DateTime.truncate(:second),
+          last_sync_status: "error",
+          last_sync_error: error_msg
+        })
+        |> Repo.update()
+
+        {:error, error_msg}
+    end
+  end
+
+  defp dns_resolver do
+    Application.get_env(:sentinel_cp, :dns_resolver, SentinelCp.Services.DnsResolver.Inet)
   end
 
   defp resolve_auth_policy_id(%{security_refs: refs}, policy_map) when is_list(refs) do

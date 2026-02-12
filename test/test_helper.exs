@@ -2,6 +2,10 @@ Mox.defmock(SentinelCp.Webhooks.GitHubClient.Mock,
   for: SentinelCp.Webhooks.GitHubClient
 )
 
+Mox.defmock(SentinelCp.Services.DnsResolver.Mock,
+  for: SentinelCp.Services.DnsResolver
+)
+
 # Start Wallaby only if running E2E tests and ChromeDriver is available
 # E2E tests require ChromeDriver to be installed
 if System.get_env("WALLABY_DRIVER") != "disabled" do
