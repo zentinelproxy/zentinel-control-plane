@@ -298,6 +298,7 @@ defmodule SentinelCpWeb.Api.ServiceController do
       security: service.security,
       request_transform: service.request_transform,
       response_transform: service.response_transform,
+      traffic_split: service.traffic_split,
       redirect_url: service.redirect_url,
       upstream_group_id: service.upstream_group_id,
       certificate_id: service.certificate_id,

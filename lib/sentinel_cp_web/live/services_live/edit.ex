@@ -18,6 +18,10 @@ defmodule SentinelCpWeb.ServicesLive.Edit do
         end
 
       auth_policies = Services.list_auth_policies(project.id)
+      upstream_groups = Services.list_upstream_groups(project.id)
+
+      existing_splits = get_in(service.traffic_split, ["splits"]) || []
+      existing_match_rules = get_in(service.traffic_split, ["match_rules"]) || []
 
       {:ok,
        assign(socket,
@@ -27,6 +31,12 @@ defmodule SentinelCpWeb.ServicesLive.Edit do
          service: service,
          route_type: route_type,
          auth_policies: auth_policies,
+         upstream_groups: upstream_groups,
+         show_traffic_split: service.traffic_split != %{} && service.traffic_split != nil,
+         split_count: length(existing_splits),
+         match_rule_count: length(existing_match_rules),
+         existing_splits: existing_splits,
+         existing_match_rules: existing_match_rules,
          show_retry: service.retry != %{} && service.retry != nil,
          show_cache: service.cache != %{} && service.cache != nil,
          show_rate_limit: service.rate_limit != %{} && service.rate_limit != nil,
@@ -54,6 +64,26 @@ defmodule SentinelCpWeb.ServicesLive.Edit do
   def handle_event("toggle_section", %{"section" => section}, socket) do
     key = String.to_existing_atom("show_#{section}")
     {:noreply, assign(socket, [{key, !socket.assigns[key]}])}
+  end
+
+  @impl true
+  def handle_event("add_split", _, socket) do
+    {:noreply, assign(socket, split_count: socket.assigns.split_count + 1)}
+  end
+
+  @impl true
+  def handle_event("remove_split", _, socket) do
+    {:noreply, assign(socket, split_count: max(0, socket.assigns.split_count - 1))}
+  end
+
+  @impl true
+  def handle_event("add_match_rule", _, socket) do
+    {:noreply, assign(socket, match_rule_count: socket.assigns.match_rule_count + 1)}
+  end
+
+  @impl true
+  def handle_event("remove_match_rule", _, socket) do
+    {:noreply, assign(socket, match_rule_count: max(0, socket.assigns.match_rule_count - 1))}
   end
 
   @impl true
@@ -111,6 +141,7 @@ defmodule SentinelCpWeb.ServicesLive.Edit do
     attrs = maybe_put_map(attrs, :security, params, "security")
     attrs = maybe_put_map(attrs, :request_transform, params, "request_transform")
     attrs = maybe_put_map(attrs, :response_transform, params, "response_transform")
+    attrs = maybe_put_traffic_split(attrs, params)
 
     case Services.update_service(service, attrs) do
       {:ok, updated} ->
@@ -594,6 +625,75 @@ defmodule SentinelCpWeb.ServicesLive.Edit do
             </div>
           </div>
 
+          <div :if={@upstream_groups != []} class="divider text-xs text-base-content/50">Traffic Splitting</div>
+
+          <div :if={@upstream_groups != []}>
+            <button
+              type="button"
+              phx-click="toggle_section"
+              phx-value-section="traffic_split"
+              class="btn btn-ghost btn-xs"
+            >
+              {if @show_traffic_split, do: "▼", else: "▶"} Traffic Split
+            </button>
+            <div :if={@show_traffic_split} class="ml-4 mt-2 space-y-3">
+              <div class="text-xs text-base-content/50 mb-2">
+                Split traffic between upstream groups by weight or match rules.
+              </div>
+              <div>
+                <h4 class="text-xs font-medium mb-1">Weighted Splits</h4>
+                <div :for={i <- 0..(@split_count - 1)} class="flex gap-2 items-end mb-2">
+                  <div class="form-control">
+                    <label :if={i == 0} class="label"><span class="label-text text-xs">Upstream Group</span></label>
+                    <select name={"split_group_#{i}"} class="select select-bordered select-xs w-48">
+                      <option value="">Select group</option>
+                      <option :for={g <- @upstream_groups} value={g.id} selected={g.id == get_in(Enum.at(@existing_splits, i, %{}), ["upstream_group_id"])}>{g.name}</option>
+                    </select>
+                  </div>
+                  <div class="form-control">
+                    <label :if={i == 0} class="label"><span class="label-text text-xs">Weight</span></label>
+                    <input type="number" name={"split_weight_#{i}"} value={get_in(Enum.at(@existing_splits, i, %{}), ["weight"])} class="input input-bordered input-xs w-20" min="0" max="100" />
+                  </div>
+                </div>
+                <div class="flex gap-1">
+                  <button type="button" phx-click="add_split" class="btn btn-ghost btn-xs">+ Add Split</button>
+                  <button :if={@split_count > 0} type="button" phx-click="remove_split" class="btn btn-ghost btn-xs text-error">Remove</button>
+                </div>
+              </div>
+              <div>
+                <h4 class="text-xs font-medium mb-1">Match Rules</h4>
+                <div :for={i <- 0..(@match_rule_count - 1)} class="flex gap-2 items-end mb-2">
+                  <div class="form-control">
+                    <label :if={i == 0} class="label"><span class="label-text text-xs">Type</span></label>
+                    <select name={"match_type_#{i}"} class="select select-bordered select-xs w-28">
+                      <option value="header" selected={get_in(Enum.at(@existing_match_rules, i, %{}), ["type"]) == "header"}>Header</option>
+                      <option value="cookie" selected={get_in(Enum.at(@existing_match_rules, i, %{}), ["type"]) == "cookie"}>Cookie</option>
+                    </select>
+                  </div>
+                  <div class="form-control">
+                    <label :if={i == 0} class="label"><span class="label-text text-xs">Key</span></label>
+                    <input type="text" name={"match_key_#{i}"} value={get_in(Enum.at(@existing_match_rules, i, %{}), ["header"]) || get_in(Enum.at(@existing_match_rules, i, %{}), ["cookie"])} class="input input-bordered input-xs w-32" placeholder="X-Version" />
+                  </div>
+                  <div class="form-control">
+                    <label :if={i == 0} class="label"><span class="label-text text-xs">Value</span></label>
+                    <input type="text" name={"match_value_#{i}"} value={get_in(Enum.at(@existing_match_rules, i, %{}), ["value"])} class="input input-bordered input-xs w-24" />
+                  </div>
+                  <div class="form-control">
+                    <label :if={i == 0} class="label"><span class="label-text text-xs">Target Group</span></label>
+                    <select name={"match_target_#{i}"} class="select select-bordered select-xs w-48">
+                      <option value="">Select group</option>
+                      <option :for={g <- @upstream_groups} value={g.id} selected={g.id == get_in(Enum.at(@existing_match_rules, i, %{}), ["target_group_id"])}>{g.name}</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="flex gap-1">
+                  <button type="button" phx-click="add_match_rule" class="btn btn-ghost btn-xs">+ Add Rule</button>
+                  <button :if={@match_rule_count > 0} type="button" phx-click="remove_match_rule" class="btn btn-ghost btn-xs text-error">Remove</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="divider text-xs text-base-content/50">Security & Transforms</div>
 
           <div>
@@ -722,6 +822,46 @@ defmodule SentinelCpWeb.ServicesLive.Edit do
   end
 
   defp parse_int(n) when is_integer(n), do: n
+
+  defp maybe_put_traffic_split(attrs, params) do
+    splits =
+      0..20
+      |> Enum.map(fn i ->
+        group_id = params["split_group_#{i}"]
+        weight = params["split_weight_#{i}"]
+
+        if group_id && group_id != "" && weight && weight != "" do
+          %{"upstream_group_id" => group_id, "weight" => parse_int(weight) || 0}
+        end
+      end)
+      |> Enum.reject(&is_nil/1)
+
+    match_rules =
+      0..20
+      |> Enum.map(fn i ->
+        type = params["match_type_#{i}"]
+        key = params["match_key_#{i}"]
+        value = params["match_value_#{i}"]
+        target = params["match_target_#{i}"]
+
+        if type && key && key != "" && target && target != "" do
+          base = %{"type" => type, "value" => value || "", "target_group_id" => target}
+
+          case type do
+            "header" -> Map.put(base, "header", key)
+            "cookie" -> Map.put(base, "cookie", key)
+            _ -> base
+          end
+        end
+      end)
+      |> Enum.reject(&is_nil/1)
+
+    if splits == [] and match_rules == [] do
+      Map.put(attrs, :traffic_split, %{})
+    else
+      Map.put(attrs, :traffic_split, %{"splits" => splits, "match_rules" => match_rules})
+    end
+  end
 
   defp maybe_put_map(attrs, key, params, param_key) do
     case params[param_key] do

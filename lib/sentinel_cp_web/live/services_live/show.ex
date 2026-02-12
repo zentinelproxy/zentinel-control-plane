@@ -133,6 +133,7 @@ defmodule SentinelCpWeb.ServicesLive.Show do
             <:item label="Security">{format_map(@service.security)}</:item>
             <:item label="Request Transform">{format_map(@service.request_transform)}</:item>
             <:item label="Response Transform">{format_map(@service.response_transform)}</:item>
+            <:item label="Traffic Split">{format_traffic_split(@service.traffic_split)}</:item>
           </.definition_list>
         </.k8s_section>
 
@@ -172,5 +173,36 @@ defmodule SentinelCpWeb.ServicesLive.Show do
     map
     |> Enum.sort_by(fn {k, _} -> k end)
     |> Enum.map_join(", ", fn {k, v} -> "#{k}: #{v}" end)
+  end
+
+  defp format_traffic_split(nil), do: "—"
+  defp format_traffic_split(ts) when ts == %{}, do: "—"
+
+  defp format_traffic_split(ts) do
+    splits = Map.get(ts, "splits", [])
+    rules = Map.get(ts, "match_rules", [])
+
+    parts = []
+
+    parts =
+      if splits != [] do
+        split_desc =
+          Enum.map_join(splits, ", ", fn s ->
+            "#{s["upstream_group_id"] |> String.slice(0..7)}... (#{s["weight"]}%)"
+          end)
+
+        parts ++ ["Splits: #{split_desc}"]
+      else
+        parts
+      end
+
+    parts =
+      if rules != [] do
+        parts ++ ["#{length(rules)} match rule(s)"]
+      else
+        parts
+      end
+
+    if parts == [], do: "—", else: Enum.join(parts, " | ")
   end
 end

@@ -99,4 +99,93 @@ defmodule SentinelCp.Bundles.DiffTest do
       assert diff.modified == []
     end
   end
+
+  describe "semantic_diff/2" do
+    test "detects added services" do
+      a = bundle(~s(route "api" {\n}\n))
+      b = bundle(~s(route "api" {\n}\nroute "web" {\n}\n))
+
+      result = Diff.semantic_diff(a, b)
+      assert "web" in result.services_added
+      assert result.services_removed == []
+    end
+
+    test "detects removed services" do
+      a = bundle(~s(route "api" {\n}\nroute "web" {\n}\n))
+      b = bundle(~s(route "api" {\n}\n))
+
+      result = Diff.semantic_diff(a, b)
+      assert "web" in result.services_removed
+      assert result.services_added == []
+    end
+
+    test "detects settings changes" do
+      a = bundle("settings {\n  timeout 30\n}\n")
+      b = bundle("settings {\n  timeout 60\n}\n")
+
+      result = Diff.semantic_diff(a, b)
+      assert result.settings_changed == true
+    end
+
+    test "handles no changes" do
+      config = ~s(route "api" {\n}\n)
+      a = bundle(config)
+      b = bundle(config)
+
+      result = Diff.semantic_diff(a, b)
+      assert result.services_added == []
+      assert result.services_removed == []
+      assert result.services_modified == []
+      assert result.settings_changed == false
+    end
+  end
+
+  describe "side_by_side_diff/1" do
+    test "pairs equal lines on both sides" do
+      lines = [%{type: :eq, line: "a", number_a: 1, number_b: 1}]
+      pairs = Diff.side_by_side_diff(lines)
+
+      assert length(pairs) == 1
+      assert hd(pairs).left == hd(lines)
+      assert hd(pairs).right == hd(lines)
+    end
+
+    test "pairs del with ins" do
+      lines = [
+        %{type: :del, line: "old", number_a: 1, number_b: nil},
+        %{type: :ins, line: "new", number_a: nil, number_b: 1}
+      ]
+
+      pairs = Diff.side_by_side_diff(lines)
+      assert length(pairs) == 1
+      assert hd(pairs).left.line == "old"
+      assert hd(pairs).right.line == "new"
+    end
+
+    test "handles unpaired deletion" do
+      lines = [
+        %{type: :del, line: "removed", number_a: 1, number_b: nil},
+        %{type: :eq, line: "same", number_a: 2, number_b: 1}
+      ]
+
+      pairs = Diff.side_by_side_diff(lines)
+      assert length(pairs) == 2
+      assert Enum.at(pairs, 0).left.line == "removed"
+      assert Enum.at(pairs, 0).right == nil
+      assert Enum.at(pairs, 1).left.line == "same"
+    end
+
+    test "handles unpaired insertion" do
+      lines = [%{type: :ins, line: "added", number_a: nil, number_b: 1}]
+
+      pairs = Diff.side_by_side_diff(lines)
+      assert length(pairs) == 1
+      assert hd(pairs).left == nil
+      assert hd(pairs).right.line == "added"
+    end
+
+    test "handles empty input" do
+      assert Diff.side_by_side_diff([]) == []
+    end
+  end
 end

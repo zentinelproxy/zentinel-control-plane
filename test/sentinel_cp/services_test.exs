@@ -472,6 +472,70 @@ defmodule SentinelCp.ServicesTest do
     end
   end
 
+  describe "service with traffic_split" do
+    test "creates service with traffic_split config" do
+      project = project_fixture()
+
+      traffic_split = %{
+        "splits" => [
+          %{"upstream_group_id" => Ecto.UUID.generate(), "weight" => 80},
+          %{"upstream_group_id" => Ecto.UUID.generate(), "weight" => 20}
+        ],
+        "match_rules" => [
+          %{
+            "type" => "header",
+            "header" => "X-Version",
+            "value" => "v2",
+            "target_group_id" => Ecto.UUID.generate()
+          }
+        ]
+      }
+
+      assert {:ok, %Service{} = service} =
+               Services.create_service(%{
+                 project_id: project.id,
+                 name: "Split Service",
+                 route_path: "/api/*",
+                 upstream_url: "http://localhost:3000",
+                 traffic_split: traffic_split
+               })
+
+      assert service.traffic_split == traffic_split
+      assert length(service.traffic_split["splits"]) == 2
+      assert length(service.traffic_split["match_rules"]) == 1
+    end
+
+    test "updates service traffic_split config" do
+      service = service_fixture()
+
+      traffic_split = %{
+        "splits" => [
+          %{"upstream_group_id" => Ecto.UUID.generate(), "weight" => 50},
+          %{"upstream_group_id" => Ecto.UUID.generate(), "weight" => 50}
+        ]
+      }
+
+      assert {:ok, updated} = Services.update_service(service, %{traffic_split: traffic_split})
+      assert updated.traffic_split == traffic_split
+    end
+
+    test "clears traffic_split config" do
+      project = project_fixture()
+
+      {:ok, service} =
+        Services.create_service(%{
+          project_id: project.id,
+          name: "Split",
+          route_path: "/api/*",
+          upstream_url: "http://api:8080",
+          traffic_split: %{"splits" => [%{"upstream_group_id" => Ecto.UUID.generate(), "weight" => 100}]}
+        })
+
+      assert {:ok, updated} = Services.update_service(service, %{traffic_split: %{}})
+      assert updated.traffic_split == %{}
+    end
+  end
+
   describe "upstream group with circuit_breaker" do
     test "creates upstream group with circuit_breaker config" do
       project = project_fixture()

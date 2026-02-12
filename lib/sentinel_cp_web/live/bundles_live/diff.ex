@@ -19,7 +19,7 @@ defmodule SentinelCpWeb.BundlesLive.Diff do
         bundle_a = if bundle_a_id, do: Bundles.get_bundle(bundle_a_id)
         bundle_b = if bundle_b_id, do: Bundles.get_bundle(bundle_b_id)
 
-        {diff, stats, manifest_diff} = compute_diff(bundle_a, bundle_b)
+        {diff, stats, manifest_diff, semantic, paired} = compute_diff(bundle_a, bundle_b)
 
         {:ok,
          assign(socket,
@@ -33,7 +33,11 @@ defmodule SentinelCpWeb.BundlesLive.Diff do
            bundle_b_id: bundle_b_id || "",
            diff_lines: diff,
            diff_stats: stats,
-           manifest_diff: manifest_diff
+           manifest_diff: manifest_diff,
+           semantic: semantic,
+           paired_lines: paired,
+           view_mode: :unified,
+           fullscreen: false
          )}
     end
   end
@@ -45,6 +49,17 @@ defmodule SentinelCpWeb.BundlesLive.Diff do
 
     path = diff_path(org, project, a_id, b_id)
     {:noreply, push_navigate(socket, to: path)}
+  end
+
+  @impl true
+  def handle_event("toggle_view_mode", _, socket) do
+    new_mode = if socket.assigns.view_mode == :unified, do: :side_by_side, else: :unified
+    {:noreply, assign(socket, view_mode: new_mode)}
+  end
+
+  @impl true
+  def handle_event("toggle_fullscreen", _, socket) do
+    {:noreply, assign(socket, fullscreen: !socket.assigns.fullscreen)}
   end
 
   @impl true
@@ -90,32 +105,65 @@ defmodule SentinelCpWeb.BundlesLive.Diff do
         </:filters>
       </.table_toolbar>
 
+      <%!-- Semantic Summary --%>
+      <div :if={@semantic} class="flex flex-wrap gap-2 text-sm">
+        <span :if={@semantic.services_added != []} class="badge badge-success badge-sm">
+          +{length(@semantic.services_added)} added
+        </span>
+        <span :if={@semantic.services_removed != []} class="badge badge-error badge-sm">
+          -{length(@semantic.services_removed)} removed
+        </span>
+        <span :if={@semantic.services_modified != []} class="badge badge-warning badge-sm">
+          {length(@semantic.services_modified)} modified
+        </span>
+        <span :if={@semantic.settings_changed} class="badge badge-info badge-sm">
+          settings changed
+        </span>
+      </div>
+
       <div :if={@diff_stats} class="flex gap-4 text-sm">
         <span class="text-success">+{@diff_stats.additions} additions</span>
         <span class="text-error">-{@diff_stats.deletions} deletions</span>
         <span class="text-base-content/50">{@diff_stats.unchanged} unchanged</span>
       </div>
 
-      <div :if={@diff_lines}>
+      <%!-- View Mode Toggle --%>
+      <div :if={@diff_lines} class="flex gap-2">
+        <button
+          phx-click="toggle_view_mode"
+          class={["btn btn-xs", (@view_mode == :unified && "btn-primary") || "btn-ghost"]}
+        >
+          Unified
+        </button>
+        <button
+          phx-click="toggle_view_mode"
+          class={["btn btn-xs", (@view_mode == :side_by_side && "btn-primary") || "btn-ghost"]}
+        >
+          Side by Side
+        </button>
+        <button phx-click="toggle_fullscreen" class="btn btn-xs btn-ghost">
+          {if @fullscreen, do: "Exit Fullscreen", else: "Fullscreen"}
+        </button>
+      </div>
+
+      <%!-- Fullscreen overlay --%>
+      <div
+        :if={@fullscreen && @diff_lines}
+        class="fixed inset-0 z-50 bg-base-100 p-4 overflow-auto"
+      >
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-lg font-bold">Configuration Diff</h2>
+          <button phx-click="toggle_fullscreen" class="btn btn-sm btn-ghost">
+            Close
+          </button>
+        </div>
+        {render_diff_content(assigns)}
+      </div>
+
+      <%!-- Normal diff view --%>
+      <div :if={@diff_lines && !@fullscreen}>
         <.k8s_section title="Configuration Diff">
-          <div class="overflow-x-auto">
-            <table class="table table-xs font-mono">
-              <tbody>
-                <tr :for={line <- @diff_lines} class={diff_row_class(line.type)}>
-                  <td class="text-right text-base-content/40 select-none w-12 px-2">
-                    {line.number_a || ""}
-                  </td>
-                  <td class="text-right text-base-content/40 select-none w-12 px-2">
-                    {line.number_b || ""}
-                  </td>
-                  <td class="select-none w-6 px-1">
-                    {diff_marker(line.type)}
-                  </td>
-                  <td class="whitespace-pre">{line.line}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          {render_diff_content(assigns)}
         </.k8s_section>
       </div>
 
@@ -158,15 +206,81 @@ defmodule SentinelCpWeb.BundlesLive.Diff do
     """
   end
 
-  defp compute_diff(nil, _), do: {nil, nil, nil}
-  defp compute_diff(_, nil), do: {nil, nil, nil}
+  defp render_diff_content(assigns) do
+    if assigns.view_mode == :side_by_side do
+      render_side_by_side(assigns)
+    else
+      render_unified(assigns)
+    end
+  end
+
+  defp render_unified(assigns) do
+    ~H"""
+    <div class="overflow-x-auto">
+      <table class="table table-xs font-mono">
+        <tbody>
+          <tr :for={line <- @diff_lines} class={diff_row_class(line.type)}>
+            <td class="text-right text-base-content/40 select-none w-12 px-2">
+              {line.number_a || ""}
+            </td>
+            <td class="text-right text-base-content/40 select-none w-12 px-2">
+              {line.number_b || ""}
+            </td>
+            <td class="select-none w-6 px-1">
+              {diff_marker(line.type)}
+            </td>
+            <td class="whitespace-pre">{line.line}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    """
+  end
+
+  defp render_side_by_side(assigns) do
+    ~H"""
+    <div class="overflow-x-auto">
+      <table class="table table-xs font-mono w-full">
+        <thead>
+          <tr>
+            <th class="w-12 text-center">#</th>
+            <th class="w-1/2">Base</th>
+            <th class="w-12 text-center">#</th>
+            <th class="w-1/2">New</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr :for={pair <- @paired_lines}>
+            <td class={["text-right text-base-content/40 select-none w-12 px-2", pair.left && diff_row_class(pair.left.type)]}>
+              {pair.left && pair.left.number_a || ""}
+            </td>
+            <td class={["whitespace-pre", pair.left && diff_row_class(pair.left.type)]}>
+              {pair.left && pair.left.line || ""}
+            </td>
+            <td class={["text-right text-base-content/40 select-none w-12 px-2", pair.right && diff_row_class(pair.right.type)]}>
+              {pair.right && pair.right.number_b || ""}
+            </td>
+            <td class={["whitespace-pre", pair.right && diff_row_class(pair.right.type)]}>
+              {pair.right && pair.right.line || ""}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    """
+  end
+
+  defp compute_diff(nil, _), do: {nil, nil, nil, nil, nil}
+  defp compute_diff(_, nil), do: {nil, nil, nil, nil, nil}
 
   defp compute_diff(bundle_a, bundle_b) do
     config_diff = Diff.config_diff(bundle_a, bundle_b)
     lines = Diff.annotate_diff(config_diff)
     stats = Diff.diff_stats(config_diff)
     manifest = Diff.manifest_diff(bundle_a, bundle_b)
-    {lines, stats, manifest}
+    semantic = Diff.semantic_diff(bundle_a, bundle_b)
+    paired = Diff.side_by_side_diff(lines)
+    {lines, stats, manifest, semantic, paired}
   end
 
   defp diff_row_class(:ins), do: "bg-success/10"

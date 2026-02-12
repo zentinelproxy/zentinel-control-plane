@@ -196,6 +196,7 @@ defmodule SentinelCp.Services.KdlGenerator do
     lines = lines ++ build_security_block(service.security)
     lines = lines ++ build_request_transform_block(service.request_transform)
     lines = lines ++ build_response_transform_block(service.response_transform)
+    lines = lines ++ build_traffic_split_block(service.traffic_split, group_map)
 
     lines ++ ["    }"]
   end
@@ -343,6 +344,60 @@ defmodule SentinelCp.Services.KdlGenerator do
 
         lines = lines ++ config_lines
         lines ++ ["        }"]
+    end
+  end
+
+  defp build_traffic_split_block(ts, _group_map) when ts == %{} or ts == nil, do: []
+
+  defp build_traffic_split_block(ts, group_map) do
+    splits = Map.get(ts, "splits", [])
+    match_rules = Map.get(ts, "match_rules", [])
+
+    if splits == [] and match_rules == [] do
+      []
+    else
+      lines = ["        traffic_split {"]
+
+      split_lines =
+        splits
+        |> Enum.sort_by(fn s -> -(Map.get(s, "weight", 0)) end)
+        |> Enum.map(fn split ->
+          group_id = Map.get(split, "upstream_group_id", "")
+          weight = Map.get(split, "weight", 0)
+          group_name = resolve_group_slug(group_id, group_map)
+          "            split #{inspect(group_name)} weight=#{weight}"
+        end)
+
+      match_lines =
+        Enum.map(match_rules, fn rule ->
+          target_id = Map.get(rule, "target_group_id", "")
+          target_name = resolve_group_slug(target_id, group_map)
+
+          case Map.get(rule, "type") do
+            "header" ->
+              header = Map.get(rule, "header", "")
+              value = Map.get(rule, "value", "")
+              "            match_header #{inspect(header)} #{inspect(value)} target=#{inspect(target_name)}"
+
+            "cookie" ->
+              cookie = Map.get(rule, "cookie", "")
+              value = Map.get(rule, "value", "")
+              "            match_cookie #{inspect(cookie)} #{inspect(value)} target=#{inspect(target_name)}"
+
+            _ ->
+              nil
+          end
+        end)
+        |> Enum.reject(&is_nil/1)
+
+      lines ++ split_lines ++ match_lines ++ ["        }"]
+    end
+  end
+
+  defp resolve_group_slug(group_id, group_map) do
+    case Map.get(group_map, group_id) do
+      nil -> group_id
+      group -> group.slug
     end
   end
 

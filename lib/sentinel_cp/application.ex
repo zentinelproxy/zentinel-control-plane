@@ -29,6 +29,7 @@ defmodule SentinelCp.Application do
     SentinelCp.Rollouts.SchedulerWorker.ensure_started()
     SentinelCp.Nodes.DriftWorker.ensure_started()
     SentinelCp.Services.CertificateExpiryWorker.ensure_started()
+    SentinelCp.Analytics.PruneWorker.ensure_started()
 
     result
   end

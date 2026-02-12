@@ -136,6 +136,10 @@ defmodule SentinelCpWeb.Router do
     live "/projects/:project_slug/services/new", ServicesLive.New, :new
     live "/projects/:project_slug/services/:id", ServicesLive.Show, :show
     live "/projects/:project_slug/services/:id/edit", ServicesLive.Edit, :edit
+    live "/projects/:project_slug/service-templates", ServiceTemplatesLive.Index, :index
+    live "/projects/:project_slug/service-templates/new", ServiceTemplatesLive.New, :new
+    live "/projects/:project_slug/service-templates/:id", ServiceTemplatesLive.Show, :show
+    live "/projects/:project_slug/service-templates/:id/edit", ServiceTemplatesLive.Edit, :edit
     live "/projects/:project_slug/upstream-groups", UpstreamGroupsLive.Index, :index
     live "/projects/:project_slug/upstream-groups/new", UpstreamGroupsLive.New, :new
     live "/projects/:project_slug/upstream-groups/:id", UpstreamGroupsLive.Show, :show
@@ -148,6 +152,8 @@ defmodule SentinelCpWeb.Router do
     live "/projects/:project_slug/auth-policies/new", AuthPoliciesLive.New, :new
     live "/projects/:project_slug/auth-policies/:id", AuthPoliciesLive.Show, :show
     live "/projects/:project_slug/auth-policies/:id/edit", AuthPoliciesLive.Edit, :edit
+    live "/projects/:project_slug/analytics", AnalyticsLive.Index, :index
+    live "/projects/:project_slug/analytics/services/:service_id", AnalyticsLive.Service, :show
 
     # Org-scoped dashboard
     live "/orgs/:org_slug/dashboard", DashboardLive.Index, :index
@@ -182,6 +188,22 @@ defmodule SentinelCpWeb.Router do
     live "/orgs/:org_slug/projects/:project_slug/services/new", ServicesLive.New, :new
     live "/orgs/:org_slug/projects/:project_slug/services/:id", ServicesLive.Show, :show
     live "/orgs/:org_slug/projects/:project_slug/services/:id/edit", ServicesLive.Edit, :edit
+
+    live "/orgs/:org_slug/projects/:project_slug/service-templates",
+         ServiceTemplatesLive.Index,
+         :index
+
+    live "/orgs/:org_slug/projects/:project_slug/service-templates/new",
+         ServiceTemplatesLive.New,
+         :new
+
+    live "/orgs/:org_slug/projects/:project_slug/service-templates/:id",
+         ServiceTemplatesLive.Show,
+         :show
+
+    live "/orgs/:org_slug/projects/:project_slug/service-templates/:id/edit",
+         ServiceTemplatesLive.Edit,
+         :edit
     live "/orgs/:org_slug/projects/:project_slug/upstream-groups", UpstreamGroupsLive.Index, :index
     live "/orgs/:org_slug/projects/:project_slug/upstream-groups/new", UpstreamGroupsLive.New, :new
     live "/orgs/:org_slug/projects/:project_slug/upstream-groups/:id", UpstreamGroupsLive.Show, :show
@@ -221,6 +243,14 @@ defmodule SentinelCpWeb.Router do
     live "/orgs/:org_slug/projects/:project_slug/auth-policies/:id/edit",
          AuthPoliciesLive.Edit,
          :edit
+
+    live "/orgs/:org_slug/projects/:project_slug/analytics",
+         AnalyticsLive.Index,
+         :index
+
+    live "/orgs/:org_slug/projects/:project_slug/analytics/services/:service_id",
+         AnalyticsLive.Service,
+         :show
   end
 
   # Admin-only browser routes
@@ -259,6 +289,7 @@ defmodule SentinelCpWeb.Router do
     post "/:node_id/token", NodeController, :token
     post "/:node_id/events", NodeController, :events
     post "/:node_id/config", NodeController, :config
+    post "/:node_id/metrics", NodeController, :metrics
   end
 
   # Control plane API — Nodes (read)
@@ -356,6 +387,9 @@ defmodule SentinelCpWeb.Router do
 
       get "/auth-policies", AuthPolicyController, :index
       get "/auth-policies/:id", AuthPolicyController, :show
+
+      get "/service-templates", TemplateController, :index
+      get "/service-templates/:id", TemplateController, :show
     end
   end
 
@@ -384,6 +418,10 @@ defmodule SentinelCpWeb.Router do
       post "/auth-policies", AuthPolicyController, :create
       put "/auth-policies/:id", AuthPolicyController, :update
       delete "/auth-policies/:id", AuthPolicyController, :delete
+
+      post "/service-templates", TemplateController, :create
+      put "/service-templates/:id", TemplateController, :update
+      delete "/service-templates/:id", TemplateController, :delete
     end
   end
 

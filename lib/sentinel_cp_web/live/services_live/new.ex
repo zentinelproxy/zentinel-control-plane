@@ -13,6 +13,15 @@ defmodule SentinelCpWeb.ServicesLive.New do
 
       project ->
         auth_policies = Services.list_auth_policies(project.id)
+        upstream_groups = Services.list_upstream_groups(project.id)
+        templates = Services.list_templates(project.id)
+
+        # Check if a template_id was passed in query params
+        template_data =
+          case params["template_id"] do
+            nil -> nil
+            id -> Services.get_template(id) |> template_data_or_nil()
+          end
 
         {:ok,
          assign(socket,
@@ -21,6 +30,9 @@ defmodule SentinelCpWeb.ServicesLive.New do
            project: project,
            route_type: "upstream",
            auth_policies: auth_policies,
+           upstream_groups: upstream_groups,
+           templates: templates,
+           applied_template: template_data,
            show_retry: false,
            show_cache: false,
            show_rate_limit: false,
@@ -31,8 +43,37 @@ defmodule SentinelCpWeb.ServicesLive.New do
            show_path_rewrite: false,
            show_security: false,
            show_request_transform: false,
-           show_response_transform: false
+           show_response_transform: false,
+           show_traffic_split: false,
+           split_count: 0,
+           match_rule_count: 0
          )}
+    end
+  end
+
+  @impl true
+  def handle_event("apply_template", %{"template_id" => ""}, socket) do
+    {:noreply, assign(socket, applied_template: nil)}
+  end
+
+  @impl true
+  def handle_event("apply_template", %{"template_id" => template_id}, socket) do
+    case Services.get_template(template_id) do
+      nil ->
+        {:noreply, put_flash(socket, :error, "Template not found")}
+
+      template ->
+        data = template.template_data || %{}
+
+        route_type =
+          cond do
+            data["upstream_url"] -> "upstream"
+            data["redirect_url"] -> "redirect"
+            data["respond_status"] -> "static"
+            true -> "upstream"
+          end
+
+        {:noreply, assign(socket, applied_template: data, route_type: route_type)}
     end
   end
 
@@ -45,6 +86,26 @@ defmodule SentinelCpWeb.ServicesLive.New do
   def handle_event("toggle_section", %{"section" => section}, socket) do
     key = String.to_existing_atom("show_#{section}")
     {:noreply, assign(socket, [{key, !socket.assigns[key]}])}
+  end
+
+  @impl true
+  def handle_event("add_split", _, socket) do
+    {:noreply, assign(socket, split_count: socket.assigns.split_count + 1)}
+  end
+
+  @impl true
+  def handle_event("remove_split", _, socket) do
+    {:noreply, assign(socket, split_count: max(0, socket.assigns.split_count - 1))}
+  end
+
+  @impl true
+  def handle_event("add_match_rule", _, socket) do
+    {:noreply, assign(socket, match_rule_count: socket.assigns.match_rule_count + 1)}
+  end
+
+  @impl true
+  def handle_event("remove_match_rule", _, socket) do
+    {:noreply, assign(socket, match_rule_count: max(0, socket.assigns.match_rule_count - 1))}
   end
 
   @impl true
@@ -88,6 +149,7 @@ defmodule SentinelCpWeb.ServicesLive.New do
     attrs = maybe_put_map(attrs, :security, params, "security")
     attrs = maybe_put_map(attrs, :request_transform, params, "request_transform")
     attrs = maybe_put_map(attrs, :response_transform, params, "response_transform")
+    attrs = maybe_put_traffic_split(attrs, params)
 
     case Services.create_service(attrs) do
       {:ok, service} ->
@@ -120,6 +182,21 @@ defmodule SentinelCpWeb.ServicesLive.New do
     <div class="space-y-4 max-w-2xl">
       <h1 class="text-xl font-bold">Create Service</h1>
 
+      <.k8s_section :if={@templates != []}>
+        <form phx-change="apply_template" class="form-control">
+          <label class="label"><span class="label-text font-medium">Start from Template</span></label>
+          <select name="template_id" class="select select-bordered select-sm w-64">
+            <option value="">None (blank)</option>
+            <option :for={t <- @templates} value={t.id}>
+              {t.name} ({t.category})
+            </option>
+          </select>
+          <label class="label">
+            <span class="label-text-alt text-base-content/50">Pre-fills the form with template defaults</span>
+          </label>
+        </form>
+      </.k8s_section>
+
       <.k8s_section>
         <form phx-submit="create_service" class="space-y-6">
           <div class="form-control">
@@ -148,6 +225,7 @@ defmodule SentinelCpWeb.ServicesLive.New do
             <input
               type="text"
               name="route_path"
+              value={@applied_template && @applied_template["route_path"]}
               required
               class="input input-bordered input-sm w-full"
               placeholder="e.g. /api/v1/*"
@@ -192,6 +270,7 @@ defmodule SentinelCpWeb.ServicesLive.New do
             <input
               type="text"
               name="upstream_url"
+              value={@applied_template && @applied_template["upstream_url"]}
               required
               class="input input-bordered input-sm w-full"
               placeholder="e.g. http://api-backend:8080"
@@ -572,6 +651,75 @@ defmodule SentinelCpWeb.ServicesLive.New do
             </div>
           </div>
 
+          <div :if={@upstream_groups != []} class="divider text-xs text-base-content/50">Traffic Splitting</div>
+
+          <div :if={@upstream_groups != []}>
+            <button
+              type="button"
+              phx-click="toggle_section"
+              phx-value-section="traffic_split"
+              class="btn btn-ghost btn-xs"
+            >
+              {if @show_traffic_split, do: "▼", else: "▶"} Traffic Split
+            </button>
+            <div :if={@show_traffic_split} class="ml-4 mt-2 space-y-3">
+              <div class="text-xs text-base-content/50 mb-2">
+                Split traffic between upstream groups by weight or match rules.
+              </div>
+              <div>
+                <h4 class="text-xs font-medium mb-1">Weighted Splits</h4>
+                <div :for={i <- 0..(@split_count - 1)} class="flex gap-2 items-end mb-2">
+                  <div class="form-control">
+                    <label :if={i == 0} class="label"><span class="label-text text-xs">Upstream Group</span></label>
+                    <select name={"split_group_#{i}"} class="select select-bordered select-xs w-48">
+                      <option value="">Select group</option>
+                      <option :for={g <- @upstream_groups} value={g.id}>{g.name}</option>
+                    </select>
+                  </div>
+                  <div class="form-control">
+                    <label :if={i == 0} class="label"><span class="label-text text-xs">Weight</span></label>
+                    <input type="number" name={"split_weight_#{i}"} class="input input-bordered input-xs w-20" placeholder="50" min="0" max="100" />
+                  </div>
+                </div>
+                <div class="flex gap-1">
+                  <button type="button" phx-click="add_split" class="btn btn-ghost btn-xs">+ Add Split</button>
+                  <button :if={@split_count > 0} type="button" phx-click="remove_split" class="btn btn-ghost btn-xs text-error">Remove</button>
+                </div>
+              </div>
+              <div>
+                <h4 class="text-xs font-medium mb-1">Match Rules</h4>
+                <div :for={i <- 0..(@match_rule_count - 1)} class="flex gap-2 items-end mb-2">
+                  <div class="form-control">
+                    <label :if={i == 0} class="label"><span class="label-text text-xs">Type</span></label>
+                    <select name={"match_type_#{i}"} class="select select-bordered select-xs w-28">
+                      <option value="header">Header</option>
+                      <option value="cookie">Cookie</option>
+                    </select>
+                  </div>
+                  <div class="form-control">
+                    <label :if={i == 0} class="label"><span class="label-text text-xs">Key</span></label>
+                    <input type="text" name={"match_key_#{i}"} class="input input-bordered input-xs w-32" placeholder="X-Version" />
+                  </div>
+                  <div class="form-control">
+                    <label :if={i == 0} class="label"><span class="label-text text-xs">Value</span></label>
+                    <input type="text" name={"match_value_#{i}"} class="input input-bordered input-xs w-24" placeholder="v2" />
+                  </div>
+                  <div class="form-control">
+                    <label :if={i == 0} class="label"><span class="label-text text-xs">Target Group</span></label>
+                    <select name={"match_target_#{i}"} class="select select-bordered select-xs w-48">
+                      <option value="">Select group</option>
+                      <option :for={g <- @upstream_groups} value={g.id}>{g.name}</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="flex gap-1">
+                  <button type="button" phx-click="add_match_rule" class="btn btn-ghost btn-xs">+ Add Rule</button>
+                  <button :if={@match_rule_count > 0} type="button" phx-click="remove_match_rule" class="btn btn-ghost btn-xs text-error">Remove</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="divider text-xs text-base-content/50">Security & Transforms</div>
 
           <div>
@@ -695,6 +843,9 @@ defmodule SentinelCpWeb.ServicesLive.New do
     """
   end
 
+  defp template_data_or_nil(nil), do: nil
+  defp template_data_or_nil(template), do: template.template_data
+
   defp resolve_org(%{"org_slug" => slug}), do: Orgs.get_org_by_slug(slug)
   defp resolve_org(_), do: nil
 
@@ -725,6 +876,46 @@ defmodule SentinelCpWeb.ServicesLive.New do
   defp maybe_put_fk(attrs, _key, nil), do: attrs
   defp maybe_put_fk(attrs, _key, ""), do: attrs
   defp maybe_put_fk(attrs, key, value), do: Map.put(attrs, key, value)
+
+  defp maybe_put_traffic_split(attrs, params) do
+    splits =
+      0..20
+      |> Enum.map(fn i ->
+        group_id = params["split_group_#{i}"]
+        weight = params["split_weight_#{i}"]
+
+        if group_id && group_id != "" && weight && weight != "" do
+          %{"upstream_group_id" => group_id, "weight" => parse_int(weight) || 0}
+        end
+      end)
+      |> Enum.reject(&is_nil/1)
+
+    match_rules =
+      0..20
+      |> Enum.map(fn i ->
+        type = params["match_type_#{i}"]
+        key = params["match_key_#{i}"]
+        value = params["match_value_#{i}"]
+        target = params["match_target_#{i}"]
+
+        if type && key && key != "" && target && target != "" do
+          base = %{"type" => type, "value" => value || "", "target_group_id" => target}
+
+          case type do
+            "header" -> Map.put(base, "header", key)
+            "cookie" -> Map.put(base, "cookie", key)
+            _ -> base
+          end
+        end
+      end)
+      |> Enum.reject(&is_nil/1)
+
+    if splits == [] and match_rules == [] do
+      attrs
+    else
+      Map.put(attrs, :traffic_split, %{"splits" => splits, "match_rules" => match_rules})
+    end
+  end
 
   defp maybe_put_map(attrs, key, params, param_key) do
     case params[param_key] do

@@ -96,6 +96,94 @@ defmodule SentinelCp.Bundles.Diff do
     end)
   end
 
+  @doc """
+  Extracts semantic information from a config diff.
+
+  Parses KDL lines to identify which services were added, removed, or modified,
+  and whether settings changed.
+
+  Returns `%{services_added: [...], services_removed: [...], services_modified: [...], settings_changed: bool}`.
+  """
+  def semantic_diff(bundle_a, bundle_b) do
+    routes_a = extract_route_names(bundle_a.config_source || "")
+    routes_b = extract_route_names(bundle_b.config_source || "")
+
+    set_a = MapSet.new(routes_a)
+    set_b = MapSet.new(routes_b)
+
+    added = MapSet.difference(set_b, set_a) |> MapSet.to_list() |> Enum.sort()
+    removed = MapSet.difference(set_a, set_b) |> MapSet.to_list() |> Enum.sort()
+    common = MapSet.intersection(set_a, set_b) |> MapSet.to_list()
+
+    # For modified: check if the config between this route's block changed
+    config_diff_result = config_diff(bundle_a, bundle_b)
+    has_changes = Enum.any?(config_diff_result, fn {type, _} -> type != :eq end)
+
+    modified =
+      if has_changes do
+        # Consider common routes as potentially modified if the overall config changed
+        common |> Enum.sort()
+      else
+        []
+      end
+
+    settings_a = extract_settings_block(bundle_a.config_source || "")
+    settings_b = extract_settings_block(bundle_b.config_source || "")
+
+    %{
+      services_added: added,
+      services_removed: removed,
+      services_modified: modified,
+      settings_changed: settings_a != settings_b
+    }
+  end
+
+  @doc """
+  Transforms annotated diff lines into side-by-side paired lines.
+
+  Returns a list of `%{left: line_map | nil, right: line_map | nil}` pairs.
+  """
+  def side_by_side_diff(annotated_lines) do
+    {pairs, pending_dels} =
+      Enum.reduce(annotated_lines, {[], []}, fn line, {pairs, dels} ->
+        case line.type do
+          :eq ->
+            # Flush any pending deletions as left-only
+            flushed = Enum.map(dels, fn d -> %{left: d, right: nil} end)
+            {pairs ++ flushed ++ [%{left: line, right: line}], []}
+
+          :del ->
+            {pairs, dels ++ [line]}
+
+          :ins ->
+            case dels do
+              [del | rest] ->
+                # Pair this insertion with a pending deletion
+                {pairs ++ [%{left: del, right: line}], rest}
+
+              [] ->
+                {pairs ++ [%{left: nil, right: line}], []}
+            end
+        end
+      end)
+
+    # Flush remaining deletions
+    remaining = Enum.map(pending_dels, fn d -> %{left: d, right: nil} end)
+    pairs ++ remaining
+  end
+
+  defp extract_route_names(config_source) do
+    Regex.scan(~r/route\s+"([^"]+)"/, config_source)
+    |> Enum.map(fn [_, name] -> name end)
+  end
+
+  defp extract_settings_block(config_source) do
+    case Regex.run(~r/settings \{[^}]*\}/s, config_source) do
+      [block] -> block
+      _ -> ""
+    end
+  end
+
   defp split_lines(text) do
     String.split(text, "\n")
   end

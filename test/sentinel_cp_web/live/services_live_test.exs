@@ -61,7 +61,7 @@ defmodule SentinelCpWeb.ServicesLiveTest do
       {:ok, view, _html} = live(conn, ~p"/projects/#{project.slug}/services/new")
 
       view
-      |> form("form", %{
+      |> form("form[phx-submit='create_service']", %{
         "name" => "New API",
         "route_path" => "/api/v2/*",
         "upstream_url" => "http://api:9090"

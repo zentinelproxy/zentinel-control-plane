@@ -33,6 +33,7 @@ defmodule SentinelCp.Services.Service do
     field :security, :map, default: %{}
     field :request_transform, :map, default: %{}
     field :response_transform, :map, default: %{}
+    field :traffic_split, :map, default: %{}
     field :redirect_url, :string
 
     belongs_to :project, SentinelCp.Projects.Project
@@ -67,6 +68,7 @@ defmodule SentinelCp.Services.Service do
       :security,
       :request_transform,
       :response_transform,
+      :traffic_split,
       :redirect_url,
       :upstream_group_id,
       :certificate_id,
@@ -107,6 +109,7 @@ defmodule SentinelCp.Services.Service do
       :security,
       :request_transform,
       :response_transform,
+      :traffic_split,
       :redirect_url,
       :upstream_group_id,
       :certificate_id,

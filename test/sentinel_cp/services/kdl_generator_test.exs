@@ -890,6 +890,127 @@ defmodule SentinelCp.Services.KdlGeneratorTest do
     end
   end
 
+  describe "traffic_split KDL" do
+    test "generates traffic_split block with splits and match rules" do
+      group1 = %SentinelCp.Services.UpstreamGroup{
+        id: "group-1",
+        slug: "stable",
+        name: "Stable",
+        algorithm: "round_robin",
+        targets: [],
+        health_check: %{},
+        sticky_sessions: %{},
+        circuit_breaker: %{}
+      }
+
+      group2 = %SentinelCp.Services.UpstreamGroup{
+        id: "group-2",
+        slug: "canary",
+        name: "Canary",
+        algorithm: "round_robin",
+        targets: [],
+        health_check: %{},
+        sticky_sessions: %{},
+        circuit_breaker: %{}
+      }
+
+      services = [
+        %Service{
+          name: "API",
+          slug: "api",
+          route_path: "/api/*",
+          upstream_url: "http://api:8080",
+          traffic_split: %{
+            "splits" => [
+              %{"upstream_group_id" => "group-1", "weight" => 80},
+              %{"upstream_group_id" => "group-2", "weight" => 20}
+            ],
+            "match_rules" => [
+              %{
+                "type" => "header",
+                "header" => "X-Version",
+                "value" => "v2",
+                "target_group_id" => "group-2"
+              },
+              %{
+                "type" => "cookie",
+                "cookie" => "beta",
+                "value" => "true",
+                "target_group_id" => "group-2"
+              }
+            ]
+          },
+          retry: %{},
+          cache: %{},
+          rate_limit: %{},
+          health_check: %{},
+          headers: %{},
+          cors: %{},
+          access_control: %{},
+          compression: %{},
+          path_rewrite: %{},
+          security: %{},
+          request_transform: %{},
+          response_transform: %{}
+        }
+      ]
+
+      kdl = KdlGenerator.build_kdl(services, default_config(), [group1, group2])
+      assert kdl =~ "traffic_split {"
+      assert kdl =~ ~s(split "stable" weight=80)
+      assert kdl =~ ~s(split "canary" weight=20)
+      assert kdl =~ ~s(match_header "X-Version" "v2" target="canary")
+      assert kdl =~ ~s(match_cookie "beta" "true" target="canary")
+    end
+
+    test "does not generate traffic_split block when empty" do
+      services = [
+        %Service{
+          name: "API",
+          slug: "api",
+          route_path: "/api/*",
+          upstream_url: "http://api:8080",
+          traffic_split: %{},
+          retry: %{},
+          cache: %{},
+          rate_limit: %{},
+          health_check: %{},
+          headers: %{},
+          cors: %{},
+          access_control: %{},
+          compression: %{},
+          path_rewrite: %{},
+          security: %{},
+          request_transform: %{},
+          response_transform: %{}
+        }
+      ]
+
+      kdl = KdlGenerator.build_kdl(services, default_config())
+      refute kdl =~ "traffic_split {"
+    end
+
+    test "does not generate traffic_split block when nil" do
+      services = [
+        %Service{
+          name: "API",
+          slug: "api",
+          route_path: "/api/*",
+          upstream_url: "http://api:8080",
+          traffic_split: nil,
+          retry: %{},
+          cache: %{},
+          rate_limit: %{},
+          health_check: %{},
+          headers: %{}
+        }
+      ]
+
+      kdl = KdlGenerator.build_kdl(services, default_config())
+      refute kdl =~ "traffic_split {"
+    end
+  end
+
   describe "generate/1" do
     test "returns error when no services exist" do
       project = project_fixture()

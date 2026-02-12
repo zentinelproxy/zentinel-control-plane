@@ -8,7 +8,7 @@ defmodule SentinelCp.Services do
 
   import Ecto.Query, warn: false
   alias SentinelCp.Repo
-  alias SentinelCp.Services.{Service, ProjectConfig, UpstreamGroup, UpstreamTarget, Certificate, AuthPolicy}
+  alias SentinelCp.Services.{Service, ServiceTemplate, ProjectConfig, UpstreamGroup, UpstreamTarget, Certificate, AuthPolicy}
 
   ## Services
 
@@ -323,5 +323,56 @@ defmodule SentinelCp.Services do
       order_by: [asc: c.not_after]
     )
     |> Repo.all()
+  end
+
+  ## Service Templates
+
+  @doc """
+  Lists service templates: built-ins + project-specific.
+  Ensures built-in templates are seeded on first access.
+  """
+  def list_templates(project_id) do
+    SentinelCp.Services.BuiltInTemplates.ensure_built_ins!()
+
+    from(t in ServiceTemplate,
+      where: t.is_builtin == true or t.project_id == ^project_id,
+      order_by: [asc: t.category, asc: t.name]
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Gets a single template by ID.
+  """
+  def get_template(id), do: Repo.get(ServiceTemplate, id)
+
+  @doc """
+  Gets a single template by ID, raises if not found.
+  """
+  def get_template!(id), do: Repo.get!(ServiceTemplate, id)
+
+  @doc """
+  Creates a service template.
+  """
+  def create_template(attrs) do
+    %ServiceTemplate{}
+    |> ServiceTemplate.create_changeset(attrs)
+    |> Repo.insert()
+  end
+
+  @doc """
+  Updates a service template.
+  """
+  def update_template(%ServiceTemplate{} = template, attrs) do
+    template
+    |> ServiceTemplate.update_changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  Deletes a service template.
+  """
+  def delete_template(%ServiceTemplate{} = template) do
+    Repo.delete(template)
   end
 end

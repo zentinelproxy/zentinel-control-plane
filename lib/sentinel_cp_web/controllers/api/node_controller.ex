@@ -5,7 +5,7 @@ defmodule SentinelCpWeb.Api.NodeController do
   """
   use SentinelCpWeb, :controller
 
-  alias SentinelCp.{Auth, Nodes, Projects, Audit}
+  alias SentinelCp.{Analytics, Auth, Nodes, Projects, Audit}
 
   @doc """
   POST /api/v1/projects/:project_slug/nodes/register
@@ -237,6 +237,48 @@ defmodule SentinelCpWeb.Api.NodeController do
         conn
         |> put_status(:unprocessable_entity)
         |> json(%{error: format_errors(changeset)})
+    end
+  end
+
+  @doc """
+  POST /api/v1/nodes/:node_id/metrics
+
+  Ingests metrics and request logs from a node.
+  Requires node authentication.
+  """
+  def metrics(conn, params) do
+    node = conn.assigns.current_node
+    metrics_list = params["metrics"] || []
+    logs_list = params["request_logs"] || []
+
+    # Inject node_id into each log entry
+    logs_with_node =
+      Enum.map(logs_list, fn log -> Map.put(log, "node_id", node.id) end)
+
+    metrics_result =
+      if metrics_list != [] do
+        Analytics.ingest_metrics(metrics_list)
+      else
+        {:ok, 0}
+      end
+
+    logs_result =
+      if logs_with_node != [] do
+        Analytics.ingest_request_logs(logs_with_node)
+      else
+        {:ok, 0}
+      end
+
+    case {metrics_result, logs_result} do
+      {{:ok, metrics_count}, {:ok, logs_count}} ->
+        conn
+        |> put_status(:ok)
+        |> json(%{status: "ok", metrics_ingested: metrics_count, logs_ingested: logs_count})
+
+      _ ->
+        conn
+        |> put_status(:internal_server_error)
+        |> json(%{error: "Failed to ingest metrics"})
     end
   end
 
