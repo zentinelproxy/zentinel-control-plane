@@ -29,6 +29,9 @@ defmodule SentinelCp.Services.Certificate do
     field :auto_renew, :boolean, default: false
     field :acme_config, :map, default: %{}
     field :status, :string, default: "active"
+    field :acme_account_key_encrypted, :binary
+    field :last_renewal_at, :utc_datetime
+    field :last_renewal_error, :string
 
     belongs_to :project, SentinelCp.Projects.Project
     has_many :services, SentinelCp.Services.Service
@@ -84,6 +87,14 @@ defmodule SentinelCp.Services.Certificate do
     |> encrypt_key(attrs)
     |> extract_cert_metadata()
     |> put_change(:status, "active")
+  end
+
+  @doc """
+  Changeset for updating ACME-specific fields (account key, renewal status).
+  """
+  def acme_changeset(cert, attrs) do
+    cert
+    |> cast(attrs, [:acme_account_key_encrypted, :last_renewal_at, :last_renewal_error, :auto_renew, :acme_config])
   end
 
   @doc """

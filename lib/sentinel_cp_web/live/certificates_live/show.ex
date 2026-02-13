@@ -2,6 +2,7 @@ defmodule SentinelCpWeb.CertificatesLive.Show do
   use SentinelCpWeb, :live_view
 
   alias SentinelCp.{Audit, Orgs, Projects, Services}
+  alias SentinelCp.Services.Acme.Renewal
 
   @impl true
   def mount(%{"project_slug" => slug, "id" => cert_id} = params, _session, socket) do
@@ -46,6 +47,28 @@ defmodule SentinelCpWeb.CertificatesLive.Show do
   end
 
   @impl true
+  def handle_event("renew_now", _, socket) do
+    cert = socket.assigns.certificate
+    project = socket.assigns.project
+
+    case Renewal.renew(cert) do
+      {:ok, updated} ->
+        Audit.log_user_action(socket.assigns.current_user, "renew", "certificate", cert.id,
+          project_id: project.id,
+          metadata: %{method: "acme_manual"}
+        )
+
+        {:noreply,
+         socket
+         |> assign(certificate: updated)
+         |> put_flash(:info, "Certificate renewed via ACME.")}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "ACME renewal failed: #{inspect(reason)}")}
+    end
+  end
+
+  @impl true
   def render(assigns) do
     ~H"""
     <div class="space-y-4">
@@ -60,6 +83,14 @@ defmodule SentinelCpWeb.CertificatesLive.Show do
           </span>
         </:badge>
         <:action>
+          <button
+            :if={@certificate.auto_renew && @certificate.acme_config != %{}}
+            phx-click="renew_now"
+            data-confirm="Trigger ACME renewal now?"
+            class="btn btn-info btn-sm"
+          >
+            Renew Now
+          </button>
           <.link
             navigate={cert_edit_path(@org, @project, @certificate)}
             class="btn btn-outline btn-sm"
@@ -116,6 +147,17 @@ defmodule SentinelCpWeb.CertificatesLive.Show do
               {if @certificate.auto_renew, do: "Enabled", else: "Disabled"}
             </:item>
             <:item label="ACME Config">{format_map(@certificate.acme_config)}</:item>
+            <:item label="Last Renewal">
+              {if @certificate.last_renewal_at,
+                do: Calendar.strftime(@certificate.last_renewal_at, "%Y-%m-%d %H:%M:%S UTC"),
+                else: "—"}
+            </:item>
+            <:item label="Last Renewal Error">
+              <span :if={@certificate.last_renewal_error} class="text-error text-sm">
+                {@certificate.last_renewal_error}
+              </span>
+              <span :if={!@certificate.last_renewal_error}>—</span>
+            </:item>
             <:item label="Created">
               {Calendar.strftime(@certificate.inserted_at, "%Y-%m-%d %H:%M:%S UTC")}
             </:item>

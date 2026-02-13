@@ -76,6 +76,13 @@ defmodule SentinelCpWeb.Router do
     get "/ready", HealthController, :ready
   end
 
+  # ACME HTTP-01 challenge responses (public, no auth)
+  scope "/.well-known/acme-challenge", SentinelCpWeb.Api do
+    pipe_through :api
+
+    get "/:token", AcmeChallengeController, :show
+  end
+
   # API Documentation (public, no auth)
   scope "/api", SentinelCpWeb do
     pipe_through :browser

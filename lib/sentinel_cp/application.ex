@@ -16,6 +16,8 @@ defmodule SentinelCp.Application do
       SentinelCp.PromEx,
       # API rate limiting (ETS-backed token bucket)
       SentinelCp.RateLimit,
+      # ACME challenge token store (ETS-backed)
+      SentinelCp.Services.Acme.ChallengeStore,
       # Background job processing
       {Oban, Application.fetch_env!(:sentinel_cp, Oban)},
       # Start to serve requests, typically the last entry
@@ -33,6 +35,7 @@ defmodule SentinelCp.Application do
     SentinelCp.Services.CertificateExpiryWorker.ensure_started()
     SentinelCp.Analytics.PruneWorker.ensure_started()
     SentinelCp.Services.DiscoverySyncWorker.ensure_started()
+    SentinelCp.Services.CertificateRenewalWorker.ensure_started()
 
     result
   end

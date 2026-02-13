@@ -28,9 +28,16 @@ defmodule SentinelCpWeb.CertificatesLive.Edit do
     cert = socket.assigns.certificate
     project = socket.assigns.project
 
+    acme_config =
+      %{}
+      |> maybe_put_acme("email", params["acme_email"])
+      |> maybe_put_acme("directory_url", params["acme_directory_url"])
+      |> maybe_put_acme("renewal_days", params["acme_renewal_days"])
+
     attrs = %{
       name: params["name"],
       auto_renew: params["auto_renew"] == "true",
+      acme_config: if(acme_config == %{}, do: cert.acme_config || %{}, else: acme_config),
       status: params["status"]
     }
 
@@ -107,7 +114,56 @@ defmodule SentinelCpWeb.CertificatesLive.Edit do
                 checked={@certificate.auto_renew}
                 class="checkbox checkbox-sm"
               />
-              <span class="label-text font-medium">Enable Auto-Renew</span>
+              <span class="label-text font-medium">Enable Auto-Renew (ACME)</span>
+            </label>
+          </div>
+
+          <div class="divider text-sm text-base-content/50">ACME Configuration</div>
+
+          <div class="form-control">
+            <label class="label"><span class="label-text font-medium">ACME Email</span></label>
+            <input
+              type="email"
+              name="acme_email"
+              value={(@certificate.acme_config || %{})["email"]}
+              class="input input-bordered input-sm w-full"
+              placeholder="admin@example.com"
+            />
+            <label class="label">
+              <span class="label-text-alt text-base-content/50">Contact email for Let's Encrypt notifications</span>
+            </label>
+          </div>
+
+          <div class="form-control">
+            <label class="label"><span class="label-text font-medium">ACME Directory</span></label>
+            <select name="acme_directory_url" class="select select-bordered select-sm w-full">
+              <option
+                value="https://acme-v02.api.letsencrypt.org/directory"
+                selected={(@certificate.acme_config || %{})["directory_url"] == "https://acme-v02.api.letsencrypt.org/directory"}
+              >
+                Let's Encrypt Production
+              </option>
+              <option
+                value="https://acme-staging-v02.api.letsencrypt.org/directory"
+                selected={(@certificate.acme_config || %{})["directory_url"] == "https://acme-staging-v02.api.letsencrypt.org/directory"}
+              >
+                Let's Encrypt Staging
+              </option>
+            </select>
+          </div>
+
+          <div class="form-control">
+            <label class="label"><span class="label-text font-medium">Renewal Threshold (days)</span></label>
+            <input
+              type="number"
+              name="acme_renewal_days"
+              value={(@certificate.acme_config || %{})["renewal_days"] || "30"}
+              min="1"
+              max="90"
+              class="input input-bordered input-sm w-32"
+            />
+            <label class="label">
+              <span class="label-text-alt text-base-content/50">Renew when certificate expires within this many days</span>
             </label>
           </div>
 
@@ -131,4 +187,8 @@ defmodule SentinelCpWeb.CertificatesLive.Edit do
 
   defp cert_show_path(nil, project, cert),
     do: ~p"/projects/#{project.slug}/certificates/#{cert.id}"
+
+  defp maybe_put_acme(map, _key, nil), do: map
+  defp maybe_put_acme(map, _key, ""), do: map
+  defp maybe_put_acme(map, key, value), do: Map.put(map, key, value)
 end

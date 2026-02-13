@@ -97,3 +97,7 @@ config :sentinel_cp, SentinelCp.Bundles.Storage,
 config :sentinel_cp, SentinelCp.Bundles.Compiler,
   sentinel_binary: System.get_env("SENTINEL_BINARY", "sentinel"),
   skip_validation: !System.get_env("SENTINEL_BINARY")
+
+# Use Let's Encrypt staging in development
+config :sentinel_cp, :acme,
+  directory_url: "https://acme-staging-v02.api.letsencrypt.org/directory"

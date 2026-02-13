@@ -71,6 +71,7 @@ defmodule SentinelCpWeb.CertificatesLive.Index do
               <th class="text-xs uppercase">Status</th>
               <th class="text-xs uppercase">Expires</th>
               <th class="text-xs uppercase">Issuer</th>
+              <th class="text-xs uppercase">Last Renewal</th>
               <th class="text-xs uppercase"></th>
             </tr>
           </thead>
@@ -85,15 +86,21 @@ defmodule SentinelCpWeb.CertificatesLive.Index do
                 </.link>
               </td>
               <td class="text-sm font-mono">{cert.domain}</td>
-              <td>
+              <td class="flex items-center gap-1">
                 <span class={["badge badge-xs", status_badge_class(cert.status)]}>
                   {cert.status}
+                </span>
+                <span :if={cert.auto_renew && cert.acme_config != %{}} class="badge badge-xs badge-info">
+                  ACME
                 </span>
               </td>
               <td class="text-sm">
                 {if cert.not_after, do: Calendar.strftime(cert.not_after, "%Y-%m-%d"), else: "—"}
               </td>
               <td class="text-sm">{cert.issuer || "—"}</td>
+              <td class="text-sm text-base-content/60">
+                {if cert.last_renewal_at, do: Calendar.strftime(cert.last_renewal_at, "%Y-%m-%d %H:%M"), else: "—"}
+              </td>
               <td class="flex gap-1">
                 <.link navigate={cert_show_path(@org, @project, cert)} class="btn btn-ghost btn-xs">
                   Details

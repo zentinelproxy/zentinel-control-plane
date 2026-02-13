@@ -6,6 +6,14 @@ Mox.defmock(SentinelCp.Services.DnsResolver.Mock,
   for: SentinelCp.Services.DnsResolver
 )
 
+Mox.defmock(SentinelCp.Services.K8sResolver.Mock,
+  for: SentinelCp.Services.K8sResolver
+)
+
+Mox.defmock(SentinelCp.Services.Acme.Client.Mock,
+  for: SentinelCp.Services.Acme.Client
+)
+
 # Start Wallaby only if running E2E tests and ChromeDriver is available
 # E2E tests require ChromeDriver to be installed
 if System.get_env("WALLABY_DRIVER") != "disabled" do

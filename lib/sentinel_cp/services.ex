@@ -9,6 +9,7 @@ defmodule SentinelCp.Services do
   import Ecto.Query, warn: false
   alias SentinelCp.Repo
   alias SentinelCp.Services.{Service, ServiceTemplate, ProjectConfig, UpstreamGroup, UpstreamTarget, Certificate, AuthPolicy, OpenApiSpec, DiscoverySource, DiscoverySync, Middleware, ServiceMiddleware}
+  alias SentinelCp.Secrets
 
   ## Services
 
@@ -326,6 +327,36 @@ defmodule SentinelCp.Services do
     |> Repo.all()
   end
 
+  @doc """
+  Lists certificates eligible for ACME auto-renewal.
+
+  Finds certificates with `auto_renew: true`, non-empty `acme_config`,
+  and expiring within the configured threshold (default 30 days).
+  """
+  def list_acme_renewal_candidates(days_ahead \\ 30) do
+    now = DateTime.utc_now()
+    threshold = DateTime.add(now, days_ahead * 86_400, :second)
+
+    from(c in Certificate,
+      where: c.auto_renew == true,
+      where: c.status in ["active", "expiring_soon"],
+      where: c.not_after > ^now,
+      where: c.not_after <= ^threshold,
+      order_by: [asc: c.not_after]
+    )
+    |> Repo.all()
+    |> Enum.filter(&((&1.acme_config || %{}) != %{}))
+  end
+
+  @doc """
+  Updates ACME-specific fields on a certificate (account key, renewal status).
+  """
+  def update_certificate_acme(%Certificate{} = cert, attrs) do
+    cert
+    |> Certificate.acme_changeset(attrs)
+    |> Repo.update()
+  end
+
   ## Service Templates
 
   @doc """
@@ -560,7 +591,7 @@ defmodule SentinelCp.Services do
       |> DiscoverySource.sync_changeset(%{last_sync_status: "syncing"})
       |> Repo.update()
 
-    case dns_resolver().resolve_srv(source.hostname) do
+    case resolve_records(source) do
       {:ok, records} ->
         group = get_upstream_group!(source.upstream_group_id)
         current_targets = group.targets || []
@@ -887,8 +918,26 @@ defmodule SentinelCp.Services do
     service_edges ++ target_edges
   end
 
+  defp resolve_records(%DiscoverySource{source_type: "kubernetes"} = source) do
+    case Secrets.resolve_references(source.config || %{}, source.project_id) do
+      {:ok, resolved_config} ->
+        k8s_resolver().resolve_endpoints(resolved_config)
+
+      {:error, reason} ->
+        {:error, "Secret resolution failed: #{inspect(reason)}"}
+    end
+  end
+
+  defp resolve_records(%DiscoverySource{} = source) do
+    dns_resolver().resolve_srv(source.hostname)
+  end
+
   defp dns_resolver do
     Application.get_env(:sentinel_cp, :dns_resolver, SentinelCp.Services.DnsResolver.Inet)
+  end
+
+  defp k8s_resolver do
+    Application.get_env(:sentinel_cp, :k8s_resolver, SentinelCp.Services.K8sResolver.HTTP)
   end
 
   defp resolve_auth_policy_id(%{security_refs: refs}, policy_map) when is_list(refs) do
