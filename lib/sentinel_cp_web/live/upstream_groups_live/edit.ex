@@ -12,6 +12,8 @@ defmodule SentinelCpWeb.UpstreamGroupsLive.Edit do
     with project when not is_nil(project) <- Projects.get_project_by_slug(slug),
          group when not is_nil(group) <- Services.get_upstream_group(group_id),
          true <- group.project_id == project.id do
+      trust_stores = Services.list_trust_stores(project.id)
+
       {:ok,
        assign(socket,
          page_title: "Edit Upstream Group #{group.name} — #{project.name}",
@@ -19,6 +21,7 @@ defmodule SentinelCpWeb.UpstreamGroupsLive.Edit do
          project: project,
          group: group,
          algorithms: @algorithms,
+         trust_stores: trust_stores,
          show_circuit_breaker: group.circuit_breaker != %{} && group.circuit_breaker != nil
        )}
     else
@@ -41,7 +44,8 @@ defmodule SentinelCpWeb.UpstreamGroupsLive.Edit do
     attrs = %{
       name: params["name"],
       description: params["description"],
-      algorithm: params["algorithm"]
+      algorithm: params["algorithm"],
+      trust_store_id: blank_to_nil(params["trust_store_id"])
     }
 
     attrs = maybe_put_circuit_breaker(attrs, params)
@@ -91,6 +95,17 @@ defmodule SentinelCpWeb.UpstreamGroupsLive.Edit do
             <select name="algorithm" class="select select-bordered select-sm w-48">
               <option :for={alg <- @algorithms} value={alg} selected={alg == @group.algorithm}>{alg}</option>
             </select>
+          </div>
+
+          <div :if={@trust_stores != []} class="form-control">
+            <label class="label"><span class="label-text font-medium">Trust Store (optional)</span></label>
+            <select name="trust_store_id" class="select select-bordered select-sm w-full">
+              <option value="">None</option>
+              <option :for={ts <- @trust_stores} value={ts.id} selected={ts.id == @group.trust_store_id}>{ts.name}</option>
+            </select>
+            <label class="label">
+              <span class="label-text-alt text-base-content/50">CA bundle for verifying upstream TLS connections</span>
+            </label>
           </div>
 
           <div class="divider text-xs text-base-content/50">Advanced Settings</div>
@@ -170,6 +185,10 @@ defmodule SentinelCpWeb.UpstreamGroupsLive.Edit do
 
   defp group_show_path(nil, project, group),
     do: ~p"/projects/#{project.slug}/upstream-groups/#{group.id}"
+
+  defp blank_to_nil(nil), do: nil
+  defp blank_to_nil(""), do: nil
+  defp blank_to_nil(str), do: str
 
   defp maybe_put_circuit_breaker(attrs, params) do
     case params["circuit_breaker"] do

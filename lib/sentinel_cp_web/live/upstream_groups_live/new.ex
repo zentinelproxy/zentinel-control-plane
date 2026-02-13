@@ -14,12 +14,15 @@ defmodule SentinelCpWeb.UpstreamGroupsLive.New do
         {:ok, push_navigate(socket, to: ~p"/orgs")}
 
       project ->
+        trust_stores = Services.list_trust_stores(project.id)
+
         {:ok,
          assign(socket,
            page_title: "New Upstream Group — #{project.name}",
            org: org,
            project: project,
            algorithms: @algorithms,
+           trust_stores: trust_stores,
            show_circuit_breaker: false
          )}
     end
@@ -39,7 +42,8 @@ defmodule SentinelCpWeb.UpstreamGroupsLive.New do
       project_id: project.id,
       name: params["name"],
       description: params["description"],
-      algorithm: params["algorithm"] || "round_robin"
+      algorithm: params["algorithm"] || "round_robin",
+      trust_store_id: blank_to_nil(params["trust_store_id"])
     }
 
     attrs = maybe_put_circuit_breaker(attrs, params)
@@ -89,6 +93,17 @@ defmodule SentinelCpWeb.UpstreamGroupsLive.New do
             <select name="algorithm" class="select select-bordered select-sm w-48">
               <option :for={alg <- @algorithms} value={alg}>{alg}</option>
             </select>
+          </div>
+
+          <div :if={@trust_stores != []} class="form-control">
+            <label class="label"><span class="label-text font-medium">Trust Store (optional)</span></label>
+            <select name="trust_store_id" class="select select-bordered select-sm w-full">
+              <option value="">None</option>
+              <option :for={ts <- @trust_stores} value={ts.id}>{ts.name}</option>
+            </select>
+            <label class="label">
+              <span class="label-text-alt text-base-content/50">CA bundle for verifying upstream TLS connections</span>
+            </label>
           </div>
 
           <div class="divider text-xs text-base-content/50">Advanced Settings</div>
@@ -170,6 +185,10 @@ defmodule SentinelCpWeb.UpstreamGroupsLive.New do
 
   defp group_show_path(nil, project, group),
     do: ~p"/projects/#{project.slug}/upstream-groups/#{group.id}"
+
+  defp blank_to_nil(nil), do: nil
+  defp blank_to_nil(""), do: nil
+  defp blank_to_nil(str), do: str
 
   defp maybe_put_circuit_breaker(attrs, params) do
     case params["circuit_breaker"] do

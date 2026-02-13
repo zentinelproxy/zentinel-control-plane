@@ -166,6 +166,10 @@ defmodule SentinelCpWeb.Router do
     live "/projects/:project_slug/certificates/new", CertificatesLive.New, :new
     live "/projects/:project_slug/certificates/:id", CertificatesLive.Show, :show
     live "/projects/:project_slug/certificates/:id/edit", CertificatesLive.Edit, :edit
+    live "/projects/:project_slug/trust-stores", TrustStoresLive.Index, :index
+    live "/projects/:project_slug/trust-stores/new", TrustStoresLive.New, :new
+    live "/projects/:project_slug/trust-stores/:id", TrustStoresLive.Show, :show
+    live "/projects/:project_slug/trust-stores/:id/edit", TrustStoresLive.Edit, :edit
     live "/projects/:project_slug/auth-policies", AuthPoliciesLive.Index, :index
     live "/projects/:project_slug/auth-policies/new", AuthPoliciesLive.New, :new
     live "/projects/:project_slug/auth-policies/:id", AuthPoliciesLive.Show, :show
@@ -251,6 +255,22 @@ defmodule SentinelCpWeb.Router do
 
     live "/orgs/:org_slug/projects/:project_slug/certificates/:id/edit",
          CertificatesLive.Edit,
+         :edit
+
+    live "/orgs/:org_slug/projects/:project_slug/trust-stores",
+         TrustStoresLive.Index,
+         :index
+
+    live "/orgs/:org_slug/projects/:project_slug/trust-stores/new",
+         TrustStoresLive.New,
+         :new
+
+    live "/orgs/:org_slug/projects/:project_slug/trust-stores/:id",
+         TrustStoresLive.Show,
+         :show
+
+    live "/orgs/:org_slug/projects/:project_slug/trust-stores/:id/edit",
+         TrustStoresLive.Edit,
          :edit
 
     live "/orgs/:org_slug/projects/:project_slug/auth-policies",
@@ -454,6 +474,10 @@ defmodule SentinelCpWeb.Router do
       get "/certificates/:id", CertificateController, :show
       get "/certificates/:id/download", CertificateController, :download
 
+      get "/trust-stores", TrustStoreController, :index
+      get "/trust-stores/:id", TrustStoreController, :show
+      get "/trust-stores/:id/download", TrustStoreController, :download
+
       get "/auth-policies", AuthPolicyController, :index
       get "/auth-policies/:id", AuthPolicyController, :show
 
@@ -500,6 +524,10 @@ defmodule SentinelCpWeb.Router do
       post "/certificates", CertificateController, :create
       put "/certificates/:id", CertificateController, :update
       delete "/certificates/:id", CertificateController, :delete
+
+      post "/trust-stores", TrustStoreController, :create
+      put "/trust-stores/:id", TrustStoreController, :update
+      delete "/trust-stores/:id", TrustStoreController, :delete
 
       post "/auth-policies", AuthPolicyController, :create
       put "/auth-policies/:id", AuthPolicyController, :update

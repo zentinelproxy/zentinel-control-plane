@@ -11,6 +11,7 @@ defmodule SentinelCpWeb.UpstreamGroupsLive.Show do
          group when not is_nil(group) <- Services.get_upstream_group(group_id),
          true <- group.project_id == project.id do
       discovery_source = Services.get_discovery_source_for_group(group.id)
+      trust_store = if group.trust_store_id, do: Services.get_trust_store(group.trust_store_id), else: nil
 
       if connected?(socket) && discovery_source do
         Phoenix.PubSub.subscribe(SentinelCp.PubSub, "discovery:#{discovery_source.id}")
@@ -22,6 +23,7 @@ defmodule SentinelCpWeb.UpstreamGroupsLive.Show do
          org: org,
          project: project,
          group: group,
+         trust_store: trust_store,
          discovery_source: discovery_source,
          show_discovery_form: false,
          editing_discovery: false,
@@ -274,6 +276,18 @@ defmodule SentinelCpWeb.UpstreamGroupsLive.Show do
             <:item label="Health Check">{format_map(@group.health_check)}</:item>
             <:item label="Circuit Breaker">{format_map(@group.circuit_breaker)}</:item>
             <:item label="Sticky Sessions">{format_map(@group.sticky_sessions)}</:item>
+            <:item label="Trust Store">
+              <%= if @trust_store do %>
+                <.link
+                  navigate={trust_store_show_path(@org, @project, @trust_store)}
+                  class="text-primary hover:underline"
+                >
+                  {@trust_store.name}
+                </.link>
+              <% else %>
+                <span class="text-base-content/50">None</span>
+              <% end %>
+            </:item>
           </.definition_list>
         </.k8s_section>
 
@@ -551,6 +565,12 @@ defmodule SentinelCpWeb.UpstreamGroupsLive.Show do
 
   defp group_edit_path(nil, project, group),
     do: ~p"/projects/#{project.slug}/upstream-groups/#{group.id}/edit"
+
+  defp trust_store_show_path(%{slug: org_slug}, project, ts),
+    do: ~p"/orgs/#{org_slug}/projects/#{project.slug}/trust-stores/#{ts.id}"
+
+  defp trust_store_show_path(nil, project, ts),
+    do: ~p"/projects/#{project.slug}/trust-stores/#{ts.id}"
 
   defp put_source_type_attrs(attrs, "kubernetes", params) do
     config =

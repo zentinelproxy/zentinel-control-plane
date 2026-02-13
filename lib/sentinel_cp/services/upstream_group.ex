@@ -22,6 +22,7 @@ defmodule SentinelCp.Services.UpstreamGroup do
     field :circuit_breaker, :map, default: %{}
 
     belongs_to :project, SentinelCp.Projects.Project
+    belongs_to :trust_store, SentinelCp.Services.TrustStore
     has_many :targets, UpstreamTarget
 
     timestamps(type: :utc_datetime)
@@ -36,7 +37,8 @@ defmodule SentinelCp.Services.UpstreamGroup do
       :sticky_sessions,
       :health_check,
       :circuit_breaker,
-      :project_id
+      :project_id,
+      :trust_store_id
     ])
     |> validate_required([:name, :project_id])
     |> validate_length(:name, min: 1, max: 100)
@@ -45,6 +47,7 @@ defmodule SentinelCp.Services.UpstreamGroup do
     |> validate_slug()
     |> unique_constraint([:project_id, :slug], error_key: :slug)
     |> foreign_key_constraint(:project_id)
+    |> foreign_key_constraint(:trust_store_id)
   end
 
   def update_changeset(group, attrs) do
@@ -55,7 +58,8 @@ defmodule SentinelCp.Services.UpstreamGroup do
       :algorithm,
       :sticky_sessions,
       :health_check,
-      :circuit_breaker
+      :circuit_breaker,
+      :trust_store_id
     ])
     |> validate_required([:name])
     |> validate_length(:name, min: 1, max: 100)

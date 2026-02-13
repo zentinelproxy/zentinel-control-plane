@@ -8,7 +8,7 @@ defmodule SentinelCp.Services do
 
   import Ecto.Query, warn: false
   alias SentinelCp.Repo
-  alias SentinelCp.Services.{Service, ServiceTemplate, ProjectConfig, UpstreamGroup, UpstreamTarget, Certificate, AuthPolicy, OpenApiSpec, DiscoverySource, DiscoverySync, Middleware, ServiceMiddleware}
+  alias SentinelCp.Services.{Service, ServiceTemplate, ProjectConfig, UpstreamGroup, UpstreamTarget, Certificate, TrustStore, AuthPolicy, OpenApiSpec, DiscoverySource, DiscoverySync, Middleware, ServiceMiddleware}
   alias SentinelCp.Secrets
 
   ## Services
@@ -355,6 +355,54 @@ defmodule SentinelCp.Services do
     cert
     |> Certificate.acme_changeset(attrs)
     |> Repo.update()
+  end
+
+  ## Trust Stores
+
+  @doc """
+  Lists trust stores for a project, ordered by name.
+  """
+  def list_trust_stores(project_id) do
+    from(t in TrustStore,
+      where: t.project_id == ^project_id,
+      order_by: [asc: t.name]
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Gets a single trust store by ID.
+  """
+  def get_trust_store(id), do: Repo.get(TrustStore, id)
+
+  @doc """
+  Gets a single trust store by ID, raises if not found.
+  """
+  def get_trust_store!(id), do: Repo.get!(TrustStore, id)
+
+  @doc """
+  Creates a trust store.
+  """
+  def create_trust_store(attrs) do
+    %TrustStore{}
+    |> TrustStore.create_changeset(attrs)
+    |> Repo.insert()
+  end
+
+  @doc """
+  Updates a trust store.
+  """
+  def update_trust_store(%TrustStore{} = trust_store, attrs) do
+    trust_store
+    |> TrustStore.update_changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  Deletes a trust store.
+  """
+  def delete_trust_store(%TrustStore{} = trust_store) do
+    Repo.delete(trust_store)
   end
 
   ## Service Templates
