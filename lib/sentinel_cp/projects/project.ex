@@ -146,4 +146,41 @@ defmodule SentinelCp.Projects.Project do
   def drift_alert_node_count(%__MODULE__{settings: settings}) do
     Map.get(settings || %{}, "drift_alert_node_count")
   end
+
+  ## Portal settings
+
+  @doc """
+  Returns whether the developer portal is enabled for this project.
+  """
+  def portal_enabled?(%__MODULE__{settings: settings}) do
+    Map.get(settings || %{}, "portal_enabled", false)
+  end
+
+  @doc """
+  Returns the portal access mode: "disabled", "public", or "authenticated".
+  """
+  def portal_access(%__MODULE__{settings: settings}) do
+    Map.get(settings || %{}, "portal_access", "disabled")
+  end
+
+  @doc """
+  Returns the portal display title.
+  """
+  def portal_title(%__MODULE__{} = project) do
+    Map.get(project.settings || %{}, "portal_title", project.name)
+  end
+
+  @doc """
+  Returns the portal description.
+  """
+  def portal_description(%__MODULE__{} = project) do
+    Map.get(project.settings || %{}, "portal_description", project.description)
+  end
+
+  @doc """
+  Returns the portal logo URL.
+  """
+  def portal_logo_url(%__MODULE__{settings: settings}) do
+    Map.get(settings || %{}, "portal_logo_url")
+  end
 end

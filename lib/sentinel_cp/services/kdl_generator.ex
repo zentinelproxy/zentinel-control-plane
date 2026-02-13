@@ -11,9 +11,15 @@ defmodule SentinelCp.Services.KdlGenerator do
   @doc """
   Generates KDL configuration for a project from its services and config.
 
+  ## Options
+
+    * `:resolve_secrets` - `{project_id, environment}` tuple. When provided,
+      resolves `${secrets.NAME}` references in service config maps before
+      generating KDL.
+
   Returns `{:ok, kdl_string}` or `{:error, :no_services}`.
   """
-  def generate(project_id) do
+  def generate(project_id, opts \\ []) do
     services = Services.list_services(project_id, enabled: true)
 
     if services == [] do
@@ -31,9 +37,54 @@ defmodule SentinelCp.Services.KdlGenerator do
           {s.id, Services.list_service_middlewares(s.id)}
         end)
 
-      kdl = build_kdl(services, config, upstream_groups, certificates, auth_policies, middleware_chains)
-      {:ok, kdl}
+      # Resolve secret references if requested
+      case maybe_resolve_secrets(services, opts) do
+        {:ok, resolved_services} ->
+          kdl = build_kdl(resolved_services, config, upstream_groups, certificates, auth_policies, middleware_chains)
+          {:ok, kdl}
+
+        {:error, _} = error ->
+          error
+      end
     end
+  end
+
+  defp maybe_resolve_secrets(services, opts) do
+    case Keyword.get(opts, :resolve_secrets) do
+      {project_id, environment} ->
+        resolve_service_configs(services, project_id, environment)
+
+      _ ->
+        {:ok, services}
+    end
+  end
+
+  defp resolve_service_configs(services, project_id, environment) do
+    config_fields = [:headers, :cors, :cache, :retry, :rate_limit, :health_check,
+                     :access_control, :compression, :security, :request_transform,
+                     :response_transform, :path_rewrite]
+
+    Enum.reduce_while(services, {:ok, []}, fn service, {:ok, acc} ->
+      case resolve_service_config_maps(service, config_fields, project_id, environment) do
+        {:ok, resolved} -> {:cont, {:ok, acc ++ [resolved]}}
+        {:error, _} = error -> {:halt, error}
+      end
+    end)
+  end
+
+  defp resolve_service_config_maps(service, fields, project_id, environment) do
+    Enum.reduce_while(fields, {:ok, service}, fn field, {:ok, svc} ->
+      config = Map.get(svc, field)
+
+      if is_map(config) && config != %{} do
+        case SentinelCp.Secrets.resolve_references(config, project_id, environment) do
+          {:ok, resolved} -> {:cont, {:ok, Map.put(svc, field, resolved)}}
+          {:error, _} = error -> {:halt, error}
+        end
+      else
+        {:cont, {:ok, svc}}
+      end
+    end)
   end
 
   @doc """

@@ -3,21 +3,25 @@ defmodule SentinelCp.Services.BundleIntegration do
   Integrates structured services with the bundle compilation pipeline.
 
   Generates KDL from services and creates bundles for compilation.
+  Resolves secret references before KDL generation.
   """
 
   alias SentinelCp.Bundles
+  alias SentinelCp.Secrets
   alias SentinelCp.Services.KdlGenerator
 
   @doc """
   Creates a bundle from the project's service definitions.
 
-  Generates KDL configuration from enabled services, then creates a bundle
-  and enqueues compilation.
+  Generates KDL configuration from enabled services, resolves any
+  `${secrets.NAME}` references, then creates a bundle and enqueues compilation.
 
   Returns `{:ok, bundle}` or `{:error, reason}`.
   """
   def create_bundle_from_services(project_id, version, opts \\ []) do
-    case KdlGenerator.generate(project_id) do
+    environment = Keyword.get(opts, :environment)
+
+    case KdlGenerator.generate(project_id, resolve_secrets: {project_id, environment}) do
       {:ok, kdl} ->
         attrs = %{
           project_id: project_id,
@@ -36,6 +40,9 @@ defmodule SentinelCp.Services.BundleIntegration do
 
       {:error, :no_services} ->
         {:error, :no_services}
+
+      {:error, {:missing_secret, name}} ->
+        {:error, {:missing_secret, name}}
     end
   end
 
@@ -46,5 +53,16 @@ defmodule SentinelCp.Services.BundleIntegration do
   """
   def preview_kdl(project_id) do
     KdlGenerator.generate(project_id)
+  end
+
+  @doc """
+  Resolves secret references in a service config map.
+
+  This is used by KdlGenerator to resolve `${secrets.NAME}` patterns
+  in config map values before generating KDL.
+  """
+  def resolve_secret_refs(config_map, project_id, environment \\ nil)
+      when is_map(config_map) do
+    Secrets.resolve_references(config_map, project_id, environment)
   end
 end

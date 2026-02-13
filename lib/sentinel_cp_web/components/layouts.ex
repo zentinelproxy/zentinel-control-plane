@@ -162,6 +162,13 @@ defmodule SentinelCpWeb.Layouts do
           current={@path}
           match="/drift"
         />
+        <.sidebar_link
+          path={~p"/orgs/#{@org_slug}/projects/#{@project_slug}/topology"}
+          icon="hero-map"
+          label="Topology"
+          current={@path}
+          match="/topology"
+        />
 
         <div class="sidebar-section-title mt-4">Settings</div>
         <.sidebar_link
@@ -191,6 +198,13 @@ defmodule SentinelCpWeb.Layouts do
           label="Webhooks"
           current={@path}
           match="/webhooks"
+        />
+        <.sidebar_link
+          path={~p"/orgs/#{@org_slug}/projects/#{@project_slug}/secrets"}
+          icon="hero-lock-closed"
+          label="Secrets"
+          current={@path}
+          match="/secrets"
         />
       </div>
 

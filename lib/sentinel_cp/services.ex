@@ -748,6 +748,143 @@ defmodule SentinelCp.Services do
     end)
   end
 
+  ## Topology
+
+  @doc """
+  Returns topology data for visualization: nodes, edges, and metadata.
+  """
+  def get_topology_data(project_id) do
+    services =
+      list_services(project_id)
+      |> Repo.preload([:upstream_group, :auth_policy, :certificate, service_middlewares: :middleware])
+
+    upstream_groups = list_upstream_groups(project_id)
+    auth_policies = list_auth_policies(project_id)
+    certificates = list_certificates(project_id)
+    middlewares = list_middlewares(project_id)
+
+    %{
+      services: Enum.map(services, &service_topology_node/1),
+      upstream_groups: Enum.map(upstream_groups, &upstream_group_topology_node/1),
+      auth_policies: Enum.map(auth_policies, &auth_policy_topology_node/1),
+      certificates: Enum.map(certificates, &certificate_topology_node/1),
+      middlewares: Enum.map(middlewares, &middleware_topology_node/1),
+      edges: build_topology_edges(services, upstream_groups)
+    }
+  end
+
+  defp service_topology_node(service) do
+    %{
+      id: service.id,
+      name: service.name,
+      type: "service",
+      status: if(service.enabled, do: "enabled", else: "disabled"),
+      metadata: %{
+        route_path: service.route_path,
+        upstream_url: service.upstream_url
+      }
+    }
+  end
+
+  defp upstream_group_topology_node(group) do
+    target_count = length(group.targets || [])
+    healthy = Enum.count(group.targets || [], &(&1.healthy != false))
+
+    %{
+      id: group.id,
+      name: group.name,
+      type: "upstream_group",
+      status: if(healthy == target_count, do: "healthy", else: "degraded"),
+      metadata: %{
+        algorithm: group.algorithm,
+        target_count: target_count,
+        targets: Enum.map(group.targets || [], fn t ->
+          %{id: t.id, host: t.host, port: t.port, weight: t.weight}
+        end)
+      }
+    }
+  end
+
+  defp auth_policy_topology_node(policy) do
+    %{
+      id: policy.id,
+      name: policy.name,
+      type: "auth_policy",
+      status: "active",
+      metadata: %{auth_type: policy.auth_type}
+    }
+  end
+
+  defp certificate_topology_node(cert) do
+    %{
+      id: cert.id,
+      name: cert.domain,
+      type: "certificate",
+      status: cert.status || "active",
+      metadata: %{
+        domain: cert.domain,
+        not_after: cert.not_after && DateTime.to_iso8601(cert.not_after)
+      }
+    }
+  end
+
+  defp middleware_topology_node(middleware) do
+    %{
+      id: middleware.id,
+      name: middleware.name,
+      type: "middleware",
+      status: if(middleware.enabled, do: "enabled", else: "disabled"),
+      metadata: %{middleware_type: middleware.middleware_type}
+    }
+  end
+
+  defp build_topology_edges(services, upstream_groups) do
+    service_edges =
+      Enum.flat_map(services, fn service ->
+        edges = []
+
+        edges =
+          if service.upstream_group_id do
+            [%{source: service.id, target: service.upstream_group_id, edge_type: "upstream"} | edges]
+          else
+            edges
+          end
+
+        edges =
+          if service.auth_policy_id do
+            [%{source: service.id, target: service.auth_policy_id, edge_type: "auth"} | edges]
+          else
+            edges
+          end
+
+        edges =
+          if service.certificate_id do
+            [%{source: service.id, target: service.certificate_id, edge_type: "tls"} | edges]
+          else
+            edges
+          end
+
+        middleware_edges =
+          (service.service_middlewares || [])
+          |> Enum.map(fn sm ->
+            %{source: service.id, target: sm.middleware_id, edge_type: "middleware"}
+          end)
+
+        edges ++ middleware_edges
+      end)
+
+    # Target edges: upstream_group -> targets (virtual edges using target IDs)
+    target_edges =
+      Enum.flat_map(upstream_groups, fn group ->
+        (group.targets || [])
+        |> Enum.map(fn t ->
+          %{source: group.id, target: "target-#{t.id}", edge_type: "target"}
+        end)
+      end)
+
+    service_edges ++ target_edges
+  end
+
   defp dns_resolver do
     Application.get_env(:sentinel_cp, :dns_resolver, SentinelCp.Services.DnsResolver.Inet)
   end

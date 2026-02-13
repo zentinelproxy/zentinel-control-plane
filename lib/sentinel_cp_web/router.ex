@@ -156,6 +156,8 @@ defmodule SentinelCpWeb.Router do
     live "/projects/:project_slug/middlewares/new", MiddlewaresLive.New, :new
     live "/projects/:project_slug/middlewares/:id", MiddlewaresLive.Show, :show
     live "/projects/:project_slug/middlewares/:id/edit", MiddlewaresLive.Edit, :edit
+    live "/projects/:project_slug/secrets", SecretsLive.Index, :index
+    live "/projects/:project_slug/topology", TopologyLive.Index, :index
     live "/projects/:project_slug/analytics", AnalyticsLive.Index, :index
     live "/projects/:project_slug/analytics/services/:service_id", AnalyticsLive.Service, :show
     live "/projects/:project_slug/openapi/import", OpenApiLive.Import, :import
@@ -265,6 +267,14 @@ defmodule SentinelCpWeb.Router do
          MiddlewaresLive.Edit,
          :edit
 
+    live "/orgs/:org_slug/projects/:project_slug/secrets",
+         SecretsLive.Index,
+         :index
+
+    live "/orgs/:org_slug/projects/:project_slug/topology",
+         TopologyLive.Index,
+         :index
+
     live "/orgs/:org_slug/projects/:project_slug/analytics",
          AnalyticsLive.Index,
          :index
@@ -276,6 +286,17 @@ defmodule SentinelCpWeb.Router do
     live "/orgs/:org_slug/projects/:project_slug/openapi/import",
          OpenApiLive.Import,
          :import
+  end
+
+  # Developer Portal routes (separate pipeline, no org context)
+  scope "/portal/:project_slug", SentinelCpWeb.PortalLive do
+    pipe_through [:browser, SentinelCpWeb.Plugs.PortalAccess]
+
+    live "/", Index, :index
+    live "/docs", Docs, :docs
+    live "/docs/:spec_id", Docs, :spec
+    live "/console", Console, :console
+    live "/keys", Keys, :keys
   end
 
   # Admin-only browser routes
@@ -423,6 +444,9 @@ defmodule SentinelCpWeb.Router do
 
       get "/openapi/specs", OpenApiImportController, :index
       get "/openapi/specs/:id", OpenApiImportController, :show
+
+      get "/secrets", SecretController, :index
+      get "/secrets/:id", SecretController, :show
     end
   end
 
@@ -471,6 +495,11 @@ defmodule SentinelCpWeb.Router do
       post "/openapi/preview", OpenApiImportController, :preview
       post "/openapi/import", OpenApiImportController, :import
       delete "/openapi/specs/:id", OpenApiImportController, :delete
+
+      post "/secrets", SecretController, :create
+      put "/secrets/:id", SecretController, :update
+      delete "/secrets/:id", SecretController, :delete
+      post "/secrets/:id/rotate", SecretController, :rotate
     end
   end
 

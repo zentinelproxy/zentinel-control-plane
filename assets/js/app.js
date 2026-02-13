@@ -25,8 +25,11 @@ import {LiveSocket} from "phoenix_live_view"
 import {hooks as colocatedHooks} from "phoenix-colocated/sentinel_cp"
 import topbar from "../vendor/topbar"
 
+import Topology from "./hooks/topology"
+
 // Custom hooks for LiveView components
 const Hooks = {
+  Topology,
   DropZone: {
     mounted() {
       const el = this.el
