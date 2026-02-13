@@ -199,6 +199,77 @@ defmodule SentinelCp.Services.DiscoveryTest do
     end
   end
 
+  # --- DiscoverySource schema (kubernetes) ---
+
+  describe "DiscoverySource.changeset/2 kubernetes" do
+    test "valid kubernetes changeset with config" do
+      changeset =
+        DiscoverySource.changeset(%DiscoverySource{}, %{
+          source_type: "kubernetes",
+          config: %{"namespace" => "default", "service_name" => "my-api"},
+          upstream_group_id: Ecto.UUID.generate(),
+          project_id: Ecto.UUID.generate()
+        })
+
+      assert changeset.valid?
+    end
+
+    test "kubernetes requires namespace in config" do
+      changeset =
+        DiscoverySource.changeset(%DiscoverySource{}, %{
+          source_type: "kubernetes",
+          config: %{"service_name" => "my-api"},
+          upstream_group_id: Ecto.UUID.generate(),
+          project_id: Ecto.UUID.generate()
+        })
+
+      assert %{config: _} = errors_on(changeset)
+    end
+
+    test "kubernetes requires service_name in config" do
+      changeset =
+        DiscoverySource.changeset(%DiscoverySource{}, %{
+          source_type: "kubernetes",
+          config: %{"namespace" => "default"},
+          upstream_group_id: Ecto.UUID.generate(),
+          project_id: Ecto.UUID.generate()
+        })
+
+      assert %{config: _} = errors_on(changeset)
+    end
+
+    test "kubernetes does not require hostname" do
+      changeset =
+        DiscoverySource.changeset(%DiscoverySource{}, %{
+          source_type: "kubernetes",
+          config: %{"namespace" => "default", "service_name" => "my-api"},
+          upstream_group_id: Ecto.UUID.generate(),
+          project_id: Ecto.UUID.generate()
+        })
+
+      assert changeset.valid?
+      refute Map.has_key?(errors_on(changeset), :hostname)
+    end
+
+    test "kubernetes accepts optional config fields" do
+      changeset =
+        DiscoverySource.changeset(%DiscoverySource{}, %{
+          source_type: "kubernetes",
+          config: %{
+            "namespace" => "production",
+            "service_name" => "my-api",
+            "api_url" => "https://k8s.example.com",
+            "token" => "my-token",
+            "port_name" => "http"
+          },
+          upstream_group_id: Ecto.UUID.generate(),
+          project_id: Ecto.UUID.generate()
+        })
+
+      assert changeset.valid?
+    end
+  end
+
   # --- Context CRUD ---
 
   describe "create_discovery_source/1" do
@@ -537,6 +608,85 @@ defmodule SentinelCp.Services.DiscoveryTest do
 
       updated_group = Services.get_upstream_group!(group.id)
       assert updated_group.targets == []
+    end
+  end
+
+  # --- K8s CRUD ---
+
+  describe "create_discovery_source/1 kubernetes" do
+    test "creates kubernetes source with config" do
+      project = project_fixture()
+      group = upstream_group_fixture(%{project: project})
+
+      assert {:ok, %DiscoverySource{} = source} =
+               Services.create_discovery_source(%{
+                 source_type: "kubernetes",
+                 config: %{"namespace" => "default", "service_name" => "my-api"},
+                 upstream_group_id: group.id,
+                 project_id: project.id
+               })
+
+      assert source.source_type == "kubernetes"
+      assert source.config["namespace"] == "default"
+      assert source.config["service_name"] == "my-api"
+    end
+  end
+
+  # --- K8s Sync ---
+
+  describe "sync_discovery_source/1 kubernetes" do
+    test "syncs kubernetes source using K8s resolver" do
+      project = project_fixture()
+      group = upstream_group_fixture(%{project: project})
+
+      {:ok, source} =
+        Services.create_discovery_source(%{
+          source_type: "kubernetes",
+          config: %{"namespace" => "default", "service_name" => "my-api"},
+          upstream_group_id: group.id,
+          project_id: project.id
+        })
+
+      SentinelCp.Services.K8sResolver.Mock
+      |> expect(:resolve_endpoints, fn config ->
+        assert config["namespace"] == "default"
+        assert config["service_name"] == "my-api"
+        {:ok, [{0, 1, 8080, ~c"10.0.0.1"}, {0, 1, 8080, ~c"10.0.0.2"}]}
+      end)
+
+      assert {:ok, result} = Services.sync_discovery_source(source)
+      assert result.added == 2
+      assert result.removed == 0
+      assert result.kept == 0
+
+      updated_group = Services.get_upstream_group!(group.id)
+      assert length(updated_group.targets) == 2
+      ips = Enum.map(updated_group.targets, & &1.host) |> Enum.sort()
+      assert ips == ["10.0.0.1", "10.0.0.2"]
+    end
+
+    test "sets error on K8s resolver failure" do
+      project = project_fixture()
+      group = upstream_group_fixture(%{project: project})
+
+      {:ok, source} =
+        Services.create_discovery_source(%{
+          source_type: "kubernetes",
+          config: %{"namespace" => "default", "service_name" => "bad-svc"},
+          upstream_group_id: group.id,
+          project_id: project.id
+        })
+
+      SentinelCp.Services.K8sResolver.Mock
+      |> expect(:resolve_endpoints, fn _config ->
+        {:error, "Kubernetes API returned 404: endpoints not found"}
+      end)
+
+      assert {:error, _reason} = Services.sync_discovery_source(source)
+
+      updated_source = Services.get_discovery_source!(source.id)
+      assert updated_source.last_sync_status == "error"
+      assert updated_source.last_sync_error != nil
     end
   end
 

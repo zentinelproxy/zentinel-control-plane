@@ -11,12 +11,13 @@ defmodule SentinelCp.Services.DiscoverySource do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
 
-  @source_types ~w(dns_srv)
+  @source_types ~w(dns_srv kubernetes)
   @sync_statuses ~w(pending syncing synced error)
 
   schema "discovery_sources" do
     field :source_type, :string, default: "dns_srv"
     field :hostname, :string
+    field :config, :map, default: %{}
     field :sync_interval_seconds, :integer, default: 60
     field :auto_sync, :boolean, default: true
     field :last_synced_at, :utc_datetime
@@ -35,13 +36,15 @@ defmodule SentinelCp.Services.DiscoverySource do
     |> cast(attrs, [
       :source_type,
       :hostname,
+      :config,
       :sync_interval_seconds,
       :auto_sync,
       :upstream_group_id,
       :project_id
     ])
-    |> validate_required([:hostname, :upstream_group_id, :project_id])
+    |> validate_required([:upstream_group_id, :project_id])
     |> validate_inclusion(:source_type, @source_types)
+    |> validate_source_type_fields()
     |> validate_number(:sync_interval_seconds, greater_than_or_equal_to: 10)
     |> unique_constraint(:upstream_group_id)
     |> foreign_key_constraint(:upstream_group_id)
@@ -50,9 +53,39 @@ defmodule SentinelCp.Services.DiscoverySource do
 
   def update_changeset(source, attrs) do
     source
-    |> cast(attrs, [:hostname, :sync_interval_seconds, :auto_sync])
-    |> validate_required([:hostname])
+    |> cast(attrs, [:hostname, :config, :sync_interval_seconds, :auto_sync])
+    |> validate_source_type_fields()
     |> validate_number(:sync_interval_seconds, greater_than_or_equal_to: 10)
+  end
+
+  defp validate_source_type_fields(changeset) do
+    source_type = get_field(changeset, :source_type)
+
+    case source_type do
+      "kubernetes" ->
+        changeset
+        |> validate_k8s_config()
+
+      _ ->
+        # dns_srv (default)
+        validate_required(changeset, [:hostname])
+    end
+  end
+
+  defp validate_k8s_config(changeset) do
+    config = get_field(changeset, :config) || %{}
+
+    changeset
+    |> validate_k8s_required_key(config, "namespace")
+    |> validate_k8s_required_key(config, "service_name")
+  end
+
+  defp validate_k8s_required_key(changeset, config, key) do
+    if is_binary(config[key]) and config[key] != "" do
+      changeset
+    else
+      add_error(changeset, :config, "must include #{key}")
+    end
   end
 
   def sync_changeset(source, attrs) do

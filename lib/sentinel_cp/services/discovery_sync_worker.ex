@@ -24,15 +24,17 @@ defmodule SentinelCp.Services.DiscoverySyncWorker do
 
     for source <- sources do
       if sync_due?(source) do
+        identifier = source_identifier(source)
+
         case Services.sync_discovery_source(source) do
           {:ok, result} ->
             Logger.info(
-              "DiscoverySyncWorker: synced #{source.hostname} — " <>
+              "DiscoverySyncWorker: synced #{identifier} — " <>
                 "added: #{result.added}, removed: #{result.removed}, kept: #{result.kept}"
             )
 
           {:error, reason} ->
-            Logger.warning("DiscoverySyncWorker: failed to sync #{source.hostname}: #{reason}")
+            Logger.warning("DiscoverySyncWorker: failed to sync #{identifier}: #{reason}")
         end
       end
     end
@@ -47,6 +49,11 @@ defmodule SentinelCp.Services.DiscoverySyncWorker do
     elapsed = DateTime.diff(DateTime.utc_now(), source.last_synced_at, :second)
     elapsed >= source.sync_interval_seconds
   end
+
+  defp source_identifier(%{source_type: "kubernetes"} = s),
+    do: "k8s:#{s.config["namespace"]}/#{s.config["service_name"]}"
+
+  defp source_identifier(s), do: s.hostname
 
   defp reschedule do
     oban_config = Application.get_env(:sentinel_cp, Oban, [])

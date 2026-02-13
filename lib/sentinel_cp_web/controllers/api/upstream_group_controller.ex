@@ -342,6 +342,7 @@ defmodule SentinelCpWeb.Api.UpstreamGroupController do
       id: source.id,
       source_type: source.source_type,
       hostname: source.hostname,
+      config: mask_config(source.config),
       sync_interval_seconds: source.sync_interval_seconds,
       auto_sync: source.auto_sync,
       last_synced_at: source.last_synced_at,
@@ -353,6 +354,15 @@ defmodule SentinelCpWeb.Api.UpstreamGroupController do
       inserted_at: source.inserted_at,
       updated_at: source.updated_at
     }
+  end
+
+  defp mask_config(nil), do: %{}
+  defp mask_config(config) when is_map(config) do
+    if Map.has_key?(config, "token") do
+      Map.put(config, "token", "****")
+    else
+      config
+    end
   end
 
   defp format_errors(changeset) do

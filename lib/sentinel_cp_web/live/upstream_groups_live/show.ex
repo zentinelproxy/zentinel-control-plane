@@ -24,7 +24,8 @@ defmodule SentinelCpWeb.UpstreamGroupsLive.Show do
          group: group,
          discovery_source: discovery_source,
          show_discovery_form: false,
-         editing_discovery: false
+         editing_discovery: false,
+         discovery_source_type: "dns_srv"
        )}
     else
       _ ->
@@ -103,7 +104,11 @@ defmodule SentinelCpWeb.UpstreamGroupsLive.Show do
   # Discovery events
 
   def handle_event("enable_discovery", _, socket) do
-    {:noreply, assign(socket, show_discovery_form: true)}
+    {:noreply, assign(socket, show_discovery_form: true, discovery_source_type: "dns_srv")}
+  end
+
+  def handle_event("change_discovery_type", %{"source_type" => source_type}, socket) do
+    {:noreply, assign(socket, discovery_source_type: source_type)}
   end
 
   def handle_event("cancel_discovery", _, socket) do
@@ -113,14 +118,17 @@ defmodule SentinelCpWeb.UpstreamGroupsLive.Show do
   def handle_event("create_discovery", params, socket) do
     group = socket.assigns.group
     project = socket.assigns.project
+    source_type = params["source_type"] || "dns_srv"
 
-    attrs = %{
-      hostname: params["hostname"],
-      sync_interval_seconds: parse_int(params["sync_interval_seconds"]) || 60,
-      auto_sync: params["auto_sync"] == "true",
-      upstream_group_id: group.id,
-      project_id: project.id
-    }
+    attrs =
+      %{
+        source_type: source_type,
+        sync_interval_seconds: parse_int(params["sync_interval_seconds"]) || 60,
+        auto_sync: params["auto_sync"] == "true",
+        upstream_group_id: group.id,
+        project_id: project.id
+      }
+      |> put_source_type_attrs(source_type, params)
 
     case Services.create_discovery_source(attrs) do
       {:ok, source} ->
@@ -149,11 +157,12 @@ defmodule SentinelCpWeb.UpstreamGroupsLive.Show do
   def handle_event("update_discovery", params, socket) do
     source = socket.assigns.discovery_source
 
-    attrs = %{
-      hostname: params["hostname"],
-      sync_interval_seconds: parse_int(params["sync_interval_seconds"]) || 60,
-      auto_sync: params["auto_sync"] == "true"
-    }
+    attrs =
+      %{
+        sync_interval_seconds: parse_int(params["sync_interval_seconds"]) || 60,
+        auto_sync: params["auto_sync"] == "true"
+      }
+      |> put_source_type_attrs(source.source_type, params)
 
     case Services.update_discovery_source(source, attrs) do
       {:ok, updated} ->
@@ -272,17 +281,40 @@ defmodule SentinelCpWeb.UpstreamGroupsLive.Show do
           <%= cond do %>
             <% @editing_discovery && @discovery_source -> %>
               <form phx-submit="update_discovery" class="space-y-3">
-                <div class="form-control">
-                  <label class="label"><span class="label-text text-xs">Hostname</span></label>
-                  <input
-                    type="text"
-                    name="hostname"
-                    required
-                    class="input input-bordered input-sm"
-                    value={@discovery_source.hostname}
-                    placeholder="_http._tcp.api.internal"
-                  />
-                </div>
+                <%= if @discovery_source.source_type == "dns_srv" do %>
+                  <div class="form-control">
+                    <label class="label"><span class="label-text text-xs">Hostname</span></label>
+                    <input
+                      type="text"
+                      name="hostname"
+                      required
+                      class="input input-bordered input-sm"
+                      value={@discovery_source.hostname}
+                      placeholder="_http._tcp.api.internal"
+                    />
+                  </div>
+                <% else %>
+                  <div class="form-control">
+                    <label class="label"><span class="label-text text-xs">Namespace</span></label>
+                    <input type="text" name="namespace" required class="input input-bordered input-sm" value={@discovery_source.config["namespace"]} />
+                  </div>
+                  <div class="form-control">
+                    <label class="label"><span class="label-text text-xs">Service Name</span></label>
+                    <input type="text" name="service_name" required class="input input-bordered input-sm" value={@discovery_source.config["service_name"]} />
+                  </div>
+                  <div class="form-control">
+                    <label class="label"><span class="label-text text-xs">API URL (optional)</span></label>
+                    <input type="text" name="api_url" class="input input-bordered input-sm" value={@discovery_source.config["api_url"]} />
+                  </div>
+                  <div class="form-control">
+                    <label class="label"><span class="label-text text-xs">Token (optional)</span></label>
+                    <input type="password" name="token" class="input input-bordered input-sm" placeholder="Leave blank to keep current" />
+                  </div>
+                  <div class="form-control">
+                    <label class="label"><span class="label-text text-xs">Port Name (optional)</span></label>
+                    <input type="text" name="port_name" class="input input-bordered input-sm" value={@discovery_source.config["port_name"]} />
+                  </div>
+                <% end %>
                 <div class="flex gap-2">
                   <div class="form-control">
                     <label class="label"><span class="label-text text-xs">Interval (seconds)</span></label>
@@ -315,8 +347,11 @@ defmodule SentinelCpWeb.UpstreamGroupsLive.Show do
 
             <% @discovery_source -> %>
               <.definition_list>
-                <:item label="Type">{@discovery_source.source_type}</:item>
-                <:item label="Hostname"><span class="font-mono text-sm">{@discovery_source.hostname}</span></:item>
+                <:item label="Type">{discovery_type_label(@discovery_source.source_type)}</:item>
+                <:item :if={@discovery_source.source_type == "dns_srv"} label="Hostname"><span class="font-mono text-sm">{@discovery_source.hostname}</span></:item>
+                <:item :if={@discovery_source.source_type == "kubernetes"} label="Namespace"><span class="font-mono text-sm">{@discovery_source.config["namespace"]}</span></:item>
+                <:item :if={@discovery_source.source_type == "kubernetes"} label="Service"><span class="font-mono text-sm">{@discovery_source.config["service_name"]}</span></:item>
+                <:item :if={@discovery_source.source_type == "kubernetes" && @discovery_source.config["port_name"]} label="Port Name"><span class="font-mono text-sm">{@discovery_source.config["port_name"]}</span></:item>
                 <:item label="Status">
                   <span class={["badge badge-sm", sync_status_class(@discovery_source.last_sync_status)]}>
                     {sync_status_label(@discovery_source.last_sync_status)}
@@ -357,15 +392,51 @@ defmodule SentinelCpWeb.UpstreamGroupsLive.Show do
             <% @show_discovery_form -> %>
               <form phx-submit="create_discovery" class="space-y-3">
                 <div class="form-control">
-                  <label class="label"><span class="label-text text-xs">Hostname</span></label>
-                  <input
-                    type="text"
-                    name="hostname"
-                    required
-                    class="input input-bordered input-sm"
-                    placeholder="_http._tcp.api.internal"
-                  />
+                  <label class="label"><span class="label-text text-xs">Source Type</span></label>
+                  <select
+                    name="source_type"
+                    class="select select-bordered select-sm"
+                    phx-change="change_discovery_type"
+                  >
+                    <option value="dns_srv" selected={@discovery_source_type == "dns_srv"}>DNS/SRV</option>
+                    <option value="kubernetes" selected={@discovery_source_type == "kubernetes"}>Kubernetes</option>
+                  </select>
                 </div>
+
+                <%= if @discovery_source_type == "dns_srv" do %>
+                  <div class="form-control">
+                    <label class="label"><span class="label-text text-xs">Hostname</span></label>
+                    <input
+                      type="text"
+                      name="hostname"
+                      required
+                      class="input input-bordered input-sm"
+                      placeholder="_http._tcp.api.internal"
+                    />
+                  </div>
+                <% else %>
+                  <div class="form-control">
+                    <label class="label"><span class="label-text text-xs">Namespace</span></label>
+                    <input type="text" name="namespace" required class="input input-bordered input-sm" placeholder="default" />
+                  </div>
+                  <div class="form-control">
+                    <label class="label"><span class="label-text text-xs">Service Name</span></label>
+                    <input type="text" name="service_name" required class="input input-bordered input-sm" placeholder="my-service" />
+                  </div>
+                  <div class="form-control">
+                    <label class="label"><span class="label-text text-xs">API URL (optional)</span></label>
+                    <input type="text" name="api_url" class="input input-bordered input-sm" placeholder="https://kubernetes.default.svc" />
+                  </div>
+                  <div class="form-control">
+                    <label class="label"><span class="label-text text-xs">Token (optional)</span></label>
+                    <input type="password" name="token" class="input input-bordered input-sm" placeholder="Bearer token or ${secrets.K8S_TOKEN}" />
+                  </div>
+                  <div class="form-control">
+                    <label class="label"><span class="label-text text-xs">Port Name (optional)</span></label>
+                    <input type="text" name="port_name" class="input input-bordered input-sm" placeholder="http" />
+                  </div>
+                <% end %>
+
                 <div class="flex gap-2">
                   <div class="form-control">
                     <label class="label"><span class="label-text text-xs">Interval (seconds)</span></label>
@@ -400,7 +471,7 @@ defmodule SentinelCpWeb.UpstreamGroupsLive.Show do
               <div class="text-center py-4">
                 <p class="text-base-content/50 text-sm mb-3">No discovery source configured.</p>
                 <button phx-click="enable_discovery" class="btn btn-outline btn-sm">
-                  Enable DNS Discovery
+                  Enable Service Discovery
                 </button>
               </div>
           <% end %>
@@ -481,6 +552,27 @@ defmodule SentinelCpWeb.UpstreamGroupsLive.Show do
   defp group_edit_path(nil, project, group),
     do: ~p"/projects/#{project.slug}/upstream-groups/#{group.id}/edit"
 
+  defp put_source_type_attrs(attrs, "kubernetes", params) do
+    config =
+      %{
+        "namespace" => params["namespace"],
+        "service_name" => params["service_name"]
+      }
+      |> maybe_put_config("api_url", params["api_url"])
+      |> maybe_put_config("token", params["token"])
+      |> maybe_put_config("port_name", params["port_name"])
+
+    Map.put(attrs, :config, config)
+  end
+
+  defp put_source_type_attrs(attrs, _dns_srv, params) do
+    Map.put(attrs, :hostname, params["hostname"])
+  end
+
+  defp maybe_put_config(config, _key, nil), do: config
+  defp maybe_put_config(config, _key, ""), do: config
+  defp maybe_put_config(config, key, value), do: Map.put(config, key, value)
+
   defp parse_int(nil), do: nil
   defp parse_int(""), do: nil
   defp parse_int(str) when is_binary(str) do
@@ -498,6 +590,10 @@ defmodule SentinelCpWeb.UpstreamGroupsLive.Show do
     |> Enum.sort_by(fn {k, _} -> k end)
     |> Enum.map_join(", ", fn {k, v} -> "#{k}: #{v}" end)
   end
+
+  defp discovery_type_label("dns_srv"), do: "DNS/SRV"
+  defp discovery_type_label("kubernetes"), do: "Kubernetes"
+  defp discovery_type_label(type), do: type
 
   defp sync_status_class("synced"), do: "badge-success"
   defp sync_status_class("syncing"), do: "badge-info"
