@@ -161,6 +161,7 @@ defmodule SentinelCpWeb.WafLive.Anomalies do
               <button
                 phx-click="resolve"
                 phx-value-id={anomaly.id}
+                data-confirm="Are you sure you want to resolve this anomaly?"
                 class="btn btn-ghost btn-xs"
               >
                 Resolve
@@ -168,6 +169,7 @@ defmodule SentinelCpWeb.WafLive.Anomalies do
               <button
                 phx-click="false_positive"
                 phx-value-id={anomaly.id}
+                data-confirm="Mark this anomaly as a false positive?"
                 class="btn btn-ghost btn-xs"
               >
                 False Positive
@@ -177,6 +179,7 @@ defmodule SentinelCpWeb.WafLive.Anomalies do
               <button
                 phx-click="resolve"
                 phx-value-id={anomaly.id}
+                data-confirm="Are you sure you want to resolve this anomaly?"
                 class="btn btn-ghost btn-xs"
               >
                 Resolve

@@ -1,7 +1,9 @@
 defmodule SentinelCpWeb.NotificationsLive.ChannelShow do
   use SentinelCpWeb, :live_view
 
-  alias SentinelCp.{Audit, Events, Orgs, Projects}
+  import SentinelCpWeb.NotificationsLive.Helpers
+
+  alias SentinelCp.{Audit, Events, Projects}
 
   @impl true
   def mount(%{"project_slug" => slug, "id" => id} = params, _session, socket) do
@@ -98,7 +100,7 @@ defmodule SentinelCpWeb.NotificationsLive.ChannelShow do
           <button phx-click="send_test" class="btn btn-outline btn-sm">
             Send Test
           </button>
-          <.link navigate={edit_path(@org, @project, @channel)} class="btn btn-outline btn-sm">
+          <.link navigate={channel_edit_path(@org, @project, @channel)} class="btn btn-outline btn-sm">
             Edit
           </.link>
           <button
@@ -181,45 +183,4 @@ defmodule SentinelCpWeb.NotificationsLive.ChannelShow do
     </div>
     """
   end
-
-  attr :status, :string, required: true
-
-  defp status_badge(assigns) do
-    color =
-      case assigns.status do
-        "delivered" -> "badge-success"
-        "failed" -> "badge-error"
-        "dead_letter" -> "badge-warning"
-        "pending" -> "badge-info"
-        "delivering" -> "badge-info"
-        _ -> "badge-ghost"
-      end
-
-    assigns = assign(assigns, :color, color)
-
-    ~H"""
-    <span class={["badge badge-xs", @color]}>{@status}</span>
-    """
-  end
-
-  defp resolve_org(%{"org_slug" => slug}), do: Orgs.get_org_by_slug(slug)
-  defp resolve_org(_), do: nil
-
-  defp channels_path(%{slug: org_slug}, project),
-    do: ~p"/orgs/#{org_slug}/projects/#{project.slug}/notifications/channels"
-
-  defp channels_path(nil, project),
-    do: ~p"/projects/#{project.slug}/notifications/channels"
-
-  defp edit_path(%{slug: org_slug}, project, channel),
-    do: ~p"/orgs/#{org_slug}/projects/#{project.slug}/notifications/channels/#{channel.id}/edit"
-
-  defp edit_path(nil, project, channel),
-    do: ~p"/projects/#{project.slug}/notifications/channels/#{channel.id}/edit"
-
-  defp attempt_path(%{slug: org_slug}, project, attempt),
-    do: ~p"/orgs/#{org_slug}/projects/#{project.slug}/notifications/delivery/#{attempt.id}"
-
-  defp attempt_path(nil, project, attempt),
-    do: ~p"/projects/#{project.slug}/notifications/delivery/#{attempt.id}"
 end

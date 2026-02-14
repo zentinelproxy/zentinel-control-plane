@@ -1,7 +1,9 @@
 defmodule SentinelCpWeb.NotificationsLive.ChannelNew do
   use SentinelCpWeb, :live_view
 
-  alias SentinelCp.{Audit, Events, Orgs, Projects}
+  import SentinelCpWeb.NotificationsLive.Helpers
+
+  alias SentinelCp.{Audit, Events, Projects}
   alias SentinelCp.Events.Channel
 
   @impl true
@@ -56,7 +58,7 @@ defmodule SentinelCpWeb.NotificationsLive.ChannelNew do
         {:noreply,
          socket
          |> put_flash(:info, "Channel created.")
-         |> push_navigate(to: show_path(socket.assigns.org, project, channel))}
+         |> push_navigate(to: channel_show_path(socket.assigns.org, project, channel))}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         errors =
@@ -194,34 +196,4 @@ defmodule SentinelCpWeb.NotificationsLive.ChannelNew do
     </div>
     """
   end
-
-  defp resolve_org(%{"org_slug" => slug}), do: Orgs.get_org_by_slug(slug)
-  defp resolve_org(_), do: nil
-
-  defp build_config("slack", params), do: %{"webhook_url" => params["webhook_url"] || ""}
-  defp build_config("pagerduty", params), do: %{"routing_key" => params["routing_key"] || ""}
-
-  defp build_config("email", params) do
-    config = %{"to" => params["to"] || ""}
-
-    if params["from"] && params["from"] != "",
-      do: Map.put(config, "from", params["from"]),
-      else: config
-  end
-
-  defp build_config("teams", params), do: %{"webhook_url" => params["webhook_url"] || ""}
-  defp build_config("webhook", params), do: %{"url" => params["url"] || ""}
-  defp build_config(_, _), do: %{}
-
-  defp channels_path(%{slug: org_slug}, project),
-    do: ~p"/orgs/#{org_slug}/projects/#{project.slug}/notifications/channels"
-
-  defp channels_path(nil, project),
-    do: ~p"/projects/#{project.slug}/notifications/channels"
-
-  defp show_path(%{slug: org_slug}, project, channel),
-    do: ~p"/orgs/#{org_slug}/projects/#{project.slug}/notifications/channels/#{channel.id}"
-
-  defp show_path(nil, project, channel),
-    do: ~p"/projects/#{project.slug}/notifications/channels/#{channel.id}"
 end

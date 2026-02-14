@@ -30,11 +30,22 @@ defmodule SentinelCp.Events.DeliveryWorker do
       event = Events.get_event(attempt.event_id)
       channel = attempt.channel
 
-      if event && channel do
-        execute_delivery(attempt, event, channel)
-      else
-        Logger.warning("Delivery attempt #{attempt_id}: missing event or channel")
-        :ok
+      cond do
+        is_nil(event) || is_nil(channel) ->
+          Logger.warning("Delivery attempt #{attempt_id}: missing event or channel")
+          :ok
+
+        not channel.enabled ->
+          Logger.info("Delivery attempt #{attempt_id}: channel disabled, skipping")
+
+          attempt
+          |> Ecto.Changeset.change(%{status: "skipped"})
+          |> Repo.update!()
+
+          :ok
+
+        true ->
+          execute_delivery(attempt, event, channel)
       end
     else
       :ok

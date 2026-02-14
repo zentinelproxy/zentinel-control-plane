@@ -151,6 +151,7 @@ defmodule SentinelCpWeb.PortalLive.Keys do
                     class="btn btn-ghost btn-xs text-error"
                     phx-click="revoke_key"
                     phx-value-id={key.id}
+                    data-confirm="Are you sure you want to revoke this API key? This cannot be undone."
                   >
                     Revoke
                   </button>

@@ -463,6 +463,19 @@ defmodule SentinelCpWeb.CoreComponents do
         "rollout" -> {"RO", "badge-warning"}
         "project" -> {"PJ", "badge-primary"}
         "org" -> {"OR", "badge-secondary"}
+        "service" -> {"SV", "badge-info"}
+        "certificate" -> {"CT", "badge-success"}
+        "middleware" -> {"MW", "badge-warning"}
+        "plugin" -> {"PL", "badge-primary"}
+        "plugin_version" -> {"PV", "badge-primary"}
+        "environment" -> {"EN", "badge-info"}
+        "upstream" -> {"UP", "badge-secondary"}
+        "policy" -> {"PO", "badge-warning"}
+        "notification_channel" -> {"NC", "badge-info"}
+        "notification_rule" -> {"NR", "badge-secondary"}
+        "waf" -> {"WF", "badge-error"}
+        "api_key" -> {"AK", "badge-warning"}
+        "user" -> {"US", "badge-info"}
         _ -> {"??", "badge-ghost"}
       end
 

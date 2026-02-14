@@ -29,17 +29,21 @@ defmodule SentinelCpWeb.PluginsLive.Index do
     project = socket.assigns.project
     plugin = Plugins.get_plugin!(id)
 
-    case Plugins.delete_plugin(plugin) do
-      {:ok, _} ->
-        Audit.log_user_action(socket.assigns.current_user, "delete", "plugin", plugin.id,
-          project_id: project.id
-        )
+    if plugin.project_id != project.id do
+      {:noreply, put_flash(socket, :error, "Plugin not found.")}
+    else
+      case Plugins.delete_plugin(plugin) do
+        {:ok, _} ->
+          Audit.log_user_action(socket.assigns.current_user, "delete", "plugin", plugin.id,
+            project_id: project.id
+          )
 
-        plugins = Plugins.list_plugins(project.id)
-        {:noreply, assign(socket, plugins: plugins) |> put_flash(:info, "Plugin deleted.")}
+          plugins = Plugins.list_plugins(project.id)
+          {:noreply, assign(socket, plugins: plugins) |> put_flash(:info, "Plugin deleted.")}
 
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Could not delete plugin.")}
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Could not delete plugin.")}
+      end
     end
   end
 

@@ -17,7 +17,12 @@ defmodule SentinelCp.Events.Adapters.Webhook do
     body = Jason.encode!(payload)
     headers = build_headers(body, signing_secret)
 
-    case Req.post(url, body: body, headers: headers) do
+    case Req.post(url,
+           body: body,
+           headers: headers,
+           receive_timeout: 15_000,
+           pool_timeout: 5_000
+         ) do
       {:ok, %{status: status}} when status in 200..299 -> {:ok, status}
       {:ok, %{status: status, body: body}} -> {:error, {:http_error, status, body}}
       {:error, reason} -> {:error, reason}

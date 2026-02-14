@@ -391,7 +391,6 @@ defmodule SentinelCpWeb.Api.PluginController do
     %{
       id: version.id,
       version: version.version,
-      storage_key: version.storage_key,
       checksum: version.checksum,
       file_size: version.file_size,
       changelog: version.changelog,

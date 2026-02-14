@@ -1,7 +1,9 @@
 defmodule SentinelCpWeb.NotificationsLive.ChannelEdit do
   use SentinelCpWeb, :live_view
 
-  alias SentinelCp.{Audit, Events, Orgs, Projects}
+  import SentinelCpWeb.NotificationsLive.Helpers
+
+  alias SentinelCp.{Audit, Events, Projects}
 
   @impl true
   def mount(%{"project_slug" => slug, "id" => id} = params, _session, socket) do
@@ -50,7 +52,7 @@ defmodule SentinelCpWeb.NotificationsLive.ChannelEdit do
         {:noreply,
          socket
          |> put_flash(:info, "Channel updated.")
-         |> push_navigate(to: show_path(socket.assigns.org, project, updated))}
+         |> push_navigate(to: channel_show_path(socket.assigns.org, project, updated))}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         errors =
@@ -171,7 +173,7 @@ defmodule SentinelCpWeb.NotificationsLive.ChannelEdit do
 
           <div class="flex gap-2 pt-4">
             <button type="submit" class="btn btn-primary btn-sm">Save Changes</button>
-            <.link navigate={show_path(@org, @project, @channel)} class="btn btn-ghost btn-sm">
+            <.link navigate={channel_show_path(@org, @project, @channel)} class="btn btn-ghost btn-sm">
               Cancel
             </.link>
           </div>
@@ -180,28 +182,4 @@ defmodule SentinelCpWeb.NotificationsLive.ChannelEdit do
     </div>
     """
   end
-
-  defp resolve_org(%{"org_slug" => slug}), do: Orgs.get_org_by_slug(slug)
-  defp resolve_org(_), do: nil
-
-  defp build_config("slack", params), do: %{"webhook_url" => params["webhook_url"] || ""}
-  defp build_config("pagerduty", params), do: %{"routing_key" => params["routing_key"] || ""}
-
-  defp build_config("email", params) do
-    config = %{"to" => params["to"] || ""}
-
-    if params["from"] && params["from"] != "",
-      do: Map.put(config, "from", params["from"]),
-      else: config
-  end
-
-  defp build_config("teams", params), do: %{"webhook_url" => params["webhook_url"] || ""}
-  defp build_config("webhook", params), do: %{"url" => params["url"] || ""}
-  defp build_config(_, _), do: %{}
-
-  defp show_path(%{slug: org_slug}, project, channel),
-    do: ~p"/orgs/#{org_slug}/projects/#{project.slug}/notifications/channels/#{channel.id}"
-
-  defp show_path(nil, project, channel),
-    do: ~p"/projects/#{project.slug}/notifications/channels/#{channel.id}"
 end

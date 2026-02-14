@@ -57,7 +57,7 @@ defmodule SentinelCpWeb.PluginsLive.Show do
       nil ->
         {:noreply, put_flash(socket, :error, "Version not found.")}
 
-      version ->
+      version when version.plugin_id == plugin.id ->
         case Plugins.delete_plugin_version(version) do
           {:ok, _} ->
             Audit.log_user_action(
@@ -74,6 +74,9 @@ defmodule SentinelCpWeb.PluginsLive.Show do
           {:error, _} ->
             {:noreply, put_flash(socket, :error, "Could not delete version.")}
         end
+
+      _version ->
+        {:noreply, put_flash(socket, :error, "Version not found.")}
     end
   end
 

@@ -35,7 +35,12 @@ defmodule SentinelCp.Events.Adapters.Slack do
   def deliver(webhook_url, payload) do
     body = Jason.encode!(payload)
 
-    case Req.post(webhook_url, body: body, headers: [{"content-type", "application/json"}]) do
+    case Req.post(webhook_url,
+           body: body,
+           headers: [{"content-type", "application/json"}],
+           receive_timeout: 15_000,
+           pool_timeout: 5_000
+         ) do
       {:ok, %{status: status}} when status in 200..299 ->
         {:ok, status}
 

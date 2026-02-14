@@ -1,7 +1,9 @@
 defmodule SentinelCpWeb.NotificationsLive.Delivery do
   use SentinelCpWeb, :live_view
 
-  alias SentinelCp.{Events, Orgs, Projects}
+  import SentinelCpWeb.NotificationsLive.Helpers
+
+  alias SentinelCp.{Events, Projects}
 
   @impl true
   def mount(%{"project_slug" => slug} = params, _session, socket) do
@@ -138,7 +140,14 @@ defmodule SentinelCpWeb.NotificationsLive.Delivery do
                 </.link>
               </td>
               <td>
-                <span class="text-sm">{(a.channel && a.channel.name) || "—"}</span>
+                <.link
+                  :if={a.channel}
+                  navigate={channel_show_path(@org, @project, a.channel)}
+                  class="text-sm link"
+                >
+                  {a.channel.name}
+                </.link>
+                <span :if={!a.channel} class="text-sm">—</span>
               </td>
               <td><.status_badge status={a.status} /></td>
               <td>{a.attempt_number}</td>
@@ -176,92 +185,4 @@ defmodule SentinelCpWeb.NotificationsLive.Delivery do
     </div>
     """
   end
-
-  attr :status, :string, required: true
-
-  defp status_badge(assigns) do
-    color =
-      case assigns.status do
-        "delivered" -> "badge-success"
-        "failed" -> "badge-error"
-        "dead_letter" -> "badge-warning"
-        "pending" -> "badge-info"
-        "delivering" -> "badge-info"
-        _ -> "badge-ghost"
-      end
-
-    assigns = assign(assigns, :color, color)
-
-    ~H"""
-    <span class={["badge badge-xs", @color]}>{@status}</span>
-    """
-  end
-
-  defp resolve_org(%{"org_slug" => slug}), do: Orgs.get_org_by_slug(slug)
-  defp resolve_org(_), do: nil
-
-  attr :org, :any, required: true
-  attr :project, :any, required: true
-  attr :active, :string, required: true
-
-  defp notification_tabs(assigns) do
-    ~H"""
-    <div class="tabs tabs-bordered">
-      <.link
-        navigate={notifications_path(@org, @project)}
-        class={["tab", @active == "overview" && "tab-active"]}
-      >
-        Overview
-      </.link>
-      <.link
-        navigate={channels_path(@org, @project)}
-        class={["tab", @active == "channels" && "tab-active"]}
-      >
-        Channels
-      </.link>
-      <.link
-        navigate={rules_path(@org, @project)}
-        class={["tab", @active == "rules" && "tab-active"]}
-      >
-        Rules
-      </.link>
-      <.link
-        navigate={delivery_path(@org, @project)}
-        class={["tab", @active == "delivery" && "tab-active"]}
-      >
-        Delivery
-      </.link>
-    </div>
-    """
-  end
-
-  defp notifications_path(%{slug: org_slug}, project),
-    do: ~p"/orgs/#{org_slug}/projects/#{project.slug}/notifications"
-
-  defp notifications_path(nil, project),
-    do: ~p"/projects/#{project.slug}/notifications"
-
-  defp channels_path(%{slug: org_slug}, project),
-    do: ~p"/orgs/#{org_slug}/projects/#{project.slug}/notifications/channels"
-
-  defp channels_path(nil, project),
-    do: ~p"/projects/#{project.slug}/notifications/channels"
-
-  defp rules_path(%{slug: org_slug}, project),
-    do: ~p"/orgs/#{org_slug}/projects/#{project.slug}/notifications/rules"
-
-  defp rules_path(nil, project),
-    do: ~p"/projects/#{project.slug}/notifications/rules"
-
-  defp delivery_path(%{slug: org_slug}, project),
-    do: ~p"/orgs/#{org_slug}/projects/#{project.slug}/notifications/delivery"
-
-  defp delivery_path(nil, project),
-    do: ~p"/projects/#{project.slug}/notifications/delivery"
-
-  defp attempt_path(%{slug: org_slug}, project, attempt),
-    do: ~p"/orgs/#{org_slug}/projects/#{project.slug}/notifications/delivery/#{attempt.id}"
-
-  defp attempt_path(nil, project, attempt),
-    do: ~p"/projects/#{project.slug}/notifications/delivery/#{attempt.id}"
 end

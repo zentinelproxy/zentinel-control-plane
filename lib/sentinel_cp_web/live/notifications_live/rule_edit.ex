@@ -1,7 +1,9 @@
 defmodule SentinelCpWeb.NotificationsLive.RuleEdit do
   use SentinelCpWeb, :live_view
 
-  alias SentinelCp.{Audit, Events, Orgs, Projects}
+  import SentinelCpWeb.NotificationsLive.Helpers
+
+  alias SentinelCp.{Audit, Events, Projects}
 
   @impl true
   def mount(%{"project_slug" => slug, "id" => id} = params, _session, socket) do
@@ -58,7 +60,7 @@ defmodule SentinelCpWeb.NotificationsLive.RuleEdit do
         {:noreply,
          socket
          |> put_flash(:info, "Rule updated.")
-         |> push_navigate(to: show_path(socket.assigns.org, project, updated))}
+         |> push_navigate(to: rule_show_path(socket.assigns.org, project, updated))}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         errors =
@@ -134,7 +136,7 @@ defmodule SentinelCpWeb.NotificationsLive.RuleEdit do
 
           <div class="flex gap-2 pt-4">
             <button type="submit" class="btn btn-primary btn-sm">Save Changes</button>
-            <.link navigate={show_path(@org, @project, @rule)} class="btn btn-ghost btn-sm">
+            <.link navigate={rule_show_path(@org, @project, @rule)} class="btn btn-ghost btn-sm">
               Cancel
             </.link>
           </div>
@@ -143,13 +145,4 @@ defmodule SentinelCpWeb.NotificationsLive.RuleEdit do
     </div>
     """
   end
-
-  defp resolve_org(%{"org_slug" => slug}), do: Orgs.get_org_by_slug(slug)
-  defp resolve_org(_), do: nil
-
-  defp show_path(%{slug: org_slug}, project, rule),
-    do: ~p"/orgs/#{org_slug}/projects/#{project.slug}/notifications/rules/#{rule.id}"
-
-  defp show_path(nil, project, rule),
-    do: ~p"/projects/#{project.slug}/notifications/rules/#{rule.id}"
 end

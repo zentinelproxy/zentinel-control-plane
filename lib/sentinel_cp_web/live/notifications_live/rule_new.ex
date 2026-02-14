@@ -1,7 +1,9 @@
 defmodule SentinelCpWeb.NotificationsLive.RuleNew do
   use SentinelCpWeb, :live_view
 
-  alias SentinelCp.{Audit, Events, Orgs, Projects}
+  import SentinelCpWeb.NotificationsLive.Helpers
+
+  alias SentinelCp.{Audit, Events, Projects}
 
   @impl true
   def mount(%{"project_slug" => slug} = params, _session, socket) do
@@ -55,7 +57,7 @@ defmodule SentinelCpWeb.NotificationsLive.RuleNew do
         {:noreply,
          socket
          |> put_flash(:info, "Rule created.")
-         |> push_navigate(to: show_path(socket.assigns.org, project, rule))}
+         |> push_navigate(to: rule_show_path(socket.assigns.org, project, rule))}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         errors =
@@ -116,9 +118,12 @@ defmodule SentinelCpWeb.NotificationsLive.RuleNew do
                 {ch.name} ({ch.type})
               </option>
             </select>
-            <p :if={@channels == []} class="text-xs text-warning mt-1">
-              No channels available. Create a channel first.
-            </p>
+            <div :if={@channels == []} class="text-xs text-warning mt-1">
+              No channels available.
+              <.link navigate={new_channel_path(@org, @project)} class="link">
+                Create a channel first.
+              </.link>
+            </div>
           </div>
 
           <div class="form-control">
@@ -135,7 +140,9 @@ defmodule SentinelCpWeb.NotificationsLive.RuleNew do
           </div>
 
           <div class="flex gap-2 pt-4">
-            <button type="submit" class="btn btn-primary btn-sm">Create Rule</button>
+            <button type="submit" class="btn btn-primary btn-sm" disabled={@channels == []}>
+              Create Rule
+            </button>
             <.link navigate={rules_path(@org, @project)} class="btn btn-ghost btn-sm">Cancel</.link>
           </div>
         </form>
@@ -143,19 +150,4 @@ defmodule SentinelCpWeb.NotificationsLive.RuleNew do
     </div>
     """
   end
-
-  defp resolve_org(%{"org_slug" => slug}), do: Orgs.get_org_by_slug(slug)
-  defp resolve_org(_), do: nil
-
-  defp rules_path(%{slug: org_slug}, project),
-    do: ~p"/orgs/#{org_slug}/projects/#{project.slug}/notifications/rules"
-
-  defp rules_path(nil, project),
-    do: ~p"/projects/#{project.slug}/notifications/rules"
-
-  defp show_path(%{slug: org_slug}, project, rule),
-    do: ~p"/orgs/#{org_slug}/projects/#{project.slug}/notifications/rules/#{rule.id}"
-
-  defp show_path(nil, project, rule),
-    do: ~p"/projects/#{project.slug}/notifications/rules/#{rule.id}"
 end

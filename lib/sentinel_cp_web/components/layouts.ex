@@ -176,6 +176,13 @@ defmodule SentinelCpWeb.Layouts do
           current={@path}
           match="/waf"
         />
+        <.sidebar_link
+          path={~p"/orgs/#{@org_slug}/projects/#{@project_slug}/analytics"}
+          icon="hero-chart-bar"
+          label="Analytics"
+          current={@path}
+          match="/analytics"
+        />
 
         <div class="sidebar-section-title mt-4">Settings</div>
         <.sidebar_link

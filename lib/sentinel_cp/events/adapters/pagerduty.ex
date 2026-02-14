@@ -27,7 +27,12 @@ defmodule SentinelCp.Events.Adapters.PagerDuty do
   def deliver(routing_key, payload) do
     body = Jason.encode!(payload)
 
-    case Req.post(@events_url, body: body, headers: [{"content-type", "application/json"}]) do
+    case Req.post(@events_url,
+           body: body,
+           headers: [{"content-type", "application/json"}],
+           receive_timeout: 15_000,
+           pool_timeout: 5_000
+         ) do
       {:ok, %{status: 202}} -> {:ok, 202}
       {:ok, %{status: status, body: body}} -> {:error, {:http_error, status, body}}
       {:error, reason} -> {:error, reason}

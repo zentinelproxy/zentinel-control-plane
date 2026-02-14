@@ -1,7 +1,9 @@
 defmodule SentinelCpWeb.NotificationsLive.RuleShow do
   use SentinelCpWeb, :live_view
 
-  alias SentinelCp.{Audit, Events, Orgs, Projects}
+  import SentinelCpWeb.NotificationsLive.Helpers
+
+  alias SentinelCp.{Audit, Events, Projects}
 
   @impl true
   def mount(%{"project_slug" => slug, "id" => id} = params, _session, socket) do
@@ -65,7 +67,7 @@ defmodule SentinelCpWeb.NotificationsLive.RuleShow do
           </span>
         </:badge>
         <:action>
-          <.link navigate={edit_path(@org, @project, @rule)} class="btn btn-outline btn-sm">
+          <.link navigate={rule_edit_path(@org, @project, @rule)} class="btn btn-outline btn-sm">
             Edit
           </.link>
           <button
@@ -86,7 +88,9 @@ defmodule SentinelCpWeb.NotificationsLive.RuleShow do
             <span class="font-mono text-sm">{@rule.event_pattern}</span>
           </:item>
           <:item label="Channel">
-            {@rule.channel.name}
+            <.link navigate={channel_show_path(@org, @project, @rule.channel)} class="link">
+              {@rule.channel.name}
+            </.link>
             <span class="badge badge-xs badge-outline ml-1">{@rule.channel.type}</span>
           </:item>
           <:item label="Enabled">{if @rule.enabled, do: "Yes", else: "No"}</:item>
@@ -101,19 +105,4 @@ defmodule SentinelCpWeb.NotificationsLive.RuleShow do
     </div>
     """
   end
-
-  defp resolve_org(%{"org_slug" => slug}), do: Orgs.get_org_by_slug(slug)
-  defp resolve_org(_), do: nil
-
-  defp rules_path(%{slug: org_slug}, project),
-    do: ~p"/orgs/#{org_slug}/projects/#{project.slug}/notifications/rules"
-
-  defp rules_path(nil, project),
-    do: ~p"/projects/#{project.slug}/notifications/rules"
-
-  defp edit_path(%{slug: org_slug}, project, rule),
-    do: ~p"/orgs/#{org_slug}/projects/#{project.slug}/notifications/rules/#{rule.id}/edit"
-
-  defp edit_path(nil, project, rule),
-    do: ~p"/projects/#{project.slug}/notifications/rules/#{rule.id}/edit"
 end

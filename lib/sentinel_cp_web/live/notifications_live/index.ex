@@ -1,7 +1,9 @@
 defmodule SentinelCpWeb.NotificationsLive.Index do
   use SentinelCpWeb, :live_view
 
-  alias SentinelCp.{Events, Orgs, Projects}
+  import SentinelCpWeb.NotificationsLive.Helpers
+
+  alias SentinelCp.{Events, Projects}
 
   @impl true
   def mount(%{"project_slug" => slug} = params, _session, socket) do
@@ -70,9 +72,6 @@ defmodule SentinelCpWeb.NotificationsLive.Index do
     """
   end
 
-  defp resolve_org(%{"org_slug" => slug}), do: Orgs.get_org_by_slug(slug)
-  defp resolve_org(_), do: nil
-
   attr :label, :string, required: true
   attr :value, :integer, required: true
   attr :color, :string, default: nil
@@ -85,63 +84,4 @@ defmodule SentinelCpWeb.NotificationsLive.Index do
     </div>
     """
   end
-
-  attr :org, :any, required: true
-  attr :project, :any, required: true
-  attr :active, :string, required: true
-
-  defp notification_tabs(assigns) do
-    ~H"""
-    <div class="tabs tabs-bordered">
-      <.link
-        navigate={notifications_path(@org, @project)}
-        class={["tab", @active == "overview" && "tab-active"]}
-      >
-        Overview
-      </.link>
-      <.link
-        navigate={channels_path(@org, @project)}
-        class={["tab", @active == "channels" && "tab-active"]}
-      >
-        Channels
-      </.link>
-      <.link
-        navigate={rules_path(@org, @project)}
-        class={["tab", @active == "rules" && "tab-active"]}
-      >
-        Rules
-      </.link>
-      <.link
-        navigate={delivery_path(@org, @project)}
-        class={["tab", @active == "delivery" && "tab-active"]}
-      >
-        Delivery
-      </.link>
-    </div>
-    """
-  end
-
-  defp notifications_path(%{slug: org_slug}, project),
-    do: ~p"/orgs/#{org_slug}/projects/#{project.slug}/notifications"
-
-  defp notifications_path(nil, project),
-    do: ~p"/projects/#{project.slug}/notifications"
-
-  defp channels_path(%{slug: org_slug}, project),
-    do: ~p"/orgs/#{org_slug}/projects/#{project.slug}/notifications/channels"
-
-  defp channels_path(nil, project),
-    do: ~p"/projects/#{project.slug}/notifications/channels"
-
-  defp rules_path(%{slug: org_slug}, project),
-    do: ~p"/orgs/#{org_slug}/projects/#{project.slug}/notifications/rules"
-
-  defp rules_path(nil, project),
-    do: ~p"/projects/#{project.slug}/notifications/rules"
-
-  defp delivery_path(%{slug: org_slug}, project),
-    do: ~p"/orgs/#{org_slug}/projects/#{project.slug}/notifications/delivery"
-
-  defp delivery_path(nil, project),
-    do: ~p"/projects/#{project.slug}/notifications/delivery"
 end

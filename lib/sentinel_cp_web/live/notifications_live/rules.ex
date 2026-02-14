@@ -1,7 +1,9 @@
 defmodule SentinelCpWeb.NotificationsLive.Rules do
   use SentinelCpWeb, :live_view
 
-  alias SentinelCp.{Audit, Events, Orgs, Projects}
+  import SentinelCpWeb.NotificationsLive.Helpers
+
+  alias SentinelCp.{Audit, Events, Projects}
 
   @impl true
   def mount(%{"project_slug" => slug} = params, _session, socket) do
@@ -97,13 +99,15 @@ defmodule SentinelCpWeb.NotificationsLive.Rules do
           <tbody>
             <tr :for={rule <- @rules}>
               <td>
-                <.link navigate={show_rule_path(@org, @project, rule)} class="link link-primary">
+                <.link navigate={rule_show_path(@org, @project, rule)} class="link link-primary">
                   {rule.name}
                 </.link>
               </td>
               <td><span class="font-mono text-sm">{rule.event_pattern}</span></td>
               <td>
-                <span class="text-sm">{rule.channel.name}</span>
+                <.link navigate={channel_show_path(@org, @project, rule.channel)} class="link">
+                  {rule.channel.name}
+                </.link>
                 <span class="badge badge-xs badge-outline ml-1">{rule.channel.type}</span>
               </td>
               <td>
@@ -137,78 +141,4 @@ defmodule SentinelCpWeb.NotificationsLive.Rules do
     </div>
     """
   end
-
-  defp resolve_org(%{"org_slug" => slug}), do: Orgs.get_org_by_slug(slug)
-  defp resolve_org(_), do: nil
-
-  attr :org, :any, required: true
-  attr :project, :any, required: true
-  attr :active, :string, required: true
-
-  defp notification_tabs(assigns) do
-    ~H"""
-    <div class="tabs tabs-bordered">
-      <.link
-        navigate={notifications_path(@org, @project)}
-        class={["tab", @active == "overview" && "tab-active"]}
-      >
-        Overview
-      </.link>
-      <.link
-        navigate={channels_path(@org, @project)}
-        class={["tab", @active == "channels" && "tab-active"]}
-      >
-        Channels
-      </.link>
-      <.link
-        navigate={rules_path(@org, @project)}
-        class={["tab", @active == "rules" && "tab-active"]}
-      >
-        Rules
-      </.link>
-      <.link
-        navigate={delivery_path(@org, @project)}
-        class={["tab", @active == "delivery" && "tab-active"]}
-      >
-        Delivery
-      </.link>
-    </div>
-    """
-  end
-
-  defp notifications_path(%{slug: org_slug}, project),
-    do: ~p"/orgs/#{org_slug}/projects/#{project.slug}/notifications"
-
-  defp notifications_path(nil, project),
-    do: ~p"/projects/#{project.slug}/notifications"
-
-  defp channels_path(%{slug: org_slug}, project),
-    do: ~p"/orgs/#{org_slug}/projects/#{project.slug}/notifications/channels"
-
-  defp channels_path(nil, project),
-    do: ~p"/projects/#{project.slug}/notifications/channels"
-
-  defp rules_path(%{slug: org_slug}, project),
-    do: ~p"/orgs/#{org_slug}/projects/#{project.slug}/notifications/rules"
-
-  defp rules_path(nil, project),
-    do: ~p"/projects/#{project.slug}/notifications/rules"
-
-  defp delivery_path(%{slug: org_slug}, project),
-    do: ~p"/orgs/#{org_slug}/projects/#{project.slug}/notifications/delivery"
-
-  defp delivery_path(nil, project),
-    do: ~p"/projects/#{project.slug}/notifications/delivery"
-
-  defp new_rule_path(%{slug: org_slug}, project),
-    do: ~p"/orgs/#{org_slug}/projects/#{project.slug}/notifications/rules/new"
-
-  defp new_rule_path(nil, project),
-    do: ~p"/projects/#{project.slug}/notifications/rules/new"
-
-  defp show_rule_path(%{slug: org_slug}, project, rule),
-    do: ~p"/orgs/#{org_slug}/projects/#{project.slug}/notifications/rules/#{rule.id}"
-
-  defp show_rule_path(nil, project, rule),
-    do: ~p"/projects/#{project.slug}/notifications/rules/#{rule.id}"
 end
