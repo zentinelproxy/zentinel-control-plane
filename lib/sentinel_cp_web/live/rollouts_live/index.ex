@@ -41,7 +41,8 @@ defmodule SentinelCpWeb.RolloutsLive.Index do
            health_checks: health_checks,
            selected_template_id: default_template && default_template.id,
            form_values: form_values,
-           show_form: false
+           show_form: false,
+           selected_strategy: form_values.strategy
          )}
     end
   end
@@ -53,10 +54,13 @@ defmodule SentinelCpWeb.RolloutsLive.Index do
 
   @impl true
   def handle_event("select_template", %{"template_id" => ""}, socket) do
+    form_values = default_form_values()
+
     {:noreply,
      assign(socket,
        selected_template_id: nil,
-       form_values: default_form_values()
+       form_values: form_values,
+       selected_strategy: form_values.strategy
      )}
   end
 
@@ -68,8 +72,14 @@ defmodule SentinelCpWeb.RolloutsLive.Index do
     {:noreply,
      assign(socket,
        selected_template_id: template_id,
-       form_values: form_values
+       form_values: form_values,
+       selected_strategy: form_values.strategy
      )}
+  end
+
+  @impl true
+  def handle_event("switch_strategy", %{"strategy" => strategy}, socket) do
+    {:noreply, assign(socket, selected_strategy: strategy)}
   end
 
   @impl true
@@ -102,16 +112,36 @@ defmodule SentinelCpWeb.RolloutsLive.Index do
         id when is_binary(id) -> [id]
       end
 
+    strategy = params["strategy"] || "rolling"
+
+    canary_analysis_config =
+      if strategy == "canary" do
+        steps =
+          (params["canary_steps"] || "5, 25, 50, 100")
+          |> String.split(",", trim: true)
+          |> Enum.map(&(&1 |> String.trim() |> String.to_integer()))
+
+        %{
+          "error_rate_threshold" => parse_float(params["canary_error_threshold"], 5.0),
+          "latency_p99_threshold_ms" => parse_float(params["canary_latency_threshold"], 500),
+          "analysis_window_minutes" => parse_int(params["canary_window"], 5),
+          "steps" => steps
+        }
+      else
+        nil
+      end
+
     attrs = %{
       project_id: project.id,
       bundle_id: params["bundle_id"],
       target_selector: target_selector,
-      strategy: params["strategy"] || "rolling",
+      strategy: strategy,
       batch_size: parse_int(params["batch_size"], 1),
       batch_percentage: parse_int_or_nil(params["batch_percentage"]),
       auto_rollback: params["auto_rollback"] in ["true", true],
       rollback_threshold: parse_int(params["rollback_threshold"], 50),
       custom_health_checks: custom_health_checks,
+      canary_analysis_config: canary_analysis_config,
       created_by_id: current_user && current_user.id,
       scheduled_at: scheduled_at
     }
@@ -274,12 +304,19 @@ defmodule SentinelCpWeb.RolloutsLive.Index do
             <div class="flex flex-wrap gap-4">
               <div class="form-control">
                 <label class="label"><span class="label-text">Strategy</span></label>
-                <select name="strategy" class="select select-bordered select-sm">
-                  <option value="rolling" selected={@form_values.strategy == "rolling"}>
+                <select
+                  name="strategy"
+                  phx-change="switch_strategy"
+                  class="select select-bordered select-sm"
+                >
+                  <option value="rolling" selected={@selected_strategy == "rolling"}>
                     Rolling
                   </option>
-                  <option value="all_at_once" selected={@form_values.strategy == "all_at_once"}>
+                  <option value="all_at_once" selected={@selected_strategy == "all_at_once"}>
                     All at once
+                  </option>
+                  <option value="canary" selected={@selected_strategy == "canary"}>
+                    Canary
                   </option>
                 </select>
               </div>
@@ -340,6 +377,70 @@ defmodule SentinelCpWeb.RolloutsLive.Index do
                 <label class="label">
                   <span class="label-text-alt text-base-content/50">
                     Trigger rollback at this % failures
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <div
+              :if={@selected_strategy == "canary"}
+              class="mt-4 p-4 border border-base-300 rounded-lg space-y-3"
+              data-testid="canary-config"
+            >
+              <h3 class="text-sm font-semibold">Canary Analysis Configuration</h3>
+              <div class="flex flex-wrap gap-4">
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text text-xs">Error Rate Threshold %</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="canary_error_threshold"
+                    value="5.0"
+                    step="0.1"
+                    min="0"
+                    class="input input-bordered input-sm w-28"
+                  />
+                </div>
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text text-xs">Latency P99 Threshold (ms)</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="canary_latency_threshold"
+                    value="500"
+                    min="0"
+                    class="input input-bordered input-sm w-28"
+                  />
+                </div>
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text text-xs">Analysis Window (min)</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="canary_window"
+                    value="5"
+                    min="1"
+                    class="input input-bordered input-sm w-24"
+                  />
+                </div>
+              </div>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text text-xs">Steps (% traffic, comma-separated)</span>
+                </label>
+                <input
+                  type="text"
+                  name="canary_steps"
+                  value="5, 25, 50, 100"
+                  class="input input-bordered input-sm w-64"
+                  placeholder="5, 25, 50, 100"
+                />
+                <label class="label">
+                  <span class="label-text-alt text-base-content/50">
+                    Traffic percentages for progressive canary analysis
                   </span>
                 </label>
               </div>
@@ -540,6 +641,16 @@ defmodule SentinelCpWeb.RolloutsLive.Index do
     case Integer.parse(str) do
       {n, _} -> n
       :error -> nil
+    end
+  end
+
+  defp parse_float(nil, default), do: default
+  defp parse_float("", default), do: default
+
+  defp parse_float(str, default) do
+    case Float.parse(str) do
+      {n, _} -> n
+      :error -> default
     end
   end
 

@@ -250,6 +250,7 @@ defmodule SentinelCpWeb.ServicesLive.Index do
           <thead class="bg-base-300">
             <tr>
               <th class="text-xs uppercase">Name</th>
+              <th class="text-xs uppercase">Type</th>
               <th class="text-xs uppercase">Route Path</th>
               <th class="text-xs uppercase">Upstream / Response</th>
               <th class="text-xs uppercase">Enabled</th>
@@ -267,6 +268,9 @@ defmodule SentinelCpWeb.ServicesLive.Index do
                   <.resource_badge type="service" />
                   {service.name}
                 </.link>
+              </td>
+              <td>
+                <span class="badge badge-sm badge-outline">{service.service_type || "standard"}</span>
               </td>
               <td class="font-mono text-sm">{service.route_path}</td>
               <td class="text-sm">

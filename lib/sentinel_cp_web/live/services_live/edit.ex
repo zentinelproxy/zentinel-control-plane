@@ -46,8 +46,17 @@ defmodule SentinelCpWeb.ServicesLive.Edit do
          show_compression: service.compression != %{} && service.compression != nil,
          show_path_rewrite: service.path_rewrite != %{} && service.path_rewrite != nil,
          show_security: service.security != %{} && service.security != nil,
-         show_request_transform: service.request_transform != %{} && service.request_transform != nil,
-         show_response_transform: service.response_transform != %{} && service.response_transform != nil
+         show_request_transform:
+           service.request_transform != %{} && service.request_transform != nil,
+         show_response_transform:
+           service.response_transform != %{} && service.response_transform != nil,
+         service_type: service.service_type || "standard",
+         show_graphql:
+           service.service_type == "graphql" ||
+             (service.graphql != %{} && service.graphql != nil),
+         show_grpc:
+           service.service_type == "grpc" ||
+             (service.grpc != %{} && service.grpc != nil)
        )}
     else
       _ ->
@@ -58,6 +67,16 @@ defmodule SentinelCpWeb.ServicesLive.Edit do
   @impl true
   def handle_event("switch_route_type", %{"type" => type}, socket) do
     {:noreply, assign(socket, route_type: type)}
+  end
+
+  @impl true
+  def handle_event("switch_service_type", %{"service_type" => type}, socket) do
+    {:noreply,
+     assign(socket,
+       service_type: type,
+       show_graphql: type == "graphql",
+       show_grpc: type == "grpc"
+     )}
   end
 
   @impl true
@@ -122,6 +141,8 @@ defmodule SentinelCpWeb.ServicesLive.Edit do
           |> Map.put(:redirect_url, params["redirect_url"])
       end
 
+    attrs = Map.put(attrs, :service_type, socket.assigns.service_type)
+
     # auth_policy_id: empty string means clear, non-empty means set
     attrs =
       case params["auth_policy_id"] do
@@ -130,6 +151,8 @@ defmodule SentinelCpWeb.ServicesLive.Edit do
         id -> Map.put(attrs, :auth_policy_id, id)
       end
 
+    attrs = maybe_put_map(attrs, :graphql, params, "graphql")
+    attrs = maybe_put_map(attrs, :grpc, params, "grpc")
     attrs = maybe_put_map(attrs, :retry, params, "retry")
     attrs = maybe_put_map(attrs, :cache, params, "cache")
     attrs = maybe_put_map(attrs, :rate_limit, params, "rate_limit")
@@ -185,6 +208,24 @@ defmodule SentinelCpWeb.ServicesLive.Edit do
               required
               class="input input-bordered input-sm w-full"
             />
+          </div>
+
+          <div class="form-control">
+            <label class="label"><span class="label-text font-medium">Service Type</span></label>
+            <select
+              name="service_type"
+              phx-change="switch_service_type"
+              class="select select-bordered select-sm w-64"
+              data-testid="service-type-select"
+            >
+              <option
+                :for={t <- ~w(standard graphql grpc websocket streaming inference)}
+                value={t}
+                selected={@service_type == t}
+              >
+                {t}
+              </option>
+            </select>
           </div>
 
           <div class="form-control">
@@ -306,8 +347,158 @@ defmodule SentinelCpWeb.ServicesLive.Edit do
             <label class="label"><span class="label-text font-medium">Auth Policy</span></label>
             <select name="auth_policy_id" class="select select-bordered select-sm w-64">
               <option value="">None</option>
-              <option :for={p <- @auth_policies} value={p.id} selected={p.id == @service.auth_policy_id}>{p.name} ({p.auth_type})</option>
+              <option
+                :for={p <- @auth_policies}
+                value={p.id}
+                selected={p.id == @service.auth_policy_id}
+              >
+                {p.name} ({p.auth_type})
+              </option>
             </select>
+          </div>
+
+          <%!-- Protocol Configuration --%>
+          <div :if={@service_type in ~w(graphql grpc)} class="divider text-xs text-base-content/50">
+            Protocol Configuration
+          </div>
+
+          <div :if={@service_type == "graphql" or @show_graphql} data-testid="graphql-config">
+            <button
+              type="button"
+              phx-click="toggle_section"
+              phx-value-section="graphql"
+              class="btn btn-ghost btn-xs"
+            >
+              {if @show_graphql, do: "▼", else: "▶"} GraphQL Settings
+            </button>
+            <div :if={@show_graphql} class="ml-4 mt-2 space-y-2">
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Max Depth</span></label>
+                <input
+                  type="number"
+                  name="graphql[max_depth]"
+                  value={@service.graphql["max_depth"]}
+                  class="input input-bordered input-xs w-24"
+                  placeholder="10"
+                  min="1"
+                />
+              </div>
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Max Complexity</span></label>
+                <input
+                  type="number"
+                  name="graphql[max_complexity]"
+                  value={@service.graphql["max_complexity"]}
+                  class="input input-bordered input-xs w-28"
+                  placeholder="1000"
+                  min="1"
+                />
+              </div>
+              <div class="form-control">
+                <label class="label cursor-pointer gap-2 justify-start">
+                  <input
+                    type="checkbox"
+                    name="graphql[introspection]"
+                    value="true"
+                    checked={@service.graphql["introspection"] in ["true", true]}
+                    class="checkbox checkbox-xs"
+                  />
+                  <span class="label-text text-xs">Introspection</span>
+                </label>
+              </div>
+              <div class="form-control">
+                <label class="label cursor-pointer gap-2 justify-start">
+                  <input
+                    type="checkbox"
+                    name="graphql[persisted_queries]"
+                    value="true"
+                    checked={@service.graphql["persisted_queries"] in ["true", true]}
+                    class="checkbox checkbox-xs"
+                  />
+                  <span class="label-text text-xs">Persisted Queries</span>
+                </label>
+              </div>
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Playground Path</span></label>
+                <input
+                  type="text"
+                  name="graphql[playground_path]"
+                  value={@service.graphql["playground_path"]}
+                  class="input input-bordered input-xs w-48"
+                  placeholder="/graphql"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div :if={@service_type == "grpc" or @show_grpc} data-testid="grpc-config">
+            <button
+              type="button"
+              phx-click="toggle_section"
+              phx-value-section="grpc"
+              class="btn btn-ghost btn-xs"
+            >
+              {if @show_grpc, do: "▼", else: "▶"} gRPC Settings
+            </button>
+            <div :if={@show_grpc} class="ml-4 mt-2 space-y-2">
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text text-xs">Max Message Size (bytes)</span>
+                </label>
+                <input
+                  type="number"
+                  name="grpc[max_message_size]"
+                  value={@service.grpc["max_message_size"]}
+                  class="input input-bordered input-xs w-32"
+                  placeholder="4194304"
+                  min="1"
+                />
+              </div>
+              <div class="form-control">
+                <label class="label cursor-pointer gap-2 justify-start">
+                  <input
+                    type="checkbox"
+                    name="grpc[reflection]"
+                    value="true"
+                    checked={@service.grpc["reflection"] in ["true", true]}
+                    class="checkbox checkbox-xs"
+                  />
+                  <span class="label-text text-xs">Reflection</span>
+                </label>
+              </div>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text text-xs">Health Check Service</span>
+                </label>
+                <input
+                  type="text"
+                  name="grpc[health_check_service]"
+                  value={@service.grpc["health_check_service"]}
+                  class="input input-bordered input-xs w-64"
+                  placeholder="grpc.health.v1.Health"
+                />
+              </div>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text text-xs">Allowed Services (one per line)</span>
+                </label>
+                <textarea
+                  name="grpc[allowed_services]"
+                  rows="3"
+                  class="textarea textarea-bordered textarea-xs w-full font-mono"
+                >{@service.grpc["allowed_services"]}</textarea>
+              </div>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text text-xs">Allowed Methods (one per line)</span>
+                </label>
+                <textarea
+                  name="grpc[allowed_methods]"
+                  rows="3"
+                  class="textarea textarea-bordered textarea-xs w-full font-mono"
+                >{@service.grpc["allowed_methods"]}</textarea>
+              </div>
+            </div>
           </div>
 
           <%!-- Advanced Sections --%>
@@ -527,7 +718,9 @@ defmodule SentinelCpWeb.ServicesLive.Edit do
             </button>
             <div :if={@show_access_control} class="ml-4 mt-2 space-y-2">
               <div class="form-control">
-                <label class="label"><span class="label-text text-xs">Allow CIDRs (one per line)</span></label>
+                <label class="label">
+                  <span class="label-text text-xs">Allow CIDRs (one per line)</span>
+                </label>
                 <textarea
                   name="access_control[allow]"
                   rows="3"
@@ -535,7 +728,9 @@ defmodule SentinelCpWeb.ServicesLive.Edit do
                 >{@service.access_control["allow"]}</textarea>
               </div>
               <div class="form-control">
-                <label class="label"><span class="label-text text-xs">Deny CIDRs (one per line)</span></label>
+                <label class="label">
+                  <span class="label-text text-xs">Deny CIDRs (one per line)</span>
+                </label>
                 <textarea
                   name="access_control[deny]"
                   rows="3"
@@ -546,8 +741,18 @@ defmodule SentinelCpWeb.ServicesLive.Edit do
                 <label class="label"><span class="label-text text-xs">Mode</span></label>
                 <select name="access_control[mode]" class="select select-bordered select-xs w-40">
                   <option value="">—</option>
-                  <option value="deny_first" selected={@service.access_control["mode"] == "deny_first"}>Deny First</option>
-                  <option value="allow_first" selected={@service.access_control["mode"] == "allow_first"}>Allow First</option>
+                  <option
+                    value="deny_first"
+                    selected={@service.access_control["mode"] == "deny_first"}
+                  >
+                    Deny First
+                  </option>
+                  <option
+                    value="allow_first"
+                    selected={@service.access_control["mode"] == "allow_first"}
+                  >
+                    Allow First
+                  </option>
                 </select>
               </div>
             </div>
@@ -625,7 +830,9 @@ defmodule SentinelCpWeb.ServicesLive.Edit do
             </div>
           </div>
 
-          <div :if={@upstream_groups != []} class="divider text-xs text-base-content/50">Traffic Splitting</div>
+          <div :if={@upstream_groups != []} class="divider text-xs text-base-content/50">
+            Traffic Splitting
+          </div>
 
           <div :if={@upstream_groups != []}>
             <button
@@ -644,51 +851,132 @@ defmodule SentinelCpWeb.ServicesLive.Edit do
                 <h4 class="text-xs font-medium mb-1">Weighted Splits</h4>
                 <div :for={i <- 0..(@split_count - 1)} class="flex gap-2 items-end mb-2">
                   <div class="form-control">
-                    <label :if={i == 0} class="label"><span class="label-text text-xs">Upstream Group</span></label>
+                    <label :if={i == 0} class="label">
+                      <span class="label-text text-xs">Upstream Group</span>
+                    </label>
                     <select name={"split_group_#{i}"} class="select select-bordered select-xs w-48">
                       <option value="">Select group</option>
-                      <option :for={g <- @upstream_groups} value={g.id} selected={g.id == get_in(Enum.at(@existing_splits, i, %{}), ["upstream_group_id"])}>{g.name}</option>
+                      <option
+                        :for={g <- @upstream_groups}
+                        value={g.id}
+                        selected={
+                          g.id == get_in(Enum.at(@existing_splits, i, %{}), ["upstream_group_id"])
+                        }
+                      >
+                        {g.name}
+                      </option>
                     </select>
                   </div>
                   <div class="form-control">
-                    <label :if={i == 0} class="label"><span class="label-text text-xs">Weight</span></label>
-                    <input type="number" name={"split_weight_#{i}"} value={get_in(Enum.at(@existing_splits, i, %{}), ["weight"])} class="input input-bordered input-xs w-20" min="0" max="100" />
+                    <label :if={i == 0} class="label">
+                      <span class="label-text text-xs">Weight</span>
+                    </label>
+                    <input
+                      type="number"
+                      name={"split_weight_#{i}"}
+                      value={get_in(Enum.at(@existing_splits, i, %{}), ["weight"])}
+                      class="input input-bordered input-xs w-20"
+                      min="0"
+                      max="100"
+                    />
                   </div>
                 </div>
                 <div class="flex gap-1">
-                  <button type="button" phx-click="add_split" class="btn btn-ghost btn-xs">+ Add Split</button>
-                  <button :if={@split_count > 0} type="button" phx-click="remove_split" class="btn btn-ghost btn-xs text-error">Remove</button>
+                  <button type="button" phx-click="add_split" class="btn btn-ghost btn-xs">
+                    + Add Split
+                  </button>
+                  <button
+                    :if={@split_count > 0}
+                    type="button"
+                    phx-click="remove_split"
+                    class="btn btn-ghost btn-xs text-error"
+                  >
+                    Remove
+                  </button>
                 </div>
               </div>
               <div>
                 <h4 class="text-xs font-medium mb-1">Match Rules</h4>
                 <div :for={i <- 0..(@match_rule_count - 1)} class="flex gap-2 items-end mb-2">
                   <div class="form-control">
-                    <label :if={i == 0} class="label"><span class="label-text text-xs">Type</span></label>
+                    <label :if={i == 0} class="label">
+                      <span class="label-text text-xs">Type</span>
+                    </label>
                     <select name={"match_type_#{i}"} class="select select-bordered select-xs w-28">
-                      <option value="header" selected={get_in(Enum.at(@existing_match_rules, i, %{}), ["type"]) == "header"}>Header</option>
-                      <option value="cookie" selected={get_in(Enum.at(@existing_match_rules, i, %{}), ["type"]) == "cookie"}>Cookie</option>
+                      <option
+                        value="header"
+                        selected={
+                          get_in(Enum.at(@existing_match_rules, i, %{}), ["type"]) == "header"
+                        }
+                      >
+                        Header
+                      </option>
+                      <option
+                        value="cookie"
+                        selected={
+                          get_in(Enum.at(@existing_match_rules, i, %{}), ["type"]) == "cookie"
+                        }
+                      >
+                        Cookie
+                      </option>
                     </select>
                   </div>
                   <div class="form-control">
-                    <label :if={i == 0} class="label"><span class="label-text text-xs">Key</span></label>
-                    <input type="text" name={"match_key_#{i}"} value={get_in(Enum.at(@existing_match_rules, i, %{}), ["header"]) || get_in(Enum.at(@existing_match_rules, i, %{}), ["cookie"])} class="input input-bordered input-xs w-32" placeholder="X-Version" />
+                    <label :if={i == 0} class="label">
+                      <span class="label-text text-xs">Key</span>
+                    </label>
+                    <input
+                      type="text"
+                      name={"match_key_#{i}"}
+                      value={
+                        get_in(Enum.at(@existing_match_rules, i, %{}), ["header"]) ||
+                          get_in(Enum.at(@existing_match_rules, i, %{}), ["cookie"])
+                      }
+                      class="input input-bordered input-xs w-32"
+                      placeholder="X-Version"
+                    />
                   </div>
                   <div class="form-control">
-                    <label :if={i == 0} class="label"><span class="label-text text-xs">Value</span></label>
-                    <input type="text" name={"match_value_#{i}"} value={get_in(Enum.at(@existing_match_rules, i, %{}), ["value"])} class="input input-bordered input-xs w-24" />
+                    <label :if={i == 0} class="label">
+                      <span class="label-text text-xs">Value</span>
+                    </label>
+                    <input
+                      type="text"
+                      name={"match_value_#{i}"}
+                      value={get_in(Enum.at(@existing_match_rules, i, %{}), ["value"])}
+                      class="input input-bordered input-xs w-24"
+                    />
                   </div>
                   <div class="form-control">
-                    <label :if={i == 0} class="label"><span class="label-text text-xs">Target Group</span></label>
+                    <label :if={i == 0} class="label">
+                      <span class="label-text text-xs">Target Group</span>
+                    </label>
                     <select name={"match_target_#{i}"} class="select select-bordered select-xs w-48">
                       <option value="">Select group</option>
-                      <option :for={g <- @upstream_groups} value={g.id} selected={g.id == get_in(Enum.at(@existing_match_rules, i, %{}), ["target_group_id"])}>{g.name}</option>
+                      <option
+                        :for={g <- @upstream_groups}
+                        value={g.id}
+                        selected={
+                          g.id == get_in(Enum.at(@existing_match_rules, i, %{}), ["target_group_id"])
+                        }
+                      >
+                        {g.name}
+                      </option>
                     </select>
                   </div>
                 </div>
                 <div class="flex gap-1">
-                  <button type="button" phx-click="add_match_rule" class="btn btn-ghost btn-xs">+ Add Rule</button>
-                  <button :if={@match_rule_count > 0} type="button" phx-click="remove_match_rule" class="btn btn-ghost btn-xs text-error">Remove</button>
+                  <button type="button" phx-click="add_match_rule" class="btn btn-ghost btn-xs">
+                    + Add Rule
+                  </button>
+                  <button
+                    :if={@match_rule_count > 0}
+                    type="button"
+                    phx-click="remove_match_rule"
+                    class="btn btn-ghost btn-xs text-error"
+                  >
+                    Remove
+                  </button>
                 </div>
               </div>
             </div>
@@ -697,95 +985,198 @@ defmodule SentinelCpWeb.ServicesLive.Edit do
           <div class="divider text-xs text-base-content/50">Security & Transforms</div>
 
           <div>
-            <button type="button" phx-click="toggle_section" phx-value-section="security" class="btn btn-ghost btn-xs">
+            <button
+              type="button"
+              phx-click="toggle_section"
+              phx-value-section="security"
+              class="btn btn-ghost btn-xs"
+            >
               {if @show_security, do: "▼", else: "▶"} Security / WAF
             </button>
             <div :if={@show_security} class="ml-4 mt-2 space-y-2">
               <div class="form-control">
-                <label class="label"><span class="label-text text-xs">Max Body Size (bytes)</span></label>
-                <input type="number" name="security[max_body_size]" value={@service.security["max_body_size"]} class="input input-bordered input-xs w-32" min="0" />
+                <label class="label">
+                  <span class="label-text text-xs">Max Body Size (bytes)</span>
+                </label>
+                <input
+                  type="number"
+                  name="security[max_body_size]"
+                  value={@service.security["max_body_size"]}
+                  class="input input-bordered input-xs w-32"
+                  min="0"
+                />
               </div>
               <div class="form-control">
-                <label class="label"><span class="label-text text-xs">Max Header Size (bytes)</span></label>
-                <input type="number" name="security[max_header_size]" value={@service.security["max_header_size"]} class="input input-bordered input-xs w-32" min="0" />
+                <label class="label">
+                  <span class="label-text text-xs">Max Header Size (bytes)</span>
+                </label>
+                <input
+                  type="number"
+                  name="security[max_header_size]"
+                  value={@service.security["max_header_size"]}
+                  class="input input-bordered input-xs w-32"
+                  min="0"
+                />
               </div>
               <div class="form-control">
                 <label class="label"><span class="label-text text-xs">Max URI Length</span></label>
-                <input type="number" name="security[max_uri_length]" value={@service.security["max_uri_length"]} class="input input-bordered input-xs w-32" min="0" />
+                <input
+                  type="number"
+                  name="security[max_uri_length]"
+                  value={@service.security["max_uri_length"]}
+                  class="input input-bordered input-xs w-32"
+                  min="0"
+                />
               </div>
               <div class="form-control">
-                <label class="label"><span class="label-text text-xs">Allowed Content Types</span></label>
-                <input type="text" name="security[allowed_content_types]" value={@service.security["allowed_content_types"]} class="input input-bordered input-xs w-full" />
+                <label class="label">
+                  <span class="label-text text-xs">Allowed Content Types</span>
+                </label>
+                <input
+                  type="text"
+                  name="security[allowed_content_types]"
+                  value={@service.security["allowed_content_types"]}
+                  class="input input-bordered input-xs w-full"
+                />
               </div>
               <div class="form-control">
                 <label class="label cursor-pointer gap-2 justify-start">
-                  <input type="checkbox" name="security[block_sqli]" value="true" checked={@service.security["block_sqli"] == "true"} class="checkbox checkbox-xs" />
+                  <input
+                    type="checkbox"
+                    name="security[block_sqli]"
+                    value="true"
+                    checked={@service.security["block_sqli"] == "true"}
+                    class="checkbox checkbox-xs"
+                  />
                   <span class="label-text text-xs">Block SQL Injection</span>
                 </label>
               </div>
               <div class="form-control">
                 <label class="label cursor-pointer gap-2 justify-start">
-                  <input type="checkbox" name="security[block_xss]" value="true" checked={@service.security["block_xss"] == "true"} class="checkbox checkbox-xs" />
+                  <input
+                    type="checkbox"
+                    name="security[block_xss]"
+                    value="true"
+                    checked={@service.security["block_xss"] == "true"}
+                    class="checkbox checkbox-xs"
+                  />
                   <span class="label-text text-xs">Block XSS</span>
                 </label>
               </div>
               <div class="form-control">
                 <label class="label cursor-pointer gap-2 justify-start">
-                  <input type="checkbox" name="security[block_path_traversal]" value="true" checked={@service.security["block_path_traversal"] == "true"} class="checkbox checkbox-xs" />
+                  <input
+                    type="checkbox"
+                    name="security[block_path_traversal]"
+                    value="true"
+                    checked={@service.security["block_path_traversal"] == "true"}
+                    class="checkbox checkbox-xs"
+                  />
                   <span class="label-text text-xs">Block Path Traversal</span>
                 </label>
               </div>
               <div class="form-control">
                 <label class="label"><span class="label-text text-xs">Custom Rules</span></label>
-                <textarea name="security[custom_rules]" rows="3" class="textarea textarea-bordered textarea-xs w-full font-mono">{@service.security["custom_rules"]}</textarea>
+                <textarea
+                  name="security[custom_rules]"
+                  rows="3"
+                  class="textarea textarea-bordered textarea-xs w-full font-mono"
+                >{@service.security["custom_rules"]}</textarea>
               </div>
             </div>
           </div>
 
           <div>
-            <button type="button" phx-click="toggle_section" phx-value-section="request_transform" class="btn btn-ghost btn-xs">
+            <button
+              type="button"
+              phx-click="toggle_section"
+              phx-value-section="request_transform"
+              class="btn btn-ghost btn-xs"
+            >
               {if @show_request_transform, do: "▼", else: "▶"} Request Transform
             </button>
             <div :if={@show_request_transform} class="ml-4 mt-2 space-y-2">
               <div class="form-control">
                 <label class="label"><span class="label-text text-xs">Add Headers</span></label>
-                <textarea name="request_transform[add_headers]" rows="3" class="textarea textarea-bordered textarea-xs w-full font-mono">{@service.request_transform["add_headers"]}</textarea>
+                <textarea
+                  name="request_transform[add_headers]"
+                  rows="3"
+                  class="textarea textarea-bordered textarea-xs w-full font-mono"
+                >{@service.request_transform["add_headers"]}</textarea>
               </div>
               <div class="form-control">
                 <label class="label"><span class="label-text text-xs">Remove Headers</span></label>
-                <input type="text" name="request_transform[remove_headers]" value={@service.request_transform["remove_headers"]} class="input input-bordered input-xs w-full" />
+                <input
+                  type="text"
+                  name="request_transform[remove_headers]"
+                  value={@service.request_transform["remove_headers"]}
+                  class="input input-bordered input-xs w-full"
+                />
               </div>
               <div class="form-control">
                 <label class="label"><span class="label-text text-xs">Rename Headers</span></label>
-                <textarea name="request_transform[rename_headers]" rows="2" class="textarea textarea-bordered textarea-xs w-full font-mono">{@service.request_transform["rename_headers"]}</textarea>
+                <textarea
+                  name="request_transform[rename_headers]"
+                  rows="2"
+                  class="textarea textarea-bordered textarea-xs w-full font-mono"
+                >{@service.request_transform["rename_headers"]}</textarea>
               </div>
               <div class="form-control">
                 <label class="label"><span class="label-text text-xs">Add Query Params</span></label>
-                <textarea name="request_transform[add_query_params]" rows="2" class="textarea textarea-bordered textarea-xs w-full font-mono">{@service.request_transform["add_query_params"]}</textarea>
+                <textarea
+                  name="request_transform[add_query_params]"
+                  rows="2"
+                  class="textarea textarea-bordered textarea-xs w-full font-mono"
+                >{@service.request_transform["add_query_params"]}</textarea>
               </div>
               <div class="form-control">
-                <label class="label"><span class="label-text text-xs">Remove Query Params</span></label>
-                <input type="text" name="request_transform[remove_query_params]" value={@service.request_transform["remove_query_params"]} class="input input-bordered input-xs w-full" />
+                <label class="label">
+                  <span class="label-text text-xs">Remove Query Params</span>
+                </label>
+                <input
+                  type="text"
+                  name="request_transform[remove_query_params]"
+                  value={@service.request_transform["remove_query_params"]}
+                  class="input input-bordered input-xs w-full"
+                />
               </div>
             </div>
           </div>
 
           <div>
-            <button type="button" phx-click="toggle_section" phx-value-section="response_transform" class="btn btn-ghost btn-xs">
+            <button
+              type="button"
+              phx-click="toggle_section"
+              phx-value-section="response_transform"
+              class="btn btn-ghost btn-xs"
+            >
               {if @show_response_transform, do: "▼", else: "▶"} Response Transform
             </button>
             <div :if={@show_response_transform} class="ml-4 mt-2 space-y-2">
               <div class="form-control">
                 <label class="label"><span class="label-text text-xs">Add Headers</span></label>
-                <textarea name="response_transform[add_headers]" rows="3" class="textarea textarea-bordered textarea-xs w-full font-mono">{@service.response_transform["add_headers"]}</textarea>
+                <textarea
+                  name="response_transform[add_headers]"
+                  rows="3"
+                  class="textarea textarea-bordered textarea-xs w-full font-mono"
+                >{@service.response_transform["add_headers"]}</textarea>
               </div>
               <div class="form-control">
                 <label class="label"><span class="label-text text-xs">Remove Headers</span></label>
-                <input type="text" name="response_transform[remove_headers]" value={@service.response_transform["remove_headers"]} class="input input-bordered input-xs w-full" />
+                <input
+                  type="text"
+                  name="response_transform[remove_headers]"
+                  value={@service.response_transform["remove_headers"]}
+                  class="input input-bordered input-xs w-full"
+                />
               </div>
               <div class="form-control">
                 <label class="label"><span class="label-text text-xs">Rename Headers</span></label>
-                <textarea name="response_transform[rename_headers]" rows="2" class="textarea textarea-bordered textarea-xs w-full font-mono">{@service.response_transform["rename_headers"]}</textarea>
+                <textarea
+                  name="response_transform[rename_headers]"
+                  rows="2"
+                  class="textarea textarea-bordered textarea-xs w-full font-mono"
+                >{@service.response_transform["rename_headers"]}</textarea>
               </div>
             </div>
           </div>

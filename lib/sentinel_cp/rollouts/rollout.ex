@@ -43,6 +43,7 @@ defmodule SentinelCp.Rollouts.Rollout do
     # Advanced deployment fields
     field :canary_analysis_config, :map
     field :canary_analysis_results, :map
+    field :canary_step_index, :integer, default: 0
     field :deployment_slot, :string
     field :validation_period_seconds, :integer, default: 300
 
@@ -75,6 +76,7 @@ defmodule SentinelCp.Rollouts.Rollout do
       :rollback_threshold,
       :custom_health_checks,
       :canary_analysis_config,
+      :canary_step_index,
       :deployment_slot,
       :validation_period_seconds
     ])
@@ -184,6 +186,14 @@ defmodule SentinelCp.Rollouts.Rollout do
           ]
       end
     end)
+  end
+
+  @doc """
+  Changeset for updating canary analysis state.
+  """
+  def canary_changeset(rollout, attrs) do
+    rollout
+    |> cast(attrs, [:canary_step_index, :canary_analysis_results])
   end
 
   @doc """

@@ -49,6 +49,25 @@ defmodule SentinelCpWeb.ServicesLiveTest do
 
       assert has_element?(view, "table")
     end
+
+    test "shows type column with badge", %{conn: conn, project: project} do
+      _service =
+        service_fixture(%{
+          project: project,
+          name: "graphql-svc",
+          service_type: "graphql",
+          graphql: %{"max_depth" => 10}
+        })
+
+      {:ok, _view, html} = live(conn, ~p"/projects/#{project.slug}/services")
+      assert html =~ "graphql"
+    end
+
+    test "shows standard type for default services", %{conn: conn, project: project} do
+      _service = service_fixture(%{project: project})
+      {:ok, _view, html} = live(conn, ~p"/projects/#{project.slug}/services")
+      assert html =~ "standard"
+    end
   end
 
   describe "ServicesLive.New" do
@@ -65,6 +84,95 @@ defmodule SentinelCpWeb.ServicesLiveTest do
         "name" => "New API",
         "route_path" => "/api/v2/*",
         "upstream_url" => "http://api:9090"
+      })
+      |> render_submit()
+
+      {path, _flash} = assert_redirect(view)
+      assert path =~ "/services/"
+    end
+
+    test "service type selector renders all options", %{conn: conn, project: project} do
+      {:ok, _view, html} = live(conn, ~p"/projects/#{project.slug}/services/new")
+
+      assert html =~ ~s(value="standard")
+      assert html =~ ~s(value="graphql")
+      assert html =~ ~s(value="grpc")
+      assert html =~ ~s(value="websocket")
+      assert html =~ ~s(value="streaming")
+      assert html =~ ~s(value="inference")
+    end
+
+    test "graphql config section appears when graphql type selected", %{
+      conn: conn,
+      project: project
+    } do
+      {:ok, view, _html} = live(conn, ~p"/projects/#{project.slug}/services/new")
+
+      render_click(view, "switch_service_type", %{"service_type" => "graphql"})
+      html = render(view)
+
+      assert html =~ "GraphQL Settings"
+      assert html =~ "Max Depth"
+      assert html =~ "Max Complexity"
+      assert html =~ "Introspection"
+      assert html =~ "Playground Path"
+    end
+
+    test "grpc config section appears when grpc type selected", %{conn: conn, project: project} do
+      {:ok, view, _html} = live(conn, ~p"/projects/#{project.slug}/services/new")
+
+      render_click(view, "switch_service_type", %{"service_type" => "grpc"})
+      html = render(view)
+
+      assert html =~ "gRPC Settings"
+      assert html =~ "Max Message Size"
+      assert html =~ "Reflection"
+      assert html =~ "Health Check Service"
+      assert html =~ "Allowed Services"
+    end
+
+    test "creates graphql service with protocol config", %{conn: conn, project: project} do
+      {:ok, view, _html} = live(conn, ~p"/projects/#{project.slug}/services/new")
+
+      # Select graphql type
+      render_click(view, "switch_service_type", %{"service_type" => "graphql"})
+
+      view
+      |> form("form[phx-submit='create_service']", %{
+        "name" => "GraphQL API",
+        "route_path" => "/graphql",
+        "upstream_url" => "http://graphql:4000",
+        "graphql" => %{
+          "max_depth" => "10",
+          "max_complexity" => "1000",
+          "playground_path" => "/playground"
+        }
+      })
+      |> render_submit()
+
+      {path, _flash} = assert_redirect(view)
+      assert path =~ "/services/"
+
+      # Verify the service was created with correct type
+      [service] = SentinelCp.Services.list_services(project.id)
+      assert service.service_type == "graphql"
+      assert service.graphql["max_depth"] == 10
+    end
+
+    test "creates grpc service with protocol config", %{conn: conn, project: project} do
+      {:ok, view, _html} = live(conn, ~p"/projects/#{project.slug}/services/new")
+
+      render_click(view, "switch_service_type", %{"service_type" => "grpc"})
+
+      view
+      |> form("form[phx-submit='create_service']", %{
+        "name" => "gRPC API",
+        "route_path" => "/grpc/*",
+        "upstream_url" => "http://grpc:50051",
+        "grpc" => %{
+          "max_message_size" => "4194304",
+          "health_check_service" => "grpc.health.v1.Health"
+        }
       })
       |> render_submit()
 
@@ -105,6 +213,44 @@ defmodule SentinelCpWeb.ServicesLiveTest do
       {path, _flash} = assert_redirect(view)
       assert path =~ "/services"
     end
+
+    test "shows service type badge", %{conn: conn, project: project} do
+      service =
+        service_fixture(%{
+          project: project,
+          service_type: "graphql",
+          graphql: %{"max_depth" => 10}
+        })
+
+      {:ok, _view, html} =
+        live(conn, ~p"/projects/#{project.slug}/services/#{service.id}")
+
+      assert html =~ "graphql"
+    end
+
+    test "shows protocol config section for graphql service", %{conn: conn, project: project} do
+      service =
+        service_fixture(%{
+          project: project,
+          service_type: "graphql",
+          graphql: %{"max_depth" => 10, "max_complexity" => 1000}
+        })
+
+      {:ok, _view, html} =
+        live(conn, ~p"/projects/#{project.slug}/services/#{service.id}")
+
+      assert html =~ "Protocol Configuration"
+      assert html =~ "Max Depth"
+    end
+
+    test "does not show protocol config for standard service", %{conn: conn, project: project} do
+      service = service_fixture(%{project: project})
+
+      {:ok, _view, html} =
+        live(conn, ~p"/projects/#{project.slug}/services/#{service.id}")
+
+      refute html =~ "Protocol Configuration"
+    end
   end
 
   describe "ServicesLive.Edit" do
@@ -134,6 +280,38 @@ defmodule SentinelCpWeb.ServicesLiveTest do
 
       {path, _flash} = assert_redirect(view)
       assert path =~ "/services/"
+    end
+
+    test "edit pre-populates service type", %{conn: conn, project: project} do
+      service =
+        service_fixture(%{
+          project: project,
+          service_type: "graphql",
+          graphql: %{"max_depth" => 10}
+        })
+
+      {:ok, _view, html} =
+        live(conn, ~p"/projects/#{project.slug}/services/#{service.id}/edit")
+
+      assert html =~ "Service Type"
+      # The selected option should be graphql
+      assert html =~ "graphql"
+    end
+
+    test "edit pre-populates graphql config", %{conn: conn, project: project} do
+      service =
+        service_fixture(%{
+          project: project,
+          service_type: "graphql",
+          graphql: %{"max_depth" => 15, "playground_path" => "/gql"}
+        })
+
+      {:ok, _view, html} =
+        live(conn, ~p"/projects/#{project.slug}/services/#{service.id}/edit")
+
+      assert html =~ "GraphQL Settings"
+      assert html =~ "15"
+      assert html =~ "/gql"
     end
   end
 end

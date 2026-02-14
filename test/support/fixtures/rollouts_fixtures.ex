@@ -45,6 +45,7 @@ defmodule SentinelCp.RolloutsFixtures do
       |> maybe_put(:max_unavailable, attrs[:max_unavailable])
       |> maybe_put(:health_gates, attrs[:health_gates])
       |> maybe_put(:created_by_id, attrs[:created_by_id])
+      |> maybe_put(:canary_analysis_config, attrs[:canary_analysis_config])
 
     {:ok, rollout} = Rollouts.create_rollout(create_attrs)
 

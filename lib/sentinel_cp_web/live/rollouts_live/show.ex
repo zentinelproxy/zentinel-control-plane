@@ -3,6 +3,7 @@ defmodule SentinelCpWeb.RolloutsLive.Show do
 
   alias SentinelCp.{Rollouts, Orgs, Projects, Nodes}
   alias SentinelCp.Projects.Project
+  alias SentinelCp.Rollouts.CanaryAnalysis
 
   @refresh_interval 5_000
 
@@ -506,6 +507,100 @@ defmodule SentinelCpWeb.RolloutsLive.Show do
         </div>
       </div>
 
+      <div :if={@rollout.strategy == "canary"}>
+        <.k8s_section title="Canary Analysis" testid="canary-analysis">
+          <div class="space-y-4">
+            <div class="flex items-center gap-4">
+              <div class="text-sm">
+                <span class="font-semibold">Step {(@rollout.canary_step_index || 0) + 1}</span>
+                <span class="text-base-content/50">
+                  — {canary_step_pct(@rollout)}% traffic
+                </span>
+              </div>
+              <div :if={latest_canary_decision(@rollout)}>
+                <span class={[
+                  "badge badge-sm",
+                  latest_canary_decision(@rollout) == "promote" && "badge-success",
+                  latest_canary_decision(@rollout) == "rollback" && "badge-error",
+                  latest_canary_decision(@rollout) == "extend" && "badge-warning"
+                ]}>
+                  {latest_canary_decision(@rollout)}
+                </span>
+              </div>
+            </div>
+
+            <div :if={latest_canary_analysis(@rollout)} class="overflow-x-auto">
+              <table class="table table-sm">
+                <thead class="bg-base-300">
+                  <tr>
+                    <th class="text-xs uppercase">Metric</th>
+                    <th class="text-xs uppercase">Canary</th>
+                    <th class="text-xs uppercase">Baseline</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="text-sm">Error Rate</td>
+                    <td class="font-mono text-sm">
+                      {get_in(latest_canary_analysis(@rollout), ["canary", "error_rate"])
+                      |> format_number()}%
+                    </td>
+                    <td class="font-mono text-sm">
+                      {get_in(latest_canary_analysis(@rollout), ["baseline", "error_rate"])
+                      |> format_number()}%
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="text-sm">Latency P99</td>
+                    <td class="font-mono text-sm">
+                      {get_in(latest_canary_analysis(@rollout), ["canary", "avg_latency_p99"])
+                      |> format_number()} ms
+                    </td>
+                    <td class="font-mono text-sm">
+                      {get_in(latest_canary_analysis(@rollout), ["baseline", "avg_latency_p99"])
+                      |> format_number()} ms
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="text-sm">Requests</td>
+                    <td class="font-mono text-sm">
+                      {get_in(latest_canary_analysis(@rollout), ["canary", "total_requests"]) || 0}
+                    </td>
+                    <td class="font-mono text-sm">
+                      {get_in(latest_canary_analysis(@rollout), ["baseline", "total_requests"]) || 0}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div :if={canary_analysis_history(@rollout) != []} class="border-t pt-3">
+              <h4 class="text-xs font-semibold mb-2">Analysis History</h4>
+              <div class="space-y-1">
+                <div
+                  :for={analysis <- canary_analysis_history(@rollout)}
+                  class="flex items-center gap-2 text-xs"
+                >
+                  <span class={[
+                    "badge badge-xs",
+                    analysis["decision"] == "promote" && "badge-success",
+                    to_string(analysis["decision"]) == "rollback" && "badge-error",
+                    to_string(analysis["decision"]) == "extend" && "badge-warning"
+                  ]}>
+                    {analysis["decision"]}
+                  </span>
+                  <span class="text-base-content/50">{analysis["analyzed_at"]}</span>
+                </div>
+              </div>
+            </div>
+
+            <div :if={latest_canary_analysis(@rollout) == nil} class="text-sm text-base-content/50">
+              No canary analysis results yet. Analysis begins after the first step reaches the verifying state.
+            </div>
+          </div>
+        </.k8s_section>
+      </div>
+
       <.k8s_section title="Steps" testid="rollout-steps">
         <table class="table table-sm">
           <thead class="bg-base-300">
@@ -623,4 +718,36 @@ defmodule SentinelCpWeb.RolloutsLive.Show do
   defp approvals_needed(project) do
     Project.approvals_needed(project)
   end
+
+  defp canary_step_pct(rollout) do
+    CanaryAnalysis.current_step_percentage(
+      rollout.canary_analysis_config,
+      rollout.canary_step_index || 0
+    )
+  end
+
+  defp latest_canary_analysis(rollout) do
+    case rollout.canary_analysis_results do
+      %{"analyses" => [_ | _] = analyses} -> List.last(analyses)
+      _ -> nil
+    end
+  end
+
+  defp latest_canary_decision(rollout) do
+    case latest_canary_analysis(rollout) do
+      %{"decision" => decision} -> to_string(decision)
+      _ -> nil
+    end
+  end
+
+  defp canary_analysis_history(rollout) do
+    case rollout.canary_analysis_results do
+      %{"analyses" => analyses} when is_list(analyses) -> analyses
+      _ -> []
+    end
+  end
+
+  defp format_number(nil), do: "0"
+  defp format_number(n) when is_float(n), do: :erlang.float_to_binary(n, decimals: 2)
+  defp format_number(n), do: to_string(n)
 end

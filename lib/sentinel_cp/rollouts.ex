@@ -20,6 +20,7 @@ defmodule SentinelCp.Rollouts do
     HealthChecker
   }
 
+  alias SentinelCp.Rollouts.CanaryAnalysis
   alias SentinelCp.{Bundles, Events, Nodes, Orgs, Projects}
   # Events module replaces Notifications with backward-compatible API
   alias SentinelCp.Events, as: Notifications
@@ -540,12 +541,16 @@ defmodule SentinelCp.Rollouts do
       {:error, :no_target_nodes}
     else
       batches =
-        chunk_into_batches(
-          node_ids,
-          rollout.strategy,
-          rollout.batch_size,
-          rollout.batch_percentage
-        )
+        if rollout.strategy == "canary" do
+          plan_canary_batches(node_ids, rollout.canary_analysis_config)
+        else
+          chunk_into_batches(
+            node_ids,
+            rollout.strategy,
+            rollout.batch_size,
+            rollout.batch_percentage
+          )
+        end
 
       result =
         Repo.transaction(fn ->
@@ -577,10 +582,19 @@ defmodule SentinelCp.Rollouts do
             |> Repo.insert!()
           end
 
+          # Set canary_step_index for canary rollouts
+          canary_changes =
+            if rollout.strategy == "canary" do
+              %{canary_step_index: 0}
+            else
+              %{}
+            end
+
           # Transition to running
           {:ok, updated} =
             rollout
             |> Rollout.state_changeset("running")
+            |> Ecto.Changeset.change(canary_changes)
             |> Repo.update()
 
           # Enqueue first tick
@@ -597,6 +611,20 @@ defmodule SentinelCp.Rollouts do
         error ->
           error
       end
+    end
+  end
+
+  defp plan_canary_batches(node_ids, config) do
+    steps = (config || %{})["steps"] || [5, 25, 50, 100]
+    first_pct = List.first(steps) || 5
+    total = length(node_ids)
+    canary_size = max(1, ceil(total * first_pct / 100))
+    {canary_nodes, remaining_nodes} = Enum.split(node_ids, canary_size)
+
+    if remaining_nodes == [] do
+      [canary_nodes]
+    else
+      [canary_nodes, remaining_nodes]
     end
   end
 
@@ -914,29 +942,165 @@ defmodule SentinelCp.Rollouts do
   defp check_step_verifying(rollout, step) do
     # Check health gates (only for available nodes when max_unavailable is set)
     if check_health_gates(rollout, step, available_node_ids(rollout, step)) do
-      # Step completed
-      {:ok, _step} =
-        step
-        |> RolloutStep.state_changeset("completed")
-        |> Repo.update()
-
-      now = DateTime.utc_now() |> DateTime.truncate(:second)
-
-      from(nbs in NodeBundleStatus,
-        where: nbs.rollout_id == ^rollout.id and nbs.node_id in ^step.node_ids
-      )
-      |> Repo.update_all(
-        set: [state: "active", activated_at: now, verified_at: now, last_report_at: now]
-      )
-
-      # Set expected_bundle_id for nodes that completed this step
-      SentinelCp.Nodes.set_expected_bundle_for_nodes(step.node_ids, rollout.bundle_id)
-
-      broadcast_rollout_update(rollout)
-      {:ok, :step_completed}
+      if rollout.strategy == "canary" do
+        check_canary_analysis(rollout, step)
+      else
+        complete_step(rollout, step)
+      end
     else
       check_step_deadline(rollout, step)
     end
+  end
+
+  defp complete_step(rollout, step) do
+    {:ok, _step} =
+      step
+      |> RolloutStep.state_changeset("completed")
+      |> Repo.update()
+
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    from(nbs in NodeBundleStatus,
+      where: nbs.rollout_id == ^rollout.id and nbs.node_id in ^step.node_ids
+    )
+    |> Repo.update_all(
+      set: [state: "active", activated_at: now, verified_at: now, last_report_at: now]
+    )
+
+    # Set expected_bundle_id for nodes that completed this step
+    SentinelCp.Nodes.set_expected_bundle_for_nodes(step.node_ids, rollout.bundle_id)
+
+    broadcast_rollout_update(rollout)
+    {:ok, :step_completed}
+  end
+
+  defp check_canary_analysis(rollout, step) do
+    # Determine canary vs baseline node IDs
+    rollout_with_steps =
+      Repo.preload(rollout, steps: from(s in RolloutStep, order_by: s.step_index))
+
+    canary_node_ids =
+      rollout_with_steps.steps
+      |> Enum.filter(&(&1.state in ~w(completed running verifying)))
+      |> Enum.flat_map(& &1.node_ids)
+
+    baseline_node_ids =
+      rollout_with_steps.steps
+      |> Enum.filter(&(&1.state == "pending"))
+      |> Enum.flat_map(& &1.node_ids)
+
+    {decision, result} = CanaryAnalysis.analyze(rollout, canary_node_ids, baseline_node_ids)
+    store_canary_result(rollout, result)
+
+    case decision do
+      :promote ->
+        # Complete current step
+        complete_step(rollout, step)
+
+        if CanaryAnalysis.next_step?(rollout.canary_analysis_config, rollout.canary_step_index) do
+          # Increment canary step index and recalculate next batch
+          new_index = rollout.canary_step_index + 1
+
+          next_pct =
+            CanaryAnalysis.current_step_percentage(rollout.canary_analysis_config, new_index)
+
+          {:ok, _updated} =
+            rollout
+            |> Rollout.canary_changeset(%{canary_step_index: new_index})
+            |> Repo.update()
+
+          # Redistribute remaining nodes based on new percentage
+          redistribute_canary_steps(rollout, new_index, next_pct)
+
+          {:ok, :canary_promoted}
+        else
+          # Final step — rollout will complete via normal tick cycle
+          {:ok, :canary_final_promote}
+        end
+
+      :rollback ->
+        rollback_rollout(rollout)
+        {:ok, :canary_rollback}
+
+      :extend ->
+        # Not enough data — wait for next tick
+        {:ok, :canary_extend}
+    end
+  end
+
+  defp redistribute_canary_steps(rollout, _new_index, next_pct) do
+    # Get remaining pending step node IDs
+    rollout_with_steps =
+      Repo.preload(rollout, steps: from(s in RolloutStep, order_by: s.step_index))
+
+    pending_steps = Enum.filter(rollout_with_steps.steps, &(&1.state == "pending"))
+    remaining_node_ids = Enum.flat_map(pending_steps, & &1.node_ids)
+
+    if remaining_node_ids != [] do
+      total_original = length(get_rollout_node_ids(rollout.id))
+      next_batch_size = max(1, ceil(total_original * next_pct / 100))
+      # Cap at the number of remaining nodes
+      next_batch_size = min(next_batch_size, length(remaining_node_ids))
+      {next_batch, rest} = Enum.split(remaining_node_ids, next_batch_size)
+
+      # Delete existing pending steps and create new ones
+      for pending_step <- pending_steps do
+        Repo.delete(pending_step)
+      end
+
+      max_step_index =
+        rollout_with_steps.steps
+        |> Enum.map(& &1.step_index)
+        |> Enum.max(fn -> -1 end)
+
+      # Create next canary batch step
+      {:ok, _step} =
+        %RolloutStep{}
+        |> RolloutStep.create_changeset(%{
+          rollout_id: rollout.id,
+          step_index: max_step_index + 1,
+          node_ids: next_batch
+        })
+        |> Repo.insert()
+
+      # Create remaining nodes step if any left
+      if rest != [] do
+        {:ok, _step} =
+          %RolloutStep{}
+          |> RolloutStep.create_changeset(%{
+            rollout_id: rollout.id,
+            step_index: max_step_index + 2,
+            node_ids: rest
+          })
+          |> Repo.insert()
+      end
+    end
+  end
+
+  defp store_canary_result(rollout, result) do
+    existing = rollout.canary_analysis_results || %{"analyses" => []}
+    analyses = (existing["analyses"] || []) ++ [stringify_result(result)]
+
+    {:ok, _} =
+      rollout
+      |> Rollout.canary_changeset(%{canary_analysis_results: %{"analyses" => analyses}})
+      |> Repo.update()
+  end
+
+  defp stringify_result(result) do
+    result
+    |> Map.new(fn {k, v} ->
+      key = to_string(k)
+
+      val =
+        case v do
+          %DateTime{} -> DateTime.to_iso8601(v)
+          %{} = m -> Map.new(m, fn {mk, mv} -> {to_string(mk), mv} end)
+          other -> other
+        end
+
+      {key, val}
+    end)
   end
 
   defp check_health_gates(rollout, _step, check_node_ids) do

@@ -45,6 +45,9 @@ defmodule SentinelCpWeb.ServicesLive.New do
            show_request_transform: false,
            show_response_transform: false,
            show_traffic_split: false,
+           show_graphql: false,
+           show_grpc: false,
+           service_type: "standard",
            split_count: 0,
            match_rule_count: 0
          )}
@@ -80,6 +83,16 @@ defmodule SentinelCpWeb.ServicesLive.New do
   @impl true
   def handle_event("switch_route_type", %{"type" => type}, socket) do
     {:noreply, assign(socket, route_type: type)}
+  end
+
+  @impl true
+  def handle_event("switch_service_type", %{"service_type" => type}, socket) do
+    {:noreply,
+     assign(socket,
+       service_type: type,
+       show_graphql: type == "graphql",
+       show_grpc: type == "grpc"
+     )}
   end
 
   @impl true
@@ -136,8 +149,11 @@ defmodule SentinelCpWeb.ServicesLive.New do
           |> Map.put(:respond_status, parse_int(params["redirect_status"]))
       end
 
+    attrs = Map.put(attrs, :service_type, socket.assigns.service_type)
     attrs = maybe_put_fk(attrs, :auth_policy_id, params["auth_policy_id"])
 
+    attrs = maybe_put_map(attrs, :graphql, params, "graphql")
+    attrs = maybe_put_map(attrs, :grpc, params, "grpc")
     attrs = maybe_put_map(attrs, :retry, params, "retry")
     attrs = maybe_put_map(attrs, :cache, params, "cache")
     attrs = maybe_put_map(attrs, :rate_limit, params, "rate_limit")
@@ -192,7 +208,9 @@ defmodule SentinelCpWeb.ServicesLive.New do
             </option>
           </select>
           <label class="label">
-            <span class="label-text-alt text-base-content/50">Pre-fills the form with template defaults</span>
+            <span class="label-text-alt text-base-content/50">
+              Pre-fills the form with template defaults
+            </span>
           </label>
         </form>
       </.k8s_section>
@@ -208,6 +226,24 @@ defmodule SentinelCpWeb.ServicesLive.New do
               class="input input-bordered input-sm w-full"
               placeholder="e.g. API Backend"
             />
+          </div>
+
+          <div class="form-control">
+            <label class="label"><span class="label-text font-medium">Service Type</span></label>
+            <select
+              name="service_type"
+              phx-change="switch_service_type"
+              class="select select-bordered select-sm w-64"
+              data-testid="service-type-select"
+            >
+              <option
+                :for={t <- ~w(standard graphql grpc websocket streaming inference)}
+                value={t}
+                selected={@service_type == t}
+              >
+                {t}
+              </option>
+            </select>
           </div>
 
           <div class="form-control">
@@ -338,6 +374,146 @@ defmodule SentinelCpWeb.ServicesLive.New do
               <option value="">None</option>
               <option :for={p <- @auth_policies} value={p.id}>{p.name} ({p.auth_type})</option>
             </select>
+          </div>
+
+          <%!-- Protocol Configuration --%>
+          <div :if={@service_type in ~w(graphql grpc)} class="divider text-xs text-base-content/50">
+            Protocol Configuration
+          </div>
+
+          <div :if={@service_type == "graphql" or @show_graphql} data-testid="graphql-config">
+            <button
+              type="button"
+              phx-click="toggle_section"
+              phx-value-section="graphql"
+              class="btn btn-ghost btn-xs"
+            >
+              {if @show_graphql, do: "▼", else: "▶"} GraphQL Settings
+            </button>
+            <div :if={@show_graphql} class="ml-4 mt-2 space-y-2">
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Max Depth</span></label>
+                <input
+                  type="number"
+                  name="graphql[max_depth]"
+                  class="input input-bordered input-xs w-24"
+                  placeholder="10"
+                  min="1"
+                />
+              </div>
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Max Complexity</span></label>
+                <input
+                  type="number"
+                  name="graphql[max_complexity]"
+                  class="input input-bordered input-xs w-28"
+                  placeholder="1000"
+                  min="1"
+                />
+              </div>
+              <div class="form-control">
+                <label class="label cursor-pointer gap-2 justify-start">
+                  <input
+                    type="checkbox"
+                    name="graphql[introspection]"
+                    value="true"
+                    checked
+                    class="checkbox checkbox-xs"
+                  />
+                  <span class="label-text text-xs">Introspection</span>
+                </label>
+              </div>
+              <div class="form-control">
+                <label class="label cursor-pointer gap-2 justify-start">
+                  <input
+                    type="checkbox"
+                    name="graphql[persisted_queries]"
+                    value="true"
+                    class="checkbox checkbox-xs"
+                  />
+                  <span class="label-text text-xs">Persisted Queries</span>
+                </label>
+              </div>
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Playground Path</span></label>
+                <input
+                  type="text"
+                  name="graphql[playground_path]"
+                  class="input input-bordered input-xs w-48"
+                  placeholder="/graphql"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div :if={@service_type == "grpc" or @show_grpc} data-testid="grpc-config">
+            <button
+              type="button"
+              phx-click="toggle_section"
+              phx-value-section="grpc"
+              class="btn btn-ghost btn-xs"
+            >
+              {if @show_grpc, do: "▼", else: "▶"} gRPC Settings
+            </button>
+            <div :if={@show_grpc} class="ml-4 mt-2 space-y-2">
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text text-xs">Max Message Size (bytes)</span>
+                </label>
+                <input
+                  type="number"
+                  name="grpc[max_message_size]"
+                  class="input input-bordered input-xs w-32"
+                  placeholder="4194304"
+                  min="1"
+                />
+              </div>
+              <div class="form-control">
+                <label class="label cursor-pointer gap-2 justify-start">
+                  <input
+                    type="checkbox"
+                    name="grpc[reflection]"
+                    value="true"
+                    checked
+                    class="checkbox checkbox-xs"
+                  />
+                  <span class="label-text text-xs">Reflection</span>
+                </label>
+              </div>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text text-xs">Health Check Service</span>
+                </label>
+                <input
+                  type="text"
+                  name="grpc[health_check_service]"
+                  class="input input-bordered input-xs w-64"
+                  placeholder="grpc.health.v1.Health"
+                />
+              </div>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text text-xs">Allowed Services (one per line)</span>
+                </label>
+                <textarea
+                  name="grpc[allowed_services]"
+                  rows="3"
+                  class="textarea textarea-bordered textarea-xs w-full font-mono"
+                  placeholder="myapp.v1.UserService"
+                ></textarea>
+              </div>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text text-xs">Allowed Methods (one per line)</span>
+                </label>
+                <textarea
+                  name="grpc[allowed_methods]"
+                  rows="3"
+                  class="textarea textarea-bordered textarea-xs w-full font-mono"
+                  placeholder="myapp.v1.UserService/GetUser"
+                ></textarea>
+              </div>
+            </div>
           </div>
 
           <%!-- Advanced Sections --%>
@@ -533,7 +709,12 @@ defmodule SentinelCpWeb.ServicesLive.New do
               </div>
               <div class="form-control">
                 <label class="label cursor-pointer gap-2 justify-start">
-                  <input type="checkbox" name="cors[allow_credentials]" value="true" class="checkbox checkbox-xs" />
+                  <input
+                    type="checkbox"
+                    name="cors[allow_credentials]"
+                    value="true"
+                    class="checkbox checkbox-xs"
+                  />
                   <span class="label-text text-xs">Allow Credentials</span>
                 </label>
               </div>
@@ -551,7 +732,9 @@ defmodule SentinelCpWeb.ServicesLive.New do
             </button>
             <div :if={@show_access_control} class="ml-4 mt-2 space-y-2">
               <div class="form-control">
-                <label class="label"><span class="label-text text-xs">Allow CIDRs (one per line)</span></label>
+                <label class="label">
+                  <span class="label-text text-xs">Allow CIDRs (one per line)</span>
+                </label>
                 <textarea
                   name="access_control[allow]"
                   rows="3"
@@ -560,7 +743,9 @@ defmodule SentinelCpWeb.ServicesLive.New do
                 ></textarea>
               </div>
               <div class="form-control">
-                <label class="label"><span class="label-text text-xs">Deny CIDRs (one per line)</span></label>
+                <label class="label">
+                  <span class="label-text text-xs">Deny CIDRs (one per line)</span>
+                </label>
                 <textarea
                   name="access_control[deny]"
                   rows="3"
@@ -651,7 +836,9 @@ defmodule SentinelCpWeb.ServicesLive.New do
             </div>
           </div>
 
-          <div :if={@upstream_groups != []} class="divider text-xs text-base-content/50">Traffic Splitting</div>
+          <div :if={@upstream_groups != []} class="divider text-xs text-base-content/50">
+            Traffic Splitting
+          </div>
 
           <div :if={@upstream_groups != []}>
             <button
@@ -670,42 +857,80 @@ defmodule SentinelCpWeb.ServicesLive.New do
                 <h4 class="text-xs font-medium mb-1">Weighted Splits</h4>
                 <div :for={i <- 0..(@split_count - 1)} class="flex gap-2 items-end mb-2">
                   <div class="form-control">
-                    <label :if={i == 0} class="label"><span class="label-text text-xs">Upstream Group</span></label>
+                    <label :if={i == 0} class="label">
+                      <span class="label-text text-xs">Upstream Group</span>
+                    </label>
                     <select name={"split_group_#{i}"} class="select select-bordered select-xs w-48">
                       <option value="">Select group</option>
                       <option :for={g <- @upstream_groups} value={g.id}>{g.name}</option>
                     </select>
                   </div>
                   <div class="form-control">
-                    <label :if={i == 0} class="label"><span class="label-text text-xs">Weight</span></label>
-                    <input type="number" name={"split_weight_#{i}"} class="input input-bordered input-xs w-20" placeholder="50" min="0" max="100" />
+                    <label :if={i == 0} class="label">
+                      <span class="label-text text-xs">Weight</span>
+                    </label>
+                    <input
+                      type="number"
+                      name={"split_weight_#{i}"}
+                      class="input input-bordered input-xs w-20"
+                      placeholder="50"
+                      min="0"
+                      max="100"
+                    />
                   </div>
                 </div>
                 <div class="flex gap-1">
-                  <button type="button" phx-click="add_split" class="btn btn-ghost btn-xs">+ Add Split</button>
-                  <button :if={@split_count > 0} type="button" phx-click="remove_split" class="btn btn-ghost btn-xs text-error">Remove</button>
+                  <button type="button" phx-click="add_split" class="btn btn-ghost btn-xs">
+                    + Add Split
+                  </button>
+                  <button
+                    :if={@split_count > 0}
+                    type="button"
+                    phx-click="remove_split"
+                    class="btn btn-ghost btn-xs text-error"
+                  >
+                    Remove
+                  </button>
                 </div>
               </div>
               <div>
                 <h4 class="text-xs font-medium mb-1">Match Rules</h4>
                 <div :for={i <- 0..(@match_rule_count - 1)} class="flex gap-2 items-end mb-2">
                   <div class="form-control">
-                    <label :if={i == 0} class="label"><span class="label-text text-xs">Type</span></label>
+                    <label :if={i == 0} class="label">
+                      <span class="label-text text-xs">Type</span>
+                    </label>
                     <select name={"match_type_#{i}"} class="select select-bordered select-xs w-28">
                       <option value="header">Header</option>
                       <option value="cookie">Cookie</option>
                     </select>
                   </div>
                   <div class="form-control">
-                    <label :if={i == 0} class="label"><span class="label-text text-xs">Key</span></label>
-                    <input type="text" name={"match_key_#{i}"} class="input input-bordered input-xs w-32" placeholder="X-Version" />
+                    <label :if={i == 0} class="label">
+                      <span class="label-text text-xs">Key</span>
+                    </label>
+                    <input
+                      type="text"
+                      name={"match_key_#{i}"}
+                      class="input input-bordered input-xs w-32"
+                      placeholder="X-Version"
+                    />
                   </div>
                   <div class="form-control">
-                    <label :if={i == 0} class="label"><span class="label-text text-xs">Value</span></label>
-                    <input type="text" name={"match_value_#{i}"} class="input input-bordered input-xs w-24" placeholder="v2" />
+                    <label :if={i == 0} class="label">
+                      <span class="label-text text-xs">Value</span>
+                    </label>
+                    <input
+                      type="text"
+                      name={"match_value_#{i}"}
+                      class="input input-bordered input-xs w-24"
+                      placeholder="v2"
+                    />
                   </div>
                   <div class="form-control">
-                    <label :if={i == 0} class="label"><span class="label-text text-xs">Target Group</span></label>
+                    <label :if={i == 0} class="label">
+                      <span class="label-text text-xs">Target Group</span>
+                    </label>
                     <select name={"match_target_#{i}"} class="select select-bordered select-xs w-48">
                       <option value="">Select group</option>
                       <option :for={g <- @upstream_groups} value={g.id}>{g.name}</option>
@@ -713,8 +938,17 @@ defmodule SentinelCpWeb.ServicesLive.New do
                   </div>
                 </div>
                 <div class="flex gap-1">
-                  <button type="button" phx-click="add_match_rule" class="btn btn-ghost btn-xs">+ Add Rule</button>
-                  <button :if={@match_rule_count > 0} type="button" phx-click="remove_match_rule" class="btn btn-ghost btn-xs text-error">Remove</button>
+                  <button type="button" phx-click="add_match_rule" class="btn btn-ghost btn-xs">
+                    + Add Rule
+                  </button>
+                  <button
+                    :if={@match_rule_count > 0}
+                    type="button"
+                    phx-click="remove_match_rule"
+                    class="btn btn-ghost btn-xs text-error"
+                  >
+                    Remove
+                  </button>
                 </div>
               </div>
             </div>
@@ -733,42 +967,91 @@ defmodule SentinelCpWeb.ServicesLive.New do
             </button>
             <div :if={@show_security} class="ml-4 mt-2 space-y-2">
               <div class="form-control">
-                <label class="label"><span class="label-text text-xs">Max Body Size (bytes)</span></label>
-                <input type="number" name="security[max_body_size]" class="input input-bordered input-xs w-32" placeholder="1048576" min="0" />
+                <label class="label">
+                  <span class="label-text text-xs">Max Body Size (bytes)</span>
+                </label>
+                <input
+                  type="number"
+                  name="security[max_body_size]"
+                  class="input input-bordered input-xs w-32"
+                  placeholder="1048576"
+                  min="0"
+                />
               </div>
               <div class="form-control">
-                <label class="label"><span class="label-text text-xs">Max Header Size (bytes)</span></label>
-                <input type="number" name="security[max_header_size]" class="input input-bordered input-xs w-32" placeholder="8192" min="0" />
+                <label class="label">
+                  <span class="label-text text-xs">Max Header Size (bytes)</span>
+                </label>
+                <input
+                  type="number"
+                  name="security[max_header_size]"
+                  class="input input-bordered input-xs w-32"
+                  placeholder="8192"
+                  min="0"
+                />
               </div>
               <div class="form-control">
                 <label class="label"><span class="label-text text-xs">Max URI Length</span></label>
-                <input type="number" name="security[max_uri_length]" class="input input-bordered input-xs w-32" placeholder="2048" min="0" />
+                <input
+                  type="number"
+                  name="security[max_uri_length]"
+                  class="input input-bordered input-xs w-32"
+                  placeholder="2048"
+                  min="0"
+                />
               </div>
               <div class="form-control">
-                <label class="label"><span class="label-text text-xs">Allowed Content Types (comma-separated)</span></label>
-                <input type="text" name="security[allowed_content_types]" class="input input-bordered input-xs w-full" placeholder="application/json, text/plain" />
+                <label class="label">
+                  <span class="label-text text-xs">Allowed Content Types (comma-separated)</span>
+                </label>
+                <input
+                  type="text"
+                  name="security[allowed_content_types]"
+                  class="input input-bordered input-xs w-full"
+                  placeholder="application/json, text/plain"
+                />
               </div>
               <div class="form-control">
                 <label class="label cursor-pointer gap-2 justify-start">
-                  <input type="checkbox" name="security[block_sqli]" value="true" class="checkbox checkbox-xs" />
+                  <input
+                    type="checkbox"
+                    name="security[block_sqli]"
+                    value="true"
+                    class="checkbox checkbox-xs"
+                  />
                   <span class="label-text text-xs">Block SQL Injection</span>
                 </label>
               </div>
               <div class="form-control">
                 <label class="label cursor-pointer gap-2 justify-start">
-                  <input type="checkbox" name="security[block_xss]" value="true" class="checkbox checkbox-xs" />
+                  <input
+                    type="checkbox"
+                    name="security[block_xss]"
+                    value="true"
+                    class="checkbox checkbox-xs"
+                  />
                   <span class="label-text text-xs">Block XSS</span>
                 </label>
               </div>
               <div class="form-control">
                 <label class="label cursor-pointer gap-2 justify-start">
-                  <input type="checkbox" name="security[block_path_traversal]" value="true" class="checkbox checkbox-xs" />
+                  <input
+                    type="checkbox"
+                    name="security[block_path_traversal]"
+                    value="true"
+                    class="checkbox checkbox-xs"
+                  />
                   <span class="label-text text-xs">Block Path Traversal</span>
                 </label>
               </div>
               <div class="form-control">
                 <label class="label"><span class="label-text text-xs">Custom Rules</span></label>
-                <textarea name="security[custom_rules]" rows="3" class="textarea textarea-bordered textarea-xs w-full font-mono" placeholder="Custom WAF rules"></textarea>
+                <textarea
+                  name="security[custom_rules]"
+                  rows="3"
+                  class="textarea textarea-bordered textarea-xs w-full font-mono"
+                  placeholder="Custom WAF rules"
+                ></textarea>
               </div>
             </div>
           </div>
@@ -784,24 +1067,59 @@ defmodule SentinelCpWeb.ServicesLive.New do
             </button>
             <div :if={@show_request_transform} class="ml-4 mt-2 space-y-2">
               <div class="form-control">
-                <label class="label"><span class="label-text text-xs">Add Headers (key: value, one per line)</span></label>
-                <textarea name="request_transform[add_headers]" rows="3" class="textarea textarea-bordered textarea-xs w-full font-mono" placeholder="X-Custom: value"></textarea>
+                <label class="label">
+                  <span class="label-text text-xs">Add Headers (key: value, one per line)</span>
+                </label>
+                <textarea
+                  name="request_transform[add_headers]"
+                  rows="3"
+                  class="textarea textarea-bordered textarea-xs w-full font-mono"
+                  placeholder="X-Custom: value"
+                ></textarea>
               </div>
               <div class="form-control">
-                <label class="label"><span class="label-text text-xs">Remove Headers (comma-separated)</span></label>
-                <input type="text" name="request_transform[remove_headers]" class="input input-bordered input-xs w-full" placeholder="X-Forwarded-For, X-Real-IP" />
+                <label class="label">
+                  <span class="label-text text-xs">Remove Headers (comma-separated)</span>
+                </label>
+                <input
+                  type="text"
+                  name="request_transform[remove_headers]"
+                  class="input input-bordered input-xs w-full"
+                  placeholder="X-Forwarded-For, X-Real-IP"
+                />
               </div>
               <div class="form-control">
-                <label class="label"><span class="label-text text-xs">Rename Headers (old: new, one per line)</span></label>
-                <textarea name="request_transform[rename_headers]" rows="2" class="textarea textarea-bordered textarea-xs w-full font-mono" placeholder="X-Old: X-New"></textarea>
+                <label class="label">
+                  <span class="label-text text-xs">Rename Headers (old: new, one per line)</span>
+                </label>
+                <textarea
+                  name="request_transform[rename_headers]"
+                  rows="2"
+                  class="textarea textarea-bordered textarea-xs w-full font-mono"
+                  placeholder="X-Old: X-New"
+                ></textarea>
               </div>
               <div class="form-control">
-                <label class="label"><span class="label-text text-xs">Add Query Params (key=value, one per line)</span></label>
-                <textarea name="request_transform[add_query_params]" rows="2" class="textarea textarea-bordered textarea-xs w-full font-mono" placeholder="version=2"></textarea>
+                <label class="label">
+                  <span class="label-text text-xs">Add Query Params (key=value, one per line)</span>
+                </label>
+                <textarea
+                  name="request_transform[add_query_params]"
+                  rows="2"
+                  class="textarea textarea-bordered textarea-xs w-full font-mono"
+                  placeholder="version=2"
+                ></textarea>
               </div>
               <div class="form-control">
-                <label class="label"><span class="label-text text-xs">Remove Query Params (comma-separated)</span></label>
-                <input type="text" name="request_transform[remove_query_params]" class="input input-bordered input-xs w-full" placeholder="debug, trace" />
+                <label class="label">
+                  <span class="label-text text-xs">Remove Query Params (comma-separated)</span>
+                </label>
+                <input
+                  type="text"
+                  name="request_transform[remove_query_params]"
+                  class="input input-bordered input-xs w-full"
+                  placeholder="debug, trace"
+                />
               </div>
             </div>
           </div>
@@ -817,16 +1135,37 @@ defmodule SentinelCpWeb.ServicesLive.New do
             </button>
             <div :if={@show_response_transform} class="ml-4 mt-2 space-y-2">
               <div class="form-control">
-                <label class="label"><span class="label-text text-xs">Add Headers (key: value, one per line)</span></label>
-                <textarea name="response_transform[add_headers]" rows="3" class="textarea textarea-bordered textarea-xs w-full font-mono" placeholder="X-Frame-Options: DENY"></textarea>
+                <label class="label">
+                  <span class="label-text text-xs">Add Headers (key: value, one per line)</span>
+                </label>
+                <textarea
+                  name="response_transform[add_headers]"
+                  rows="3"
+                  class="textarea textarea-bordered textarea-xs w-full font-mono"
+                  placeholder="X-Frame-Options: DENY"
+                ></textarea>
               </div>
               <div class="form-control">
-                <label class="label"><span class="label-text text-xs">Remove Headers (comma-separated)</span></label>
-                <input type="text" name="response_transform[remove_headers]" class="input input-bordered input-xs w-full" placeholder="Server, X-Powered-By" />
+                <label class="label">
+                  <span class="label-text text-xs">Remove Headers (comma-separated)</span>
+                </label>
+                <input
+                  type="text"
+                  name="response_transform[remove_headers]"
+                  class="input input-bordered input-xs w-full"
+                  placeholder="Server, X-Powered-By"
+                />
               </div>
               <div class="form-control">
-                <label class="label"><span class="label-text text-xs">Rename Headers (old: new, one per line)</span></label>
-                <textarea name="response_transform[rename_headers]" rows="2" class="textarea textarea-bordered textarea-xs w-full font-mono" placeholder="X-Old: X-New"></textarea>
+                <label class="label">
+                  <span class="label-text text-xs">Rename Headers (old: new, one per line)</span>
+                </label>
+                <textarea
+                  name="response_transform[rename_headers]"
+                  rows="2"
+                  class="textarea textarea-bordered textarea-xs w-full font-mono"
+                  placeholder="X-Old: X-New"
+                ></textarea>
               </div>
             </div>
           </div>

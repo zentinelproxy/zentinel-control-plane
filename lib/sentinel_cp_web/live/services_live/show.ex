@@ -64,7 +64,7 @@ defmodule SentinelCpWeb.ServicesLive.Show do
     service = socket.assigns.service
     project = socket.assigns.project
     chain = socket.assigns.middleware_chain
-    next_position = if chain == [], do: 0, else: (Enum.max_by(chain, & &1.position).position + 1)
+    next_position = if chain == [], do: 0, else: Enum.max_by(chain, & &1.position).position + 1
 
     case Services.attach_middleware(%{
            service_id: service.id,
@@ -72,12 +72,19 @@ defmodule SentinelCpWeb.ServicesLive.Show do
            position: next_position
          }) do
       {:ok, _} ->
-        Audit.log_user_action(socket.assigns.current_user, "attach", "service_middleware", service.id,
+        Audit.log_user_action(
+          socket.assigns.current_user,
+          "attach",
+          "service_middleware",
+          service.id,
           project_id: project.id
         )
 
         middleware_chain = Services.list_service_middlewares(service.id)
-        {:noreply, assign(socket, middleware_chain: middleware_chain) |> put_flash(:info, "Middleware attached.")}
+
+        {:noreply,
+         assign(socket, middleware_chain: middleware_chain)
+         |> put_flash(:info, "Middleware attached.")}
 
       {:error, _} ->
         {:noreply, put_flash(socket, :error, "Could not attach middleware.")}
@@ -96,12 +103,19 @@ defmodule SentinelCpWeb.ServicesLive.Show do
       sm ->
         case Services.detach_middleware(sm) do
           {:ok, _} ->
-            Audit.log_user_action(socket.assigns.current_user, "detach", "service_middleware", service.id,
+            Audit.log_user_action(
+              socket.assigns.current_user,
+              "detach",
+              "service_middleware",
+              service.id,
               project_id: project.id
             )
 
             middleware_chain = Services.list_service_middlewares(service.id)
-            {:noreply, assign(socket, middleware_chain: middleware_chain) |> put_flash(:info, "Middleware detached.")}
+
+            {:noreply,
+             assign(socket, middleware_chain: middleware_chain)
+             |> put_flash(:info, "Middleware detached.")}
 
           {:error, _} ->
             {:noreply, put_flash(socket, :error, "Could not detach middleware.")}
@@ -146,6 +160,9 @@ defmodule SentinelCpWeb.ServicesLive.Show do
             <:item label="ID"><span class="font-mono text-sm">{@service.id}</span></:item>
             <:item label="Name">{@service.name}</:item>
             <:item label="Slug"><span class="font-mono">{@service.slug}</span></:item>
+            <:item label="Type">
+              <span class="badge badge-sm badge-outline">{@service.service_type || "standard"}</span>
+            </:item>
             <:item label="Description">{@service.description || "—"}</:item>
             <:item label="Route Path"><span class="font-mono">{@service.route_path}</span></:item>
             <:item label="Upstream">
@@ -192,14 +209,54 @@ defmodule SentinelCpWeb.ServicesLive.Show do
           </.definition_list>
         </.k8s_section>
 
+        <div
+          :if={@service.service_type && @service.service_type != "standard"}
+          data-testid="protocol-config"
+        >
+          <.k8s_section title="Protocol Configuration">
+            <div :if={@service.service_type == "graphql" and @service.graphql != %{}}>
+              <.definition_list>
+                <:item label="Max Depth">{@service.graphql["max_depth"] || "—"}</:item>
+                <:item label="Max Complexity">{@service.graphql["max_complexity"] || "—"}</:item>
+                <:item label="Introspection">{@service.graphql["introspection"] || "—"}</:item>
+                <:item label="Persisted Queries">
+                  {@service.graphql["persisted_queries"] || "—"}
+                </:item>
+                <:item label="Playground Path">{@service.graphql["playground_path"] || "—"}</:item>
+              </.definition_list>
+            </div>
+            <div :if={@service.service_type == "grpc" and @service.grpc != %{}}>
+              <.definition_list>
+                <:item label="Max Message Size">{@service.grpc["max_message_size"] || "—"}</:item>
+                <:item label="Reflection">{@service.grpc["reflection"] || "—"}</:item>
+                <:item label="Health Check Service">
+                  {@service.grpc["health_check_service"] || "—"}
+                </:item>
+                <:item label="Allowed Services">{@service.grpc["allowed_services"] || "—"}</:item>
+                <:item label="Allowed Methods">{@service.grpc["allowed_methods"] || "—"}</:item>
+              </.definition_list>
+            </div>
+            <div
+              :if={@service.service_type not in ~w(graphql grpc)}
+              class="text-sm text-base-content/50"
+            >
+              {format_map(Map.get(@service, String.to_existing_atom(@service.service_type), %{}))}
+            </div>
+          </.k8s_section>
+        </div>
+
         <div class="lg:col-span-2">
           <.k8s_section title="Middleware Chain">
             <div class="flex items-center justify-between mb-3">
-              <p class="text-xs text-base-content/50">Middleware applied in position order after inline fields.</p>
+              <p class="text-xs text-base-content/50">
+                Middleware applied in position order after inline fields.
+              </p>
               <form phx-submit="attach_middleware" class="flex gap-2 items-center">
                 <select name="middleware_id" class="select select-bordered select-xs">
                   <option value="">Attach middleware...</option>
-                  <option :for={mw <- @available_middlewares} value={mw.id}>{mw.name} ({mw.middleware_type})</option>
+                  <option :for={mw <- @available_middlewares} value={mw.id}>
+                    {mw.name} ({mw.middleware_type})
+                  </option>
                 </select>
                 <button type="submit" class="btn btn-outline btn-xs">Attach</button>
               </form>
@@ -220,7 +277,9 @@ defmodule SentinelCpWeb.ServicesLive.Show do
                 <tr :for={sm <- @middleware_chain}>
                   <td class="font-mono text-sm">{sm.position + 1}</td>
                   <td>{sm.middleware.name}</td>
-                  <td><span class="badge badge-sm badge-outline">{sm.middleware.middleware_type}</span></td>
+                  <td>
+                    <span class="badge badge-sm badge-outline">{sm.middleware.middleware_type}</span>
+                  </td>
                   <td>
                     <span class={["badge badge-xs", (sm.enabled && "badge-success") || "badge-ghost"]}>
                       {if sm.enabled, do: "yes", else: "no"}
