@@ -41,6 +41,8 @@ defmodule SentinelCp.Events.DeliveryWorker do
     end
   end
 
+  @max_response_body_size 10_240
+
   defp execute_delivery(attempt, event, channel) do
     start_time = System.monotonic_time(:millisecond)
 
@@ -49,8 +51,9 @@ defmodule SentinelCp.Events.DeliveryWorker do
     |> Ecto.Changeset.change(%{status: "delivering"})
     |> Repo.update!()
 
-    result = deliver_to_channel(event, channel)
+    {result, request_body, response_body} = deliver_to_channel(event, channel)
     latency_ms = System.monotonic_time(:millisecond) - start_time
+    response_body = truncate_body(response_body)
 
     case result do
       {:ok, http_status} ->
@@ -58,53 +61,93 @@ defmodule SentinelCp.Events.DeliveryWorker do
         |> DeliveryAttempt.complete_changeset(%{
           status: "delivered",
           http_status: http_status,
-          latency_ms: latency_ms
+          latency_ms: latency_ms,
+          request_body: request_body,
+          response_body: response_body
         })
         |> Repo.update!()
 
         :ok
 
       {:error, reason} ->
-        handle_failure(attempt, reason, latency_ms)
+        handle_failure(attempt, reason, latency_ms, request_body, response_body)
     end
   end
 
+  defp truncate_body(nil), do: nil
+
+  defp truncate_body(body) when byte_size(body) > @max_response_body_size do
+    String.slice(body, 0, @max_response_body_size) <> "\n... [truncated]"
+  end
+
+  defp truncate_body(body), do: body
+
   defp deliver_to_channel(event, %Channel{type: "slack", config: config}) do
     payload = Adapters.Slack.format_payload(event)
+    request_body = Jason.encode!(payload, pretty: true)
     webhook_url = config["webhook_url"]
-    Adapters.Slack.deliver(webhook_url, payload)
+    result = Adapters.Slack.deliver(webhook_url, payload)
+    {result, request_body, extract_response_body(result)}
   end
 
   defp deliver_to_channel(event, %Channel{type: "pagerduty", config: config}) do
     routing_key = config["routing_key"]
     payload = Adapters.PagerDuty.format_payload(event, routing_key)
-    Adapters.PagerDuty.deliver(routing_key, payload)
+    request_body = Jason.encode!(payload, pretty: true)
+    result = Adapters.PagerDuty.deliver(routing_key, payload)
+    {result, request_body, extract_response_body(result)}
   end
 
   defp deliver_to_channel(event, %Channel{type: "email", config: config}) do
     email_payload = Adapters.Email.format_payload(event)
+
+    request_body =
+      Jason.encode!(%{to: config["to"], subject: email_payload.subject}, pretty: true)
+
     to = config["to"]
     from = config["from"] || "noreply@sentinel-cp.local"
-    Adapters.Email.deliver(to, from, email_payload.subject, email_payload.body)
+    result = Adapters.Email.deliver(to, from, email_payload.subject, email_payload.body)
+
+    response_body =
+      case result do
+        {:ok, _} -> "Email queued"
+        {:error, reason} -> inspect(reason)
+      end
+
+    {result, request_body, response_body}
   end
 
   defp deliver_to_channel(event, %Channel{type: "teams", config: config}) do
     payload = Adapters.Teams.format_payload(event)
+    request_body = Jason.encode!(payload, pretty: true)
     webhook_url = config["webhook_url"]
-    Adapters.Teams.deliver(webhook_url, payload)
+    result = Adapters.Teams.deliver(webhook_url, payload)
+    {result, request_body, extract_response_body(result)}
   end
 
   defp deliver_to_channel(event, %Channel{type: "webhook", config: config} = channel) do
     payload = Adapters.Webhook.format_payload(event)
+    request_body = Jason.encode!(payload, pretty: true)
     url = config["url"]
-    Adapters.Webhook.deliver(url, payload, channel.signing_secret)
+    result = Adapters.Webhook.deliver(url, payload, channel.signing_secret)
+    {result, request_body, extract_response_body(result)}
   end
 
   defp deliver_to_channel(_event, %Channel{type: type}) do
-    {:error, {:unknown_channel_type, type}}
+    {{:error, {:unknown_channel_type, type}}, nil, nil}
   end
 
-  defp handle_failure(attempt, reason, latency_ms) do
+  defp extract_response_body({:ok, _status}), do: nil
+
+  defp extract_response_body({:error, {:http_error, _status, body}}) when is_binary(body),
+    do: body
+
+  defp extract_response_body({:error, {:http_error, _status, body}}),
+    do: inspect(body)
+
+  defp extract_response_body({:error, _reason}), do: nil
+
+  defp handle_failure(attempt, reason, latency_ms, request_body, response_body) do
     error_msg = inspect(reason)
 
     http_status =
@@ -120,7 +163,9 @@ defmodule SentinelCp.Events.DeliveryWorker do
         status: "dead_letter",
         http_status: http_status,
         latency_ms: latency_ms,
-        error: error_msg
+        error: error_msg,
+        request_body: request_body,
+        response_body: response_body
       })
       |> Repo.update!()
 
@@ -132,13 +177,15 @@ defmodule SentinelCp.Events.DeliveryWorker do
       # Schedule retry with exponential backoff
       next_retry = DeliveryAttempt.next_retry_time(attempt.attempt_number)
 
-      {:ok, new_attempt} =
+      {:ok, _new_attempt} =
         attempt
         |> DeliveryAttempt.complete_changeset(%{
           status: "failed",
           http_status: http_status,
           latency_ms: latency_ms,
-          error: error_msg
+          error: error_msg,
+          request_body: request_body,
+          response_body: response_body
         })
         |> Repo.update()
 
@@ -155,8 +202,6 @@ defmodule SentinelCp.Events.DeliveryWorker do
         |> Repo.insert()
 
       # Schedule the retry with delay
-      delay_seconds = DateTime.diff(next_retry, DateTime.utc_now(), :second) |> max(1)
-
       %{attempt_id: retry_attempt.id}
       |> __MODULE__.new(scheduled_at: next_retry)
       |> Oban.insert()

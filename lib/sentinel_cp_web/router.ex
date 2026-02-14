@@ -210,6 +210,11 @@ defmodule SentinelCpWeb.Router do
     live "/projects/:project_slug/notifications/rules/:id", NotificationsLive.RuleShow, :show
     live "/projects/:project_slug/notifications/rules/:id/edit", NotificationsLive.RuleEdit, :edit
     live "/projects/:project_slug/notifications/delivery", NotificationsLive.Delivery, :index
+
+    live "/projects/:project_slug/notifications/delivery/:id",
+         NotificationsLive.DeliveryShow,
+         :show
+
     live "/projects/:project_slug/topology", TopologyLive.Index, :index
     live "/projects/:project_slug/waf", WafLive.Index, :index
     live "/projects/:project_slug/waf/anomalies", WafLive.Anomalies, :index
@@ -419,6 +424,10 @@ defmodule SentinelCpWeb.Router do
     live "/orgs/:org_slug/projects/:project_slug/notifications/delivery",
          NotificationsLive.Delivery,
          :index
+
+    live "/orgs/:org_slug/projects/:project_slug/notifications/delivery/:id",
+         NotificationsLive.DeliveryShow,
+         :show
 
     live "/orgs/:org_slug/projects/:project_slug/topology",
          TopologyLive.Index,

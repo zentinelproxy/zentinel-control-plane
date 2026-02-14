@@ -189,6 +189,54 @@ defmodule SentinelCp.Events do
 
   def get_delivery_attempt(id), do: Repo.get(DeliveryAttempt, id)
 
+  def get_delivery_attempt!(id), do: Repo.get!(DeliveryAttempt, id)
+
+  @doc """
+  Sends a test notification through a channel by creating a synthetic
+  `system.test` event and scheduling delivery.
+  """
+  def test_channel(%Channel{} = channel) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    {:ok, event} =
+      create_event(%{
+        type: "system.test",
+        payload: %{
+          channel_id: channel.id,
+          channel_name: channel.name,
+          message: "Test notification from Sentinel CP"
+        },
+        project_id: channel.project_id,
+        emitted_at: now
+      })
+
+    {:ok, attempt} =
+      %DeliveryAttempt{}
+      |> DeliveryAttempt.changeset(%{
+        event_id: event.id,
+        channel_id: channel.id,
+        status: "pending",
+        attempt_number: 1
+      })
+      |> Repo.insert()
+
+    DeliveryWorker.enqueue(attempt.id)
+    {:ok, attempt}
+  end
+
+  @doc """
+  Lists all delivery attempts for a given event+channel pair, ordered by attempt number.
+  Used to show the retry timeline for a delivery.
+  """
+  def list_attempt_chain(event_id, channel_id) do
+    from(d in DeliveryAttempt,
+      where: d.event_id == ^event_id and d.channel_id == ^channel_id,
+      order_by: [asc: d.attempt_number],
+      preload: [:event, :channel]
+    )
+    |> Repo.all()
+  end
+
   def list_delivery_attempts(opts \\ []) do
     limit = Keyword.get(opts, :limit, 50)
     channel_id = Keyword.get(opts, :channel_id)

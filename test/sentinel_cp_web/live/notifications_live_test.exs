@@ -111,6 +111,20 @@ defmodule SentinelCpWeb.NotificationsLiveTest do
       assert html =~ "slack"
       assert html =~ "Signing Secret"
     end
+
+    test "sends test notification", %{conn: conn, project: project} do
+      channel = channel_fixture(%{project: project, name: "Test Channel"})
+
+      {:ok, view, html} =
+        live(conn, ~p"/projects/#{project.slug}/notifications/channels/#{channel.id}")
+
+      assert html =~ "No delivery attempts yet."
+
+      html = render_click(view, "send_test", %{})
+
+      # A new delivery attempt should appear in the recent deliveries table
+      refute html =~ "No delivery attempts yet."
+    end
   end
 
   describe "Rules" do
@@ -177,6 +191,90 @@ defmodule SentinelCpWeb.NotificationsLiveTest do
       assert html =~ "Show Rule"
       assert html =~ "drift.*"
       assert html =~ "Slack Channel"
+    end
+  end
+
+  describe "Delivery Show" do
+    test "renders attempt details", %{conn: conn, project: project} do
+      channel = channel_fixture(%{project: project, name: "Detail Channel"})
+      event = event_fixture(%{project: project, type: "rollout.started"})
+
+      attempt =
+        delivery_attempt_fixture(%{
+          project: project,
+          channel: channel,
+          event: event,
+          status: "delivered",
+          http_status: 200,
+          latency_ms: 85,
+          request_body: ~s({"blocks": []}),
+          response_body: ~s(ok)
+        })
+
+      {:ok, _view, html} =
+        live(conn, ~p"/projects/#{project.slug}/notifications/delivery/#{attempt.id}")
+
+      assert html =~ "Delivery Attempt"
+      assert html =~ "delivered"
+      assert html =~ "200"
+      assert html =~ "85ms"
+      assert html =~ "Detail Channel"
+      assert html =~ "rollout.started"
+    end
+
+    test "shows request and response body", %{conn: conn, project: project} do
+      channel = channel_fixture(%{project: project})
+      event = event_fixture(%{project: project})
+
+      attempt =
+        delivery_attempt_fixture(%{
+          project: project,
+          channel: channel,
+          event: event,
+          request_body: ~s({"test": "request"}),
+          response_body: ~s({"test": "response"})
+        })
+
+      {:ok, _view, html} =
+        live(conn, ~p"/projects/#{project.slug}/notifications/delivery/#{attempt.id}")
+
+      assert html =~ "Request Body"
+      assert html =~ "Response Body"
+      # HTML-escaped quotes in rendered output
+      assert html =~ "test"
+      assert html =~ "request"
+      assert html =~ "response"
+      refute html =~ "Not captured"
+    end
+
+    test "shows attempt chain", %{conn: conn, project: project} do
+      channel = channel_fixture(%{project: project})
+      event = event_fixture(%{project: project})
+
+      attempt1 =
+        delivery_attempt_fixture(%{
+          project: project,
+          channel: channel,
+          event: event,
+          status: "failed",
+          attempt_number: 1,
+          error: "Connection refused"
+        })
+
+      attempt2 =
+        delivery_attempt_fixture(%{
+          project: project,
+          channel: channel,
+          event: event,
+          status: "delivered",
+          attempt_number: 2
+        })
+
+      {:ok, _view, html} =
+        live(conn, ~p"/projects/#{project.slug}/notifications/delivery/#{attempt2.id}")
+
+      assert html =~ "Attempt Chain"
+      assert html =~ "Connection refused"
     end
   end
 

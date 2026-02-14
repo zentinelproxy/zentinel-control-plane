@@ -27,6 +27,33 @@ defmodule SentinelCpWeb.NotificationsLive.ChannelShow do
   end
 
   @impl true
+  def handle_event("send_test", _, socket) do
+    channel = socket.assigns.channel
+    project = socket.assigns.project
+
+    case Events.test_channel(channel) do
+      {:ok, _attempt} ->
+        Audit.log_user_action(
+          socket.assigns.current_user,
+          "test",
+          "notification_channel",
+          channel.id,
+          project_id: project.id
+        )
+
+        attempts = Events.list_delivery_attempts(channel_id: channel.id, limit: 20)
+
+        {:noreply,
+         socket
+         |> assign(:attempts, attempts)
+         |> put_flash(:info, "Test notification sent.")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Could not send test notification.")}
+    end
+  end
+
+  @impl true
   def handle_event("delete", _, socket) do
     channel = socket.assigns.channel
     project = socket.assigns.project
@@ -68,6 +95,9 @@ defmodule SentinelCpWeb.NotificationsLive.ChannelShow do
           <span class="badge badge-sm badge-outline">{@channel.type}</span>
         </:badge>
         <:action>
+          <button phx-click="send_test" class="btn btn-outline btn-sm">
+            Send Test
+          </button>
           <.link navigate={edit_path(@org, @project, @channel)} class="btn btn-outline btn-sm">
             Edit
           </.link>
@@ -129,7 +159,11 @@ defmodule SentinelCpWeb.NotificationsLive.ChannelShow do
           </thead>
           <tbody>
             <tr :for={a <- @attempts}>
-              <td><.status_badge status={a.status} /></td>
+              <td>
+                <.link navigate={attempt_path(@org, @project, a)} class="link">
+                  <.status_badge status={a.status} />
+                </.link>
+              </td>
               <td>{a.attempt_number}</td>
               <td>{a.http_status || "—"}</td>
               <td>{if a.latency_ms, do: "#{a.latency_ms}ms", else: "—"}</td>
@@ -182,4 +216,10 @@ defmodule SentinelCpWeb.NotificationsLive.ChannelShow do
 
   defp edit_path(nil, project, channel),
     do: ~p"/projects/#{project.slug}/notifications/channels/#{channel.id}/edit"
+
+  defp attempt_path(%{slug: org_slug}, project, attempt),
+    do: ~p"/orgs/#{org_slug}/projects/#{project.slug}/notifications/delivery/#{attempt.id}"
+
+  defp attempt_path(nil, project, attempt),
+    do: ~p"/projects/#{project.slug}/notifications/delivery/#{attempt.id}"
 end

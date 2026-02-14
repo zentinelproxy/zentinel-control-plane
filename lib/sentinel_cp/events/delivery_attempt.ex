@@ -19,6 +19,8 @@ defmodule SentinelCp.Events.DeliveryAttempt do
     field :attempt_number, :integer, default: 1
     field :next_retry_at, :utc_datetime
     field :completed_at, :utc_datetime
+    field :request_body, :string
+    field :response_body, :string
 
     belongs_to :event, SentinelCp.Events.Event
     belongs_to :channel, SentinelCp.Events.Channel
@@ -37,7 +39,9 @@ defmodule SentinelCp.Events.DeliveryAttempt do
       :error,
       :attempt_number,
       :next_retry_at,
-      :completed_at
+      :completed_at,
+      :request_body,
+      :response_body
     ])
     |> validate_required([:event_id, :channel_id, :status, :attempt_number])
     |> validate_inclusion(:status, @statuses)
@@ -49,7 +53,7 @@ defmodule SentinelCp.Events.DeliveryAttempt do
     now = DateTime.utc_now() |> DateTime.truncate(:second)
 
     attempt
-    |> cast(attrs, [:status, :http_status, :latency_ms, :error])
+    |> cast(attrs, [:status, :http_status, :latency_ms, :error, :request_body, :response_body])
     |> put_change(:completed_at, now)
     |> validate_inclusion(:status, @statuses)
   end

@@ -130,7 +130,12 @@ defmodule SentinelCpWeb.NotificationsLive.Delivery do
           <tbody>
             <tr :for={a <- @attempts}>
               <td>
-                <span class="font-mono text-sm">{(a.event && a.event.type) || "—"}</span>
+                <.link
+                  navigate={attempt_path(@org, @project, a)}
+                  class="font-mono text-sm link"
+                >
+                  {(a.event && a.event.type) || "—"}
+                </.link>
               </td>
               <td>
                 <span class="text-sm">{(a.channel && a.channel.name) || "—"}</span>
@@ -253,4 +258,10 @@ defmodule SentinelCpWeb.NotificationsLive.Delivery do
 
   defp delivery_path(nil, project),
     do: ~p"/projects/#{project.slug}/notifications/delivery"
+
+  defp attempt_path(%{slug: org_slug}, project, attempt),
+    do: ~p"/orgs/#{org_slug}/projects/#{project.slug}/notifications/delivery/#{attempt.id}"
+
+  defp attempt_path(nil, project, attempt),
+    do: ~p"/projects/#{project.slug}/notifications/delivery/#{attempt.id}"
 end

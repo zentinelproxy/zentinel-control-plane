@@ -72,7 +72,9 @@ defmodule SentinelCp.NotificationFixtures do
             attempt_number: attrs[:attempt_number] || 1,
             http_status: attrs[:http_status] || 200,
             latency_ms: attrs[:latency_ms] || 150,
-            error: attrs[:error]
+            error: attrs[:error],
+            request_body: attrs[:request_body] || ~s({"test": true}),
+            response_body: attrs[:response_body] || ~s({"ok": true})
           }
         )
       )
