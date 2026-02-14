@@ -193,8 +193,25 @@ defmodule SentinelCp.Events do
     limit = Keyword.get(opts, :limit, 50)
     channel_id = Keyword.get(opts, :channel_id)
     status = Keyword.get(opts, :status)
+    project_id = Keyword.get(opts, :project_id)
 
-    query = from(d in DeliveryAttempt, order_by: [desc: d.inserted_at], limit: ^limit)
+    query =
+      from(d in DeliveryAttempt,
+        order_by: [desc: d.inserted_at],
+        limit: ^limit,
+        preload: [:event, :channel]
+      )
+
+    query =
+      if project_id do
+        from(d in query,
+          join: c in Channel,
+          on: d.channel_id == c.id,
+          where: c.project_id == ^project_id
+        )
+      else
+        query
+      end
 
     query =
       if channel_id do

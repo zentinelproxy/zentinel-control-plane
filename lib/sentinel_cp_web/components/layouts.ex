@@ -213,6 +213,13 @@ defmodule SentinelCpWeb.Layouts do
           current={@path}
           match="/secrets"
         />
+        <.sidebar_link
+          path={~p"/orgs/#{@org_slug}/projects/#{@project_slug}/notifications"}
+          icon="hero-bell-alert"
+          label="Notifications"
+          current={@path}
+          match="/notifications"
+        />
       </div>
 
       <div :if={@has_org}>

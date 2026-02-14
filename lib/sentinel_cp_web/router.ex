@@ -193,6 +193,23 @@ defmodule SentinelCpWeb.Router do
     live "/projects/:project_slug/plugins/:id", PluginsLive.Show, :show
     live "/projects/:project_slug/plugins/:id/edit", PluginsLive.Edit, :edit
     live "/projects/:project_slug/secrets", SecretsLive.Index, :index
+    live "/projects/:project_slug/notifications", NotificationsLive.Index, :index
+    live "/projects/:project_slug/notifications/channels", NotificationsLive.Channels, :index
+    live "/projects/:project_slug/notifications/channels/new", NotificationsLive.ChannelNew, :new
+
+    live "/projects/:project_slug/notifications/channels/:id",
+         NotificationsLive.ChannelShow,
+         :show
+
+    live "/projects/:project_slug/notifications/channels/:id/edit",
+         NotificationsLive.ChannelEdit,
+         :edit
+
+    live "/projects/:project_slug/notifications/rules", NotificationsLive.Rules, :index
+    live "/projects/:project_slug/notifications/rules/new", NotificationsLive.RuleNew, :new
+    live "/projects/:project_slug/notifications/rules/:id", NotificationsLive.RuleShow, :show
+    live "/projects/:project_slug/notifications/rules/:id/edit", NotificationsLive.RuleEdit, :edit
+    live "/projects/:project_slug/notifications/delivery", NotificationsLive.Delivery, :index
     live "/projects/:project_slug/topology", TopologyLive.Index, :index
     live "/projects/:project_slug/waf", WafLive.Index, :index
     live "/projects/:project_slug/waf/anomalies", WafLive.Anomalies, :index
@@ -361,6 +378,46 @@ defmodule SentinelCpWeb.Router do
 
     live "/orgs/:org_slug/projects/:project_slug/secrets",
          SecretsLive.Index,
+         :index
+
+    live "/orgs/:org_slug/projects/:project_slug/notifications",
+         NotificationsLive.Index,
+         :index
+
+    live "/orgs/:org_slug/projects/:project_slug/notifications/channels",
+         NotificationsLive.Channels,
+         :index
+
+    live "/orgs/:org_slug/projects/:project_slug/notifications/channels/new",
+         NotificationsLive.ChannelNew,
+         :new
+
+    live "/orgs/:org_slug/projects/:project_slug/notifications/channels/:id",
+         NotificationsLive.ChannelShow,
+         :show
+
+    live "/orgs/:org_slug/projects/:project_slug/notifications/channels/:id/edit",
+         NotificationsLive.ChannelEdit,
+         :edit
+
+    live "/orgs/:org_slug/projects/:project_slug/notifications/rules",
+         NotificationsLive.Rules,
+         :index
+
+    live "/orgs/:org_slug/projects/:project_slug/notifications/rules/new",
+         NotificationsLive.RuleNew,
+         :new
+
+    live "/orgs/:org_slug/projects/:project_slug/notifications/rules/:id",
+         NotificationsLive.RuleShow,
+         :show
+
+    live "/orgs/:org_slug/projects/:project_slug/notifications/rules/:id/edit",
+         NotificationsLive.RuleEdit,
+         :edit
+
+    live "/orgs/:org_slug/projects/:project_slug/notifications/delivery",
+         NotificationsLive.Delivery,
          :index
 
     live "/orgs/:org_slug/projects/:project_slug/topology",
