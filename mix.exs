@@ -93,6 +93,10 @@ defmodule SentinelCp.MixProject do
       {:prom_ex, "~> 1.11"},
       {:logger_json, "~> 7.0"},
 
+      # GraphQL
+      {:absinthe, "~> 1.7"},
+      {:absinthe_plug, "~> 1.5"},
+
       # Utilities
       {:typed_struct, "~> 0.3"},
       {:nimble_options, "~> 1.1"},

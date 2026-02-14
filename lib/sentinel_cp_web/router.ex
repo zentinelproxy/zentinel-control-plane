@@ -31,6 +31,10 @@ defmodule SentinelCpWeb.Router do
     plug SentinelCpWeb.Plugs.RateLimit, scope: "default"
   end
 
+  pipeline :graphql do
+    plug SentinelCpWeb.GraphQL.Context
+  end
+
   # Scope-specific pipelines
   pipeline :require_nodes_read do
     plug SentinelCpWeb.Plugs.RequireScope, scope: "nodes:read"
@@ -748,6 +752,15 @@ defmodule SentinelCpWeb.Router do
     get "/audit/verify", AuditVerificationController, :verify
     get "/audit/checkpoints", AuditVerificationController, :checkpoints
     post "/audit/checkpoints", AuditVerificationController, :create_checkpoint
+  end
+
+  # GraphQL API
+  scope "/api/v1" do
+    pipe_through [:api, :api_auth, :graphql]
+
+    forward "/graphql", Absinthe.Plug,
+      schema: SentinelCpWeb.GraphQL.Schema,
+      json_codec: Jason
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development

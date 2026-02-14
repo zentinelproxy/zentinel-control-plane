@@ -36,7 +36,9 @@ defmodule SentinelCpWeb.MiddlewaresLive.Index do
             socket.assigns.current_user,
             "delete",
             "middleware",
-            middleware.id, project_id: project.id)
+            middleware.id,
+            project_id: project.id
+          )
 
           middlewares = Services.list_middlewares(project.id)
 
