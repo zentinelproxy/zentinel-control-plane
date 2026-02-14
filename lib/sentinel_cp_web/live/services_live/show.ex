@@ -236,11 +236,61 @@ defmodule SentinelCpWeb.ServicesLive.Show do
                 <:item label="Allowed Methods">{@service.grpc["allowed_methods"] || "—"}</:item>
               </.definition_list>
             </div>
-            <div
-              :if={@service.service_type not in ~w(graphql grpc)}
-              class="text-sm text-base-content/50"
-            >
-              {format_map(Map.get(@service, String.to_existing_atom(@service.service_type), %{}))}
+            <div :if={@service.service_type == "websocket" and @service.websocket != %{}}>
+              <.definition_list>
+                <:item label="Ping Interval">
+                  {if @service.websocket["ping_interval"],
+                    do: "#{@service.websocket["ping_interval"]}s",
+                    else: "—"}
+                </:item>
+                <:item label="Max Message Size">
+                  {@service.websocket["max_message_size"] || "—"}
+                </:item>
+                <:item label="Max Connections">
+                  {@service.websocket["max_connections"] || "—"}
+                </:item>
+              </.definition_list>
+            </div>
+            <div :if={@service.service_type == "streaming" and @service.streaming != %{}}>
+              <.definition_list>
+                <:item label="Format">{@service.streaming["format"] || "—"}</:item>
+                <:item label="Keepalive Interval">
+                  {if @service.streaming["keepalive_interval"],
+                    do: "#{@service.streaming["keepalive_interval"]}s",
+                    else: "—"}
+                </:item>
+                <:item label="Max Connection Duration">
+                  {if @service.streaming["max_connection_duration"],
+                    do: "#{@service.streaming["max_connection_duration"]}s",
+                    else: "—"}
+                </:item>
+                <:item label="Buffer Size">{@service.streaming["buffer_size"] || "—"}</:item>
+              </.definition_list>
+            </div>
+            <div :if={@service.service_type == "inference" and @service.inference != %{}}>
+              <.definition_list>
+                <:item label="Provider">
+                  <span class="badge badge-sm badge-outline">
+                    {@service.inference["provider"] || "—"}
+                  </span>
+                </:item>
+                <:item label="Tokens per Minute">
+                  {@service.inference["tokens_per_minute"] || "—"}
+                </:item>
+                <:item label="Monthly Token Budget">
+                  {@service.inference["monthly_token_budget"] || "—"}
+                </:item>
+                <:item label="Budget Alert Threshold">
+                  {if @service.inference["budget_alert_threshold"],
+                    do: "#{@service.inference["budget_alert_threshold"]}%",
+                    else: "—"}
+                </:item>
+                <:item label="Streaming">
+                  {if @service.inference["streaming_enabled"] in ["true", true],
+                    do: "enabled",
+                    else: "disabled"}
+                </:item>
+              </.definition_list>
             </div>
           </.k8s_section>
         </div>

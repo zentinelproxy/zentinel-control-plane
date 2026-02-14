@@ -56,7 +56,16 @@ defmodule SentinelCpWeb.ServicesLive.Edit do
              (service.graphql != %{} && service.graphql != nil),
          show_grpc:
            service.service_type == "grpc" ||
-             (service.grpc != %{} && service.grpc != nil)
+             (service.grpc != %{} && service.grpc != nil),
+         show_websocket:
+           service.service_type == "websocket" ||
+             (service.websocket != %{} && service.websocket != nil),
+         show_streaming:
+           service.service_type == "streaming" ||
+             (service.streaming != %{} && service.streaming != nil),
+         show_inference:
+           service.service_type == "inference" ||
+             (service.inference != %{} && service.inference != nil)
        )}
     else
       _ ->
@@ -75,7 +84,10 @@ defmodule SentinelCpWeb.ServicesLive.Edit do
      assign(socket,
        service_type: type,
        show_graphql: type == "graphql",
-       show_grpc: type == "grpc"
+       show_grpc: type == "grpc",
+       show_websocket: type == "websocket",
+       show_streaming: type == "streaming",
+       show_inference: type == "inference"
      )}
   end
 
@@ -153,6 +165,9 @@ defmodule SentinelCpWeb.ServicesLive.Edit do
 
     attrs = maybe_put_map(attrs, :graphql, params, "graphql")
     attrs = maybe_put_map(attrs, :grpc, params, "grpc")
+    attrs = maybe_put_map(attrs, :websocket, params, "websocket")
+    attrs = maybe_put_map(attrs, :streaming, params, "streaming")
+    attrs = maybe_put_map(attrs, :inference, params, "inference")
     attrs = maybe_put_map(attrs, :retry, params, "retry")
     attrs = maybe_put_map(attrs, :cache, params, "cache")
     attrs = maybe_put_map(attrs, :rate_limit, params, "rate_limit")
@@ -358,7 +373,10 @@ defmodule SentinelCpWeb.ServicesLive.Edit do
           </div>
 
           <%!-- Protocol Configuration --%>
-          <div :if={@service_type in ~w(graphql grpc)} class="divider text-xs text-base-content/50">
+          <div
+            :if={@service_type in ~w(graphql grpc websocket streaming inference)}
+            class="divider text-xs text-base-content/50"
+          >
             Protocol Configuration
           </div>
 
@@ -497,6 +515,215 @@ defmodule SentinelCpWeb.ServicesLive.Edit do
                   rows="3"
                   class="textarea textarea-bordered textarea-xs w-full font-mono"
                 >{@service.grpc["allowed_methods"]}</textarea>
+              </div>
+            </div>
+          </div>
+
+          <div
+            :if={@service_type == "websocket" or @show_websocket}
+            data-testid="websocket-config"
+          >
+            <button
+              type="button"
+              phx-click="toggle_section"
+              phx-value-section="websocket"
+              class="btn btn-ghost btn-xs"
+            >
+              {if @show_websocket, do: "▼", else: "▶"} WebSocket Settings
+            </button>
+            <div :if={@show_websocket} class="ml-4 mt-2 space-y-2">
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text text-xs">Ping Interval (seconds)</span>
+                </label>
+                <input
+                  type="number"
+                  name="websocket[ping_interval]"
+                  class="input input-bordered input-xs w-24"
+                  placeholder="30"
+                  min="1"
+                  value={@service.websocket["ping_interval"]}
+                />
+              </div>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text text-xs">Max Message Size (bytes)</span>
+                </label>
+                <input
+                  type="number"
+                  name="websocket[max_message_size]"
+                  class="input input-bordered input-xs w-32"
+                  placeholder="65536"
+                  min="1"
+                  value={@service.websocket["max_message_size"]}
+                />
+              </div>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text text-xs">Max Connections</span>
+                </label>
+                <input
+                  type="number"
+                  name="websocket[max_connections]"
+                  class="input input-bordered input-xs w-28"
+                  placeholder="10000"
+                  min="1"
+                  value={@service.websocket["max_connections"]}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div
+            :if={@service_type == "streaming" or @show_streaming}
+            data-testid="streaming-config"
+          >
+            <button
+              type="button"
+              phx-click="toggle_section"
+              phx-value-section="streaming"
+              class="btn btn-ghost btn-xs"
+            >
+              {if @show_streaming, do: "▼", else: "▶"} Streaming Settings
+            </button>
+            <div :if={@show_streaming} class="ml-4 mt-2 space-y-2">
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Format</span></label>
+                <select name="streaming[format]" class="select select-bordered select-xs w-40">
+                  <option value="">—</option>
+                  <option value="sse" selected={@service.streaming["format"] == "sse"}>SSE</option>
+                  <option value="ndjson" selected={@service.streaming["format"] == "ndjson"}>
+                    NDJSON
+                  </option>
+                  <option value="chunked" selected={@service.streaming["format"] == "chunked"}>
+                    Chunked
+                  </option>
+                </select>
+              </div>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text text-xs">Keepalive Interval (seconds)</span>
+                </label>
+                <input
+                  type="number"
+                  name="streaming[keepalive_interval]"
+                  class="input input-bordered input-xs w-24"
+                  placeholder="15"
+                  min="1"
+                  value={@service.streaming["keepalive_interval"]}
+                />
+              </div>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text text-xs">Max Connection Duration (seconds)</span>
+                </label>
+                <input
+                  type="number"
+                  name="streaming[max_connection_duration]"
+                  class="input input-bordered input-xs w-28"
+                  placeholder="3600"
+                  min="1"
+                  value={@service.streaming["max_connection_duration"]}
+                />
+              </div>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text text-xs">Buffer Size (bytes)</span>
+                </label>
+                <input
+                  type="number"
+                  name="streaming[buffer_size]"
+                  class="input input-bordered input-xs w-28"
+                  placeholder="1024"
+                  min="1"
+                  value={@service.streaming["buffer_size"]}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div
+            :if={@service_type == "inference" or @show_inference}
+            data-testid="inference-config"
+          >
+            <button
+              type="button"
+              phx-click="toggle_section"
+              phx-value-section="inference"
+              class="btn btn-ghost btn-xs"
+            >
+              {if @show_inference, do: "▼", else: "▶"} Inference Settings
+            </button>
+            <div :if={@show_inference} class="ml-4 mt-2 space-y-2">
+              <div class="form-control">
+                <label class="label"><span class="label-text text-xs">Provider</span></label>
+                <select name="inference[provider]" class="select select-bordered select-xs w-40">
+                  <option value="">—</option>
+                  <option value="openai" selected={@service.inference["provider"] == "openai"}>
+                    OpenAI
+                  </option>
+                  <option
+                    value="anthropic"
+                    selected={@service.inference["provider"] == "anthropic"}
+                  >
+                    Anthropic
+                  </option>
+                  <option value="generic" selected={@service.inference["provider"] == "generic"}>
+                    Generic
+                  </option>
+                </select>
+              </div>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text text-xs">Tokens per Minute</span>
+                </label>
+                <input
+                  type="number"
+                  name="inference[tokens_per_minute]"
+                  class="input input-bordered input-xs w-32"
+                  placeholder="100000"
+                  min="1"
+                  value={@service.inference["tokens_per_minute"]}
+                />
+              </div>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text text-xs">Monthly Token Budget</span>
+                </label>
+                <input
+                  type="number"
+                  name="inference[monthly_token_budget]"
+                  class="input input-bordered input-xs w-32"
+                  placeholder="10000000"
+                  min="1"
+                  value={@service.inference["monthly_token_budget"]}
+                />
+              </div>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text text-xs">Budget Alert Threshold (%)</span>
+                </label>
+                <input
+                  type="number"
+                  name="inference[budget_alert_threshold]"
+                  class="input input-bordered input-xs w-24"
+                  placeholder="80"
+                  min="1"
+                  max="100"
+                  value={@service.inference["budget_alert_threshold"]}
+                />
+              </div>
+              <div class="form-control">
+                <label class="label cursor-pointer gap-2 justify-start">
+                  <input
+                    type="checkbox"
+                    name="inference[streaming_enabled]"
+                    value="true"
+                    checked={@service.inference["streaming_enabled"] in ["true", true]}
+                    class="checkbox checkbox-xs"
+                  />
+                  <span class="label-text text-xs">Enable Streaming</span>
+                </label>
               </div>
             </div>
           </div>

@@ -179,6 +179,129 @@ defmodule SentinelCpWeb.ServicesLiveTest do
       {path, _flash} = assert_redirect(view)
       assert path =~ "/services/"
     end
+
+    test "websocket config section appears when websocket type selected", %{
+      conn: conn,
+      project: project
+    } do
+      {:ok, view, _html} = live(conn, ~p"/projects/#{project.slug}/services/new")
+
+      render_click(view, "switch_service_type", %{"service_type" => "websocket"})
+      html = render(view)
+
+      assert html =~ "WebSocket Settings"
+      assert html =~ "Ping Interval"
+      assert html =~ "Max Message Size"
+      assert html =~ "Max Connections"
+    end
+
+    test "streaming config section appears when streaming type selected", %{
+      conn: conn,
+      project: project
+    } do
+      {:ok, view, _html} = live(conn, ~p"/projects/#{project.slug}/services/new")
+
+      render_click(view, "switch_service_type", %{"service_type" => "streaming"})
+      html = render(view)
+
+      assert html =~ "Streaming Settings"
+      assert html =~ "Format"
+      assert html =~ "Keepalive Interval"
+      assert html =~ "Max Connection Duration"
+      assert html =~ "Buffer Size"
+    end
+
+    test "inference config section appears when inference type selected", %{
+      conn: conn,
+      project: project
+    } do
+      {:ok, view, _html} = live(conn, ~p"/projects/#{project.slug}/services/new")
+
+      render_click(view, "switch_service_type", %{"service_type" => "inference"})
+      html = render(view)
+
+      assert html =~ "Inference Settings"
+      assert html =~ "Provider"
+      assert html =~ "Tokens per Minute"
+      assert html =~ "Monthly Token Budget"
+    end
+
+    test "creates websocket service with protocol config", %{conn: conn, project: project} do
+      {:ok, view, _html} = live(conn, ~p"/projects/#{project.slug}/services/new")
+
+      render_click(view, "switch_service_type", %{"service_type" => "websocket"})
+
+      view
+      |> form("form[phx-submit='create_service']", %{
+        "name" => "WS Gateway",
+        "route_path" => "/ws/*",
+        "upstream_url" => "http://ws:8080",
+        "websocket" => %{
+          "ping_interval" => "30",
+          "max_message_size" => "65536",
+          "max_connections" => "10000"
+        }
+      })
+      |> render_submit()
+
+      {path, _flash} = assert_redirect(view)
+      assert path =~ "/services/"
+
+      [service] = SentinelCp.Services.list_services(project.id)
+      assert service.service_type == "websocket"
+      assert service.websocket["ping_interval"] == 30
+    end
+
+    test "creates streaming service with protocol config", %{conn: conn, project: project} do
+      {:ok, view, _html} = live(conn, ~p"/projects/#{project.slug}/services/new")
+
+      render_click(view, "switch_service_type", %{"service_type" => "streaming"})
+
+      view
+      |> form("form[phx-submit='create_service']", %{
+        "name" => "SSE Events",
+        "route_path" => "/events/*",
+        "upstream_url" => "http://streaming:8080",
+        "streaming" => %{
+          "format" => "sse",
+          "keepalive_interval" => "15",
+          "max_connection_duration" => "3600"
+        }
+      })
+      |> render_submit()
+
+      {path, _flash} = assert_redirect(view)
+      assert path =~ "/services/"
+
+      [service] = SentinelCp.Services.list_services(project.id)
+      assert service.service_type == "streaming"
+      assert service.streaming["format"] == "sse"
+    end
+
+    test "creates inference service with protocol config", %{conn: conn, project: project} do
+      {:ok, view, _html} = live(conn, ~p"/projects/#{project.slug}/services/new")
+
+      render_click(view, "switch_service_type", %{"service_type" => "inference"})
+
+      view
+      |> form("form[phx-submit='create_service']", %{
+        "name" => "LLM Gateway",
+        "route_path" => "/v1/*",
+        "upstream_url" => "http://inference:8080",
+        "inference" => %{
+          "provider" => "openai",
+          "tokens_per_minute" => "100000"
+        }
+      })
+      |> render_submit()
+
+      {path, _flash} = assert_redirect(view)
+      assert path =~ "/services/"
+
+      [service] = SentinelCp.Services.list_services(project.id)
+      assert service.service_type == "inference"
+      assert service.inference["provider"] == "openai"
+    end
   end
 
   describe "ServicesLive.Show" do
@@ -251,6 +374,54 @@ defmodule SentinelCpWeb.ServicesLiveTest do
 
       refute html =~ "Protocol Configuration"
     end
+
+    test "shows protocol config for websocket service", %{conn: conn, project: project} do
+      service =
+        service_fixture(%{
+          project: project,
+          service_type: "websocket",
+          websocket: %{"ping_interval" => 30, "max_connections" => 10000}
+        })
+
+      {:ok, _view, html} =
+        live(conn, ~p"/projects/#{project.slug}/services/#{service.id}")
+
+      assert html =~ "Protocol Configuration"
+      assert html =~ "Ping Interval"
+      assert html =~ "Max Connections"
+    end
+
+    test "shows protocol config for streaming service", %{conn: conn, project: project} do
+      service =
+        service_fixture(%{
+          project: project,
+          service_type: "streaming",
+          streaming: %{"format" => "sse", "keepalive_interval" => 15}
+        })
+
+      {:ok, _view, html} =
+        live(conn, ~p"/projects/#{project.slug}/services/#{service.id}")
+
+      assert html =~ "Protocol Configuration"
+      assert html =~ "Format"
+      assert html =~ "Keepalive Interval"
+    end
+
+    test "shows protocol config for inference service", %{conn: conn, project: project} do
+      service =
+        service_fixture(%{
+          project: project,
+          service_type: "inference",
+          inference: %{"provider" => "anthropic", "tokens_per_minute" => 50000}
+        })
+
+      {:ok, _view, html} =
+        live(conn, ~p"/projects/#{project.slug}/services/#{service.id}")
+
+      assert html =~ "Protocol Configuration"
+      assert html =~ "Provider"
+      assert html =~ "anthropic"
+    end
   end
 
   describe "ServicesLive.Edit" do
@@ -312,6 +483,52 @@ defmodule SentinelCpWeb.ServicesLiveTest do
       assert html =~ "GraphQL Settings"
       assert html =~ "15"
       assert html =~ "/gql"
+    end
+
+    test "edit pre-populates websocket config", %{conn: conn, project: project} do
+      service =
+        service_fixture(%{
+          project: project,
+          service_type: "websocket",
+          websocket: %{"ping_interval" => 45, "max_connections" => 5000}
+        })
+
+      {:ok, _view, html} =
+        live(conn, ~p"/projects/#{project.slug}/services/#{service.id}/edit")
+
+      assert html =~ "WebSocket Settings"
+      assert html =~ "45"
+      assert html =~ "5000"
+    end
+
+    test "edit pre-populates streaming config", %{conn: conn, project: project} do
+      service =
+        service_fixture(%{
+          project: project,
+          service_type: "streaming",
+          streaming: %{"format" => "sse", "buffer_size" => 2048}
+        })
+
+      {:ok, _view, html} =
+        live(conn, ~p"/projects/#{project.slug}/services/#{service.id}/edit")
+
+      assert html =~ "Streaming Settings"
+      assert html =~ "2048"
+    end
+
+    test "edit pre-populates inference config", %{conn: conn, project: project} do
+      service =
+        service_fixture(%{
+          project: project,
+          service_type: "inference",
+          inference: %{"provider" => "anthropic", "tokens_per_minute" => 50000}
+        })
+
+      {:ok, _view, html} =
+        live(conn, ~p"/projects/#{project.slug}/services/#{service.id}/edit")
+
+      assert html =~ "Inference Settings"
+      assert html =~ "50000"
     end
   end
 end
