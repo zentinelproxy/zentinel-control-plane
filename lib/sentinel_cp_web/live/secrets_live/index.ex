@@ -40,20 +40,25 @@ defmodule SentinelCpWeb.SecretsLive.Index do
 
   @impl true
   def handle_event("edit", %{"id" => id}, socket) do
-    secret = Secrets.get_secret!(id)
+    project = socket.assigns.project
 
-    form =
-      to_form(
-        %{
-          "name" => secret.name,
-          "value" => "",
-          "description" => secret.description || "",
-          "environment" => secret.environment || ""
-        },
-        as: "secret"
-      )
+    with secret when not is_nil(secret) <- Secrets.get_secret(id),
+         true <- secret.project_id == project.id do
+      form =
+        to_form(
+          %{
+            "name" => secret.name,
+            "value" => "",
+            "description" => secret.description || "",
+            "environment" => secret.environment || ""
+          },
+          as: "secret"
+        )
 
-    {:noreply, assign(socket, show_form: true, editing: secret, form: form)}
+      {:noreply, assign(socket, show_form: true, editing: secret, form: form)}
+    else
+      _ -> {:noreply, put_flash(socket, :error, "Secret not found.")}
+    end
   end
 
   @impl true
@@ -79,19 +84,24 @@ defmodule SentinelCpWeb.SecretsLive.Index do
 
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
-    secret = Secrets.get_secret!(id)
+    project = socket.assigns.project
 
-    case Secrets.delete_secret(secret) do
-      {:ok, _} ->
-        secrets = Secrets.list_secrets(socket.assigns.project.id)
+    with secret when not is_nil(secret) <- Secrets.get_secret(id),
+         true <- secret.project_id == project.id do
+      case Secrets.delete_secret(secret) do
+        {:ok, _} ->
+          secrets = Secrets.list_secrets(project.id)
 
-        {:noreply,
-         socket
-         |> assign(secrets: secrets, delete_confirm: nil)
-         |> put_flash(:info, "Secret \"#{secret.name}\" deleted.")}
+          {:noreply,
+           socket
+           |> assign(secrets: secrets, delete_confirm: nil)
+           |> put_flash(:info, "Secret \"#{secret.name}\" deleted.")}
 
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Failed to delete secret.")}
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Failed to delete secret.")}
+      end
+    else
+      _ -> {:noreply, put_flash(socket, :error, "Secret not found.")}
     end
   end
 

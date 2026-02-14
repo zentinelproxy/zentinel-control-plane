@@ -37,38 +37,47 @@ defmodule SentinelCpWeb.ServicesLive.Index do
 
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
-    service = Services.get_service!(id)
     project = socket.assigns.project
 
-    case Services.delete_service(service) do
-      {:ok, _} ->
-        Audit.log_user_action(socket.assigns.current_user, "delete", "service", service.id,
-          project_id: project.id
-        )
+    with service when not is_nil(service) <- Services.get_service(id),
+         true <- service.project_id == project.id do
+      case Services.delete_service(service) do
+        {:ok, _} ->
+          Audit.log_user_action(socket.assigns.current_user, "delete", "service", service.id,
+            project_id: project.id
+          )
 
-        services = Services.list_services(project.id)
+          services = Services.list_services(project.id)
 
-        {:noreply,
-         socket
-         |> assign(services: services)
-         |> put_flash(:info, "Service deleted.")}
+          {:noreply,
+           socket
+           |> assign(services: services)
+           |> put_flash(:info, "Service deleted.")}
 
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Could not delete service.")}
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Could not delete service.")}
+      end
+    else
+      _ -> {:noreply, put_flash(socket, :error, "Service not found.")}
     end
   end
 
   @impl true
   def handle_event("toggle_enabled", %{"id" => id}, socket) do
-    service = Services.get_service!(id)
+    project = socket.assigns.project
 
-    case Services.update_service(service, %{enabled: !service.enabled}) do
-      {:ok, _} ->
-        services = Services.list_services(socket.assigns.project.id)
-        {:noreply, assign(socket, services: services)}
+    with service when not is_nil(service) <- Services.get_service(id),
+         true <- service.project_id == project.id do
+      case Services.update_service(service, %{enabled: !service.enabled}) do
+        {:ok, _} ->
+          services = Services.list_services(project.id)
+          {:noreply, assign(socket, services: services)}
 
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Could not update service.")}
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Could not update service.")}
+      end
+    else
+      _ -> {:noreply, put_flash(socket, :error, "Service not found.")}
     end
   end
 

@@ -163,7 +163,7 @@ defmodule SentinelCp.Analytics.WafEventTest do
       assert length(paths) == 2
     end
 
-    test "prune_old_waf_events/1", %{project: project} do
+    test "prune_old_waf_events/1", %{project: _project} do
       # All events are recent, so none should be pruned
       assert {:ok, 0} = Analytics.prune_old_waf_events(30)
     end

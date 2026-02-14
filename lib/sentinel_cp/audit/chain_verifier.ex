@@ -236,7 +236,7 @@ defmodule SentinelCp.Audit.ChainVerifier do
     end
   end
 
-  defp verify_signature(digest, signature) do
+  defp verify_signature(digest, _signature) do
     signing_config = Application.get_env(:sentinel_cp, :bundle_signing, [])
 
     if signing_config[:public_key_path] do

@@ -14,7 +14,7 @@ defmodule SentinelCp.Nodes.DriftWorker do
   require Logger
 
   import Ecto.Query
-  alias SentinelCp.{Bundles, Events, Nodes, Projects, Repo}
+  alias SentinelCp.{Bundles, Nodes, Projects, Repo}
   alias SentinelCp.Events, as: Notifications
   alias SentinelCp.Bundles.Diff
   alias SentinelCp.Nodes.{DriftEvent, Node}

@@ -29,46 +29,54 @@ defmodule SentinelCpWeb.NotificationsLive.Channels do
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
     project = socket.assigns.project
-    channel = Events.get_channel!(id)
 
-    case Events.delete_channel(channel) do
-      {:ok, _} ->
-        Audit.log_user_action(
-          socket.assigns.current_user,
-          "delete",
-          "notification_channel",
-          channel.id,
-          project_id: project.id
-        )
+    with channel when not is_nil(channel) <- Events.get_channel(id),
+         true <- channel.project_id == project.id do
+      case Events.delete_channel(channel) do
+        {:ok, _} ->
+          Audit.log_user_action(
+            socket.assigns.current_user,
+            "delete",
+            "notification_channel",
+            channel.id,
+            project_id: project.id
+          )
 
-        channels = Events.list_channels(project.id)
-        {:noreply, assign(socket, channels: channels) |> put_flash(:info, "Channel deleted.")}
+          channels = Events.list_channels(project.id)
+          {:noreply, assign(socket, channels: channels) |> put_flash(:info, "Channel deleted.")}
 
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Could not delete channel.")}
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Could not delete channel.")}
+      end
+    else
+      _ -> {:noreply, put_flash(socket, :error, "Channel not found.")}
     end
   end
 
   @impl true
   def handle_event("toggle_enabled", %{"id" => id}, socket) do
     project = socket.assigns.project
-    channel = Events.get_channel!(id)
 
-    case Events.update_channel(channel, %{enabled: !channel.enabled}) do
-      {:ok, _} ->
-        Audit.log_user_action(
-          socket.assigns.current_user,
-          "update",
-          "notification_channel",
-          channel.id,
-          project_id: project.id
-        )
+    with channel when not is_nil(channel) <- Events.get_channel(id),
+         true <- channel.project_id == project.id do
+      case Events.update_channel(channel, %{enabled: !channel.enabled}) do
+        {:ok, _} ->
+          Audit.log_user_action(
+            socket.assigns.current_user,
+            "update",
+            "notification_channel",
+            channel.id,
+            project_id: project.id
+          )
 
-        channels = Events.list_channels(project.id)
-        {:noreply, assign(socket, channels: channels)}
+          channels = Events.list_channels(project.id)
+          {:noreply, assign(socket, channels: channels)}
 
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Could not update channel.")}
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Could not update channel.")}
+      end
+    else
+      _ -> {:noreply, put_flash(socket, :error, "Channel not found.")}
     end
   end
 

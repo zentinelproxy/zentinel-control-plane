@@ -29,7 +29,7 @@ defmodule SentinelCp.Events.Adapters.Webhook do
     end
   end
 
-  defp build_headers(body, nil) do
+  defp build_headers(_body, nil) do
     [{"content-type", "application/json"}]
   end
 

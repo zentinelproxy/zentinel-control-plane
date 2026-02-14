@@ -24,7 +24,7 @@ defmodule SentinelCp.Events.Adapters.PagerDuty do
     }
   end
 
-  def deliver(routing_key, payload) do
+  def deliver(_routing_key, payload) do
     body = Jason.encode!(payload)
 
     case Req.post(@events_url,

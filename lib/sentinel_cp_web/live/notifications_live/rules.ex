@@ -29,46 +29,54 @@ defmodule SentinelCpWeb.NotificationsLive.Rules do
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
     project = socket.assigns.project
-    rule = Events.get_rule(id)
 
-    case Events.delete_rule(rule) do
-      {:ok, _} ->
-        Audit.log_user_action(
-          socket.assigns.current_user,
-          "delete",
-          "notification_rule",
-          rule.id,
-          project_id: project.id
-        )
+    with rule when not is_nil(rule) <- Events.get_rule(id),
+         true <- rule.project_id == project.id do
+      case Events.delete_rule(rule) do
+        {:ok, _} ->
+          Audit.log_user_action(
+            socket.assigns.current_user,
+            "delete",
+            "notification_rule",
+            rule.id,
+            project_id: project.id
+          )
 
-        rules = Events.list_rules(project.id)
-        {:noreply, assign(socket, rules: rules) |> put_flash(:info, "Rule deleted.")}
+          rules = Events.list_rules(project.id)
+          {:noreply, assign(socket, rules: rules) |> put_flash(:info, "Rule deleted.")}
 
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Could not delete rule.")}
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Could not delete rule.")}
+      end
+    else
+      _ -> {:noreply, put_flash(socket, :error, "Rule not found.")}
     end
   end
 
   @impl true
   def handle_event("toggle_enabled", %{"id" => id}, socket) do
     project = socket.assigns.project
-    rule = Events.get_rule(id)
 
-    case Events.update_rule(rule, %{enabled: !rule.enabled}) do
-      {:ok, _} ->
-        Audit.log_user_action(
-          socket.assigns.current_user,
-          "update",
-          "notification_rule",
-          rule.id,
-          project_id: project.id
-        )
+    with rule when not is_nil(rule) <- Events.get_rule(id),
+         true <- rule.project_id == project.id do
+      case Events.update_rule(rule, %{enabled: !rule.enabled}) do
+        {:ok, _} ->
+          Audit.log_user_action(
+            socket.assigns.current_user,
+            "update",
+            "notification_rule",
+            rule.id,
+            project_id: project.id
+          )
 
-        rules = Events.list_rules(project.id)
-        {:noreply, assign(socket, rules: rules)}
+          rules = Events.list_rules(project.id)
+          {:noreply, assign(socket, rules: rules)}
 
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Could not update rule.")}
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Could not update rule.")}
+      end
+    else
+      _ -> {:noreply, put_flash(socket, :error, "Rule not found.")}
     end
   end
 

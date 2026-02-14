@@ -178,7 +178,6 @@ defmodule SentinelCpWeb.AnalyticsLive.Index do
   defp format_latency(ms) when is_number(ms) and ms >= 1000, do: "#{Float.round(ms / 1000, 1)}s"
   defp format_latency(ms) when is_number(ms), do: "#{round(ms)}ms"
 
-  defp format_bytes(nil), do: "0 B"
   defp format_bytes(0), do: "0 B"
 
   defp format_bytes(bytes) when bytes >= 1_073_741_824,

@@ -12,7 +12,6 @@ defmodule SentinelCp.Auth.Sso do
   import Ecto.Query, warn: false
   alias SentinelCp.Repo
   alias SentinelCp.Auth.{OidcProvider, SamlProvider}
-  alias SentinelCp.Accounts
   alias SentinelCp.Accounts.User
   alias SentinelCp.Orgs
 
@@ -100,7 +99,8 @@ defmodule SentinelCp.Auth.Sso do
       :crypto.hash(:sha256, code_verifier)
       |> Base.url_encode64(padding: false)
 
-    client_secret = OidcProvider.decrypt_client_secret(provider)
+    # Decrypt now to validate configuration; secret used in token exchange step
+    _client_secret = OidcProvider.decrypt_client_secret(provider)
 
     redirect_uri = oidc_callback_url()
 

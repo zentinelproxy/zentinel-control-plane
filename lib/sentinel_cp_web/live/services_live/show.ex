@@ -96,30 +96,29 @@ defmodule SentinelCpWeb.ServicesLive.Show do
     project = socket.assigns.project
     service = socket.assigns.service
 
-    case Services.get_service_middleware(sm_id) do
-      nil ->
-        {:noreply, put_flash(socket, :error, "Service middleware not found.")}
+    with sm when not is_nil(sm) <- Services.get_service_middleware(sm_id),
+         true <- sm.service_id == service.id do
+      case Services.detach_middleware(sm) do
+        {:ok, _} ->
+          Audit.log_user_action(
+            socket.assigns.current_user,
+            "detach",
+            "service_middleware",
+            service.id,
+            project_id: project.id
+          )
 
-      sm ->
-        case Services.detach_middleware(sm) do
-          {:ok, _} ->
-            Audit.log_user_action(
-              socket.assigns.current_user,
-              "detach",
-              "service_middleware",
-              service.id,
-              project_id: project.id
-            )
+          middleware_chain = Services.list_service_middlewares(service.id)
 
-            middleware_chain = Services.list_service_middlewares(service.id)
+          {:noreply,
+           assign(socket, middleware_chain: middleware_chain)
+           |> put_flash(:info, "Middleware detached.")}
 
-            {:noreply,
-             assign(socket, middleware_chain: middleware_chain)
-             |> put_flash(:info, "Middleware detached.")}
-
-          {:error, _} ->
-            {:noreply, put_flash(socket, :error, "Could not detach middleware.")}
-        end
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Could not detach middleware.")}
+      end
+    else
+      _ -> {:noreply, put_flash(socket, :error, "Service middleware not found.")}
     end
   end
 

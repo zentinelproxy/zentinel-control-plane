@@ -6,7 +6,6 @@ defmodule SentinelCp.Rollouts.AdvancedDeploymentsTest do
   alias SentinelCp.Projects.PromotionRule
 
   import SentinelCp.ProjectsFixtures
-  import SentinelCp.AccountsFixtures
 
   setup do
     project = project_fixture()

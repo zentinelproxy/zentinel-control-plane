@@ -62,17 +62,25 @@ defmodule SentinelCpWeb.NotificationsLive.Delivery do
 
   @impl true
   def handle_event("retry", %{"id" => id}, socket) do
-    case Events.retry_delivery(id) do
-      {:ok, _} ->
-        project = socket.assigns.project
-        attempts = Events.list_delivery_attempts(project_id: project.id, limit: 50)
+    project = socket.assigns.project
+    attempt = Events.get_delivery_attempt(id)
 
-        {:noreply,
-         assign(socket, attempts: attempts)
-         |> put_flash(:info, "Delivery retry scheduled.")}
+    with attempt when not is_nil(attempt) <- attempt,
+         channel when not is_nil(channel) <- Events.get_channel(attempt.channel_id),
+         true <- channel.project_id == project.id do
+      case Events.retry_delivery(id) do
+        {:ok, _} ->
+          attempts = Events.list_delivery_attempts(project_id: project.id, limit: 50)
 
-      {:error, :not_in_dead_letter} ->
-        {:noreply, put_flash(socket, :error, "Only dead-letter deliveries can be retried.")}
+          {:noreply,
+           assign(socket, attempts: attempts)
+           |> put_flash(:info, "Delivery retry scheduled.")}
+
+        {:error, :not_in_dead_letter} ->
+          {:noreply, put_flash(socket, :error, "Only dead-letter deliveries can be retried.")}
+      end
+    else
+      _ -> {:noreply, put_flash(socket, :error, "Delivery attempt not found.")}
     end
   end
 
@@ -93,7 +101,7 @@ defmodule SentinelCpWeb.NotificationsLive.Delivery do
             <select name="status" class="select select-bordered select-sm w-40">
               <option value="">All</option>
               <option
-                :for={s <- ~w(pending delivering delivered failed dead_letter)}
+                :for={s <- ~w(pending delivering delivered failed dead_letter skipped)}
                 value={s}
                 selected={s == @status_filter}
               >

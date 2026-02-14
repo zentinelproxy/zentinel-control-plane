@@ -222,9 +222,10 @@ defmodule SentinelCp.ConfigExport do
   end
 
   defp maybe_add(map, _key, nil), do: map
+  defp maybe_add(map, key, value), do: Map.put(map, key, value)
+
   defp maybe_add(map, _key, value, default) when value == default, do: map
   defp maybe_add(map, key, value, _default), do: Map.put(map, key, value)
-  defp maybe_add(map, key, value), do: Map.put(map, key, value)
 
   ## Import helpers
 

@@ -251,7 +251,7 @@ defmodule SentinelCpWeb.NotificationsLiveTest do
       channel = channel_fixture(%{project: project})
       event = event_fixture(%{project: project})
 
-      attempt1 =
+      _attempt1 =
         delivery_attempt_fixture(%{
           project: project,
           channel: channel,

@@ -127,33 +127,43 @@ defmodule SentinelCpWeb.ValidationRulesLive.Index do
 
   @impl true
   def handle_event("toggle_enabled", %{"id" => id}, socket) do
-    rule = Bundles.get_validation_rule!(id)
+    project = socket.assigns.project
 
-    case Bundles.update_validation_rule(rule, %{enabled: !rule.enabled}) do
-      {:ok, _rule} ->
-        rules = Bundles.list_validation_rules(socket.assigns.project.id)
-        {:noreply, assign(socket, rules: rules)}
+    with rule when not is_nil(rule) <- Bundles.get_validation_rule(id),
+         true <- rule.project_id == project.id do
+      case Bundles.update_validation_rule(rule, %{enabled: !rule.enabled}) do
+        {:ok, _rule} ->
+          rules = Bundles.list_validation_rules(project.id)
+          {:noreply, assign(socket, rules: rules)}
 
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Could not toggle rule.")}
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Could not toggle rule.")}
+      end
+    else
+      _ -> {:noreply, put_flash(socket, :error, "Rule not found.")}
     end
   end
 
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
-    rule = Bundles.get_validation_rule!(id)
+    project = socket.assigns.project
 
-    case Bundles.delete_validation_rule(rule) do
-      {:ok, _} ->
-        rules = Bundles.list_validation_rules(socket.assigns.project.id)
+    with rule when not is_nil(rule) <- Bundles.get_validation_rule(id),
+         true <- rule.project_id == project.id do
+      case Bundles.delete_validation_rule(rule) do
+        {:ok, _} ->
+          rules = Bundles.list_validation_rules(project.id)
 
-        {:noreply,
-         socket
-         |> assign(rules: rules)
-         |> put_flash(:info, "Validation rule deleted.")}
+          {:noreply,
+           socket
+           |> assign(rules: rules)
+           |> put_flash(:info, "Validation rule deleted.")}
 
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Could not delete rule.")}
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Could not delete rule.")}
+      end
+    else
+      _ -> {:noreply, put_flash(socket, :error, "Rule not found.")}
     end
   end
 

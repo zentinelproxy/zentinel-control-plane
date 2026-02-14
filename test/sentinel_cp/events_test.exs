@@ -2,9 +2,7 @@ defmodule SentinelCp.EventsTest do
   use SentinelCp.DataCase, async: false
 
   alias SentinelCp.Events
-  alias SentinelCp.Events.{Event, Channel, DeliveryAttempt}
-
-  import SentinelCp.AccountsFixtures
+  alias SentinelCp.Events.Event
   import SentinelCp.ProjectsFixtures
 
   setup do

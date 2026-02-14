@@ -21,7 +21,7 @@ defmodule SentinelCp.Rollouts do
   }
 
   alias SentinelCp.Rollouts.CanaryAnalysis
-  alias SentinelCp.{Bundles, Events, Nodes, Orgs, Projects}
+  alias SentinelCp.{Bundles, Nodes, Orgs, Projects}
   # Events module replaces Notifications with backward-compatible API
   alias SentinelCp.Events, as: Notifications
 

@@ -2,8 +2,7 @@ defmodule SentinelCp.Auth.SsoTest do
   use SentinelCp.DataCase, async: false
 
   alias SentinelCp.Auth.Sso
-  alias SentinelCp.Auth.{OidcProvider, SamlProvider}
-  alias SentinelCp.Accounts
+  alias SentinelCp.Auth.OidcProvider
 
   import SentinelCp.AccountsFixtures
   import SentinelCp.OrgsFixtures

@@ -66,15 +66,21 @@ defmodule SentinelCpWeb.RolloutsLive.Index do
 
   @impl true
   def handle_event("select_template", %{"template_id" => template_id}, socket) do
-    template = Rollouts.get_template!(template_id)
-    form_values = template_to_form_values(template)
+    project = socket.assigns.project
 
-    {:noreply,
-     assign(socket,
-       selected_template_id: template_id,
-       form_values: form_values,
-       selected_strategy: form_values.strategy
-     )}
+    with template when not is_nil(template) <- Rollouts.get_template(template_id),
+         true <- template.project_id == project.id do
+      form_values = template_to_form_values(template)
+
+      {:noreply,
+       assign(socket,
+         selected_template_id: template_id,
+         form_values: form_values,
+         selected_strategy: form_values.strategy
+       )}
+    else
+      _ -> {:noreply, put_flash(socket, :error, "Template not found.")}
+    end
   end
 
   @impl true

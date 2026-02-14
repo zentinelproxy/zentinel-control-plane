@@ -19,6 +19,7 @@ defmodule SentinelCpWeb.NotificationsLive.Helpers do
         "dead_letter" -> "badge-warning"
         "pending" -> "badge-info"
         "delivering" -> "badge-info"
+        "skipped" -> "badge-ghost"
         _ -> "badge-ghost"
       end
 

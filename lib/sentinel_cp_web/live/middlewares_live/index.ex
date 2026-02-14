@@ -27,21 +27,27 @@ defmodule SentinelCpWeb.MiddlewaresLive.Index do
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
     project = socket.assigns.project
-    middleware = Services.get_middleware!(id)
 
-    case Services.delete_middleware(middleware) do
-      {:ok, _} ->
-        Audit.log_user_action(socket.assigns.current_user, "delete", "middleware", middleware.id,
-          project_id: project.id
-        )
+    with middleware when not is_nil(middleware) <- Services.get_middleware(id),
+         true <- middleware.project_id == project.id do
+      case Services.delete_middleware(middleware) do
+        {:ok, _} ->
+          Audit.log_user_action(
+            socket.assigns.current_user,
+            "delete",
+            "middleware",
+            middleware.id, project_id: project.id)
 
-        middlewares = Services.list_middlewares(project.id)
+          middlewares = Services.list_middlewares(project.id)
 
-        {:noreply,
-         assign(socket, middlewares: middlewares) |> put_flash(:info, "Middleware deleted.")}
+          {:noreply,
+           assign(socket, middlewares: middlewares) |> put_flash(:info, "Middleware deleted.")}
 
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Could not delete middleware.")}
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Could not delete middleware.")}
+      end
+    else
+      _ -> {:noreply, put_flash(socket, :error, "Middleware not found.")}
     end
   end
 

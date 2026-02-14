@@ -486,7 +486,7 @@ defmodule SentinelCp.Nodes do
   end
 
   defp handle_drift_detected(event) do
-    alias SentinelCp.{Events, Projects, Rollouts}
+    alias SentinelCp.{Projects, Rollouts}
     alias SentinelCp.Events, as: Notifications
     alias SentinelCp.Projects.Project
 
@@ -503,7 +503,7 @@ defmodule SentinelCp.Nodes do
   end
 
   defp handle_drift_resolved(event) do
-    alias SentinelCp.{Events, Projects}
+    alias SentinelCp.Projects
     alias SentinelCp.Events, as: Notifications
 
     with node when not is_nil(node) <- get_node(event.node_id),

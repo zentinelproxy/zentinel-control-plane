@@ -14,7 +14,7 @@ defmodule SentinelCp.Rollouts.CanaryIntegrationTest do
       bundle = compiled_bundle_fixture(%{project: project})
 
       # Create 20 nodes
-      nodes = for _ <- 1..20, do: node_fixture(%{project: project})
+      _nodes = for _ <- 1..20, do: node_fixture(%{project: project})
 
       rollout =
         rollout_fixture(%{

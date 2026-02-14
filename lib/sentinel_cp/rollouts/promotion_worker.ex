@@ -13,7 +13,6 @@ defmodule SentinelCp.Rollouts.PromotionWorker do
   alias SentinelCp.Projects.PromotionRule
   alias SentinelCp.Rollouts
   alias SentinelCp.Rollouts.Rollout
-  alias SentinelCp.Bundles
 
   require Logger
 

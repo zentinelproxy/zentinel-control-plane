@@ -26,24 +26,28 @@ defmodule SentinelCpWeb.CertificatesLive.Index do
 
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
-    cert = Services.get_certificate!(id)
     project = socket.assigns.project
 
-    case Services.delete_certificate(cert) do
-      {:ok, _} ->
-        Audit.log_user_action(socket.assigns.current_user, "delete", "certificate", cert.id,
-          project_id: project.id
-        )
+    with cert when not is_nil(cert) <- Services.get_certificate(id),
+         true <- cert.project_id == project.id do
+      case Services.delete_certificate(cert) do
+        {:ok, _} ->
+          Audit.log_user_action(socket.assigns.current_user, "delete", "certificate", cert.id,
+            project_id: project.id
+          )
 
-        certs = Services.list_certificates(project.id)
+          certs = Services.list_certificates(project.id)
 
-        {:noreply,
-         socket
-         |> assign(certificates: certs)
-         |> put_flash(:info, "Certificate deleted.")}
+          {:noreply,
+           socket
+           |> assign(certificates: certs)
+           |> put_flash(:info, "Certificate deleted.")}
 
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Could not delete certificate.")}
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Could not delete certificate.")}
+      end
+    else
+      _ -> {:noreply, put_flash(socket, :error, "Certificate not found.")}
     end
   end
 

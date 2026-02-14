@@ -2,7 +2,6 @@ defmodule SentinelCp.PluginsTest do
   use SentinelCp.DataCase
 
   alias SentinelCp.Plugins
-  alias SentinelCp.Plugins.{Plugin, PluginVersion}
 
   import SentinelCp.ProjectsFixtures
   import SentinelCp.ServicesFixtures

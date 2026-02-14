@@ -3,14 +3,7 @@ defmodule SentinelCpWeb.Api.AuditVerificationController do
 
   alias SentinelCp.Audit.ChainVerifier
 
-  def verify(conn, params) do
-    opts =
-      if params["project_id"] do
-        [project_id: params["project_id"]]
-      else
-        []
-      end
-
+  def verify(conn, _params) do
     status = ChainVerifier.verification_status()
 
     chain_status =
