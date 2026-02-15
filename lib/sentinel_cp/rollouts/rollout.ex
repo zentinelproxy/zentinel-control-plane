@@ -46,6 +46,8 @@ defmodule SentinelCp.Rollouts.Rollout do
     field :canary_step_index, :integer, default: 0
     field :deployment_slot, :string
     field :validation_period_seconds, :integer, default: 300
+    field :blue_green_config, :map
+    field :traffic_step_index, :integer, default: 0
 
     belongs_to :project, SentinelCp.Projects.Project
     belongs_to :bundle, SentinelCp.Bundles.Bundle
@@ -78,7 +80,9 @@ defmodule SentinelCp.Rollouts.Rollout do
       :canary_analysis_config,
       :canary_step_index,
       :deployment_slot,
-      :validation_period_seconds
+      :validation_period_seconds,
+      :blue_green_config,
+      :traffic_step_index
     ])
     |> validate_required([:project_id, :bundle_id, :target_selector])
     |> validate_inclusion(:strategy, @strategies)

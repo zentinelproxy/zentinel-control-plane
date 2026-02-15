@@ -8,7 +8,7 @@ defmodule SentinelCp.Rollouts.RolloutTemplate do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
 
-  @strategies ~w(rolling all_at_once)
+  @strategies ~w(rolling all_at_once blue_green canary)
   @valid_health_gate_keys ~w(heartbeat_healthy max_error_rate max_latency_ms max_cpu_percent max_memory_percent)
 
   schema "rollout_templates" do
@@ -22,6 +22,11 @@ defmodule SentinelCp.Rollouts.RolloutTemplate do
     field :progress_deadline_seconds, :integer, default: 600
     field :health_gates, :map, default: %{"heartbeat_healthy" => true}
     field :created_by_id, :binary_id
+    field :auto_rollback, :boolean, default: false
+    field :rollback_threshold, :integer, default: 50
+    field :canary_analysis_config, :map
+    field :blue_green_config, :map
+    field :validation_period_seconds, :integer, default: 300
 
     belongs_to :project, SentinelCp.Projects.Project
 
@@ -44,7 +49,12 @@ defmodule SentinelCp.Rollouts.RolloutTemplate do
       :max_unavailable,
       :progress_deadline_seconds,
       :health_gates,
-      :created_by_id
+      :created_by_id,
+      :auto_rollback,
+      :rollback_threshold,
+      :canary_analysis_config,
+      :blue_green_config,
+      :validation_period_seconds
     ])
     |> validate_required([:project_id, :name])
     |> validate_length(:name, max: 100)
@@ -73,7 +83,12 @@ defmodule SentinelCp.Rollouts.RolloutTemplate do
       :batch_size,
       :max_unavailable,
       :progress_deadline_seconds,
-      :health_gates
+      :health_gates,
+      :auto_rollback,
+      :rollback_threshold,
+      :canary_analysis_config,
+      :blue_green_config,
+      :validation_period_seconds
     ])
     |> validate_length(:name, max: 100)
     |> validate_length(:description, max: 500)
@@ -91,15 +106,25 @@ defmodule SentinelCp.Rollouts.RolloutTemplate do
   Does not include project_id, bundle_id, or created_by_id - those must be set separately.
   """
   def to_rollout_attrs(%__MODULE__{} = template) do
-    %{
+    base = %{
       target_selector: template.target_selector,
       strategy: template.strategy,
       batch_size: template.batch_size,
       max_unavailable: template.max_unavailable,
       progress_deadline_seconds: template.progress_deadline_seconds,
-      health_gates: template.health_gates
+      health_gates: template.health_gates,
+      auto_rollback: template.auto_rollback,
+      rollback_threshold: template.rollback_threshold,
+      validation_period_seconds: template.validation_period_seconds
     }
+
+    base
+    |> maybe_put(:canary_analysis_config, template.canary_analysis_config)
+    |> maybe_put(:blue_green_config, template.blue_green_config)
   end
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
   defp validate_target_selector(changeset) do
     validate_change(changeset, :target_selector, fn :target_selector, selector ->

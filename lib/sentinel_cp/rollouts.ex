@@ -541,15 +541,20 @@ defmodule SentinelCp.Rollouts do
       {:error, :no_target_nodes}
     else
       batches =
-        if rollout.strategy == "canary" do
-          plan_canary_batches(node_ids, rollout.canary_analysis_config)
-        else
-          chunk_into_batches(
-            node_ids,
-            rollout.strategy,
-            rollout.batch_size,
-            rollout.batch_percentage
-          )
+        cond do
+          rollout.strategy == "canary" ->
+            plan_canary_batches(node_ids, rollout.canary_analysis_config)
+
+          rollout.strategy == "blue_green" ->
+            plan_blue_green_batches(node_ids, rollout.blue_green_config)
+
+          true ->
+            chunk_into_batches(
+              node_ids,
+              rollout.strategy,
+              rollout.batch_size,
+              rollout.batch_percentage
+            )
         end
 
       result =
@@ -558,14 +563,26 @@ defmodule SentinelCp.Rollouts do
           steps =
             batches
             |> Enum.with_index()
-            |> Enum.map(fn {batch_node_ids, index} ->
-              {:ok, step} =
-                %RolloutStep{}
-                |> RolloutStep.create_changeset(%{
+            |> Enum.map(fn {batch, index} ->
+              # Support both plain [node_ids] and {node_ids, slot, weight} tuples
+              {batch_node_ids, slot, weight} =
+                case batch do
+                  {ids, s, w} -> {ids, s, w}
+                  ids when is_list(ids) -> {ids, nil, nil}
+                end
+
+              attrs =
+                %{
                   rollout_id: rollout.id,
                   step_index: index,
-                  node_ids: batch_node_ids
-                })
+                  node_ids: batch_node_ids,
+                  deployment_slot: slot,
+                  traffic_weight: weight
+                }
+
+              {:ok, step} =
+                %RolloutStep{}
+                |> RolloutStep.create_changeset(attrs)
                 |> Repo.insert()
 
               step
@@ -582,19 +599,24 @@ defmodule SentinelCp.Rollouts do
             |> Repo.insert!()
           end
 
-          # Set canary_step_index for canary rollouts
-          canary_changes =
-            if rollout.strategy == "canary" do
-              %{canary_step_index: 0}
-            else
-              %{}
+          # Set strategy-specific fields
+          extra_changes =
+            cond do
+              rollout.strategy == "canary" ->
+                %{canary_step_index: 0}
+
+              rollout.strategy == "blue_green" ->
+                %{deployment_slot: "blue"}
+
+              true ->
+                %{}
             end
 
           # Transition to running
           {:ok, updated} =
             rollout
             |> Rollout.state_changeset("running")
-            |> Ecto.Changeset.change(canary_changes)
+            |> Ecto.Changeset.change(extra_changes)
             |> Repo.update()
 
           # Enqueue first tick
@@ -628,15 +650,43 @@ defmodule SentinelCp.Rollouts do
     end
   end
 
+  defp plan_blue_green_batches(node_ids, config) do
+    total = length(node_ids)
+    traffic_steps = get_traffic_steps(config)
+
+    if total <= 1 do
+      [{node_ids, "green", 100}]
+    else
+      half = div(total, 2)
+      {green_ids, blue_ids} = Enum.split(node_ids, half)
+
+      # Step 0: deploy to green nodes with traffic_weight 0
+      deploy_green = {green_ids, "green", 0}
+
+      # Steps 1..N: traffic shift steps on green nodes
+      traffic_shift_steps =
+        Enum.map(traffic_steps, fn weight -> {green_ids, "green", weight} end)
+
+      # Final step: deploy to blue nodes (catch-up)
+      deploy_blue = {blue_ids, "blue", 100}
+
+      [deploy_green] ++ traffic_shift_steps ++ [deploy_blue]
+    end
+  end
+
+  defp get_traffic_steps(nil), do: [10, 50, 100]
+  defp get_traffic_steps(%{"traffic_steps" => steps}) when is_list(steps), do: steps
+  defp get_traffic_steps(_), do: [10, 50, 100]
+
   @doc """
   Core state machine driver. Called by the TickWorker on each tick.
   """
   def tick_rollout(%Rollout{state: "running"} = rollout) do
     rollout = Repo.preload(rollout, steps: from(s in RolloutStep, order_by: s.step_index))
 
-    # Find active step (running or verifying)
+    # Find active step (running, verifying, or validating)
     active_step =
-      Enum.find(rollout.steps, fn s -> s.state in ~w(running verifying) end)
+      Enum.find(rollout.steps, fn s -> s.state in ~w(running verifying validating) end)
 
     cond do
       active_step && active_step.state == "running" ->
@@ -644,6 +694,9 @@ defmodule SentinelCp.Rollouts do
 
       active_step && active_step.state == "verifying" ->
         check_step_verifying(rollout, active_step)
+
+      active_step && active_step.state == "validating" ->
+        check_step_validating(rollout, active_step)
 
       true ->
         # No active step — start next pending step
@@ -758,6 +811,139 @@ defmodule SentinelCp.Rollouts do
 
   def rollback_rollout(%Rollout{}), do: {:error, :invalid_state}
 
+  ## Blue-Green Traffic Controls
+
+  @doc """
+  Advances blue-green traffic to the next step.
+  Can only be called when the rollout is paused (after validation pause).
+  """
+  def advance_blue_green_traffic(%Rollout{strategy: "blue_green", state: "paused"} = rollout) do
+    case resume_rollout(rollout) do
+      {:ok, updated} ->
+        log_audit(rollout, "rollout.traffic_advanced")
+        {:ok, updated}
+
+      error ->
+        error
+    end
+  end
+
+  def advance_blue_green_traffic(%Rollout{strategy: "blue_green"}),
+    do: {:error, :invalid_state}
+
+  def advance_blue_green_traffic(%Rollout{}), do: {:error, :not_blue_green}
+
+  @doc """
+  Swaps the active deployment slot for a blue-green rollout.
+  Reverts traffic weight to 0 on current active steps and pauses the rollout.
+  """
+  def swap_blue_green_slot(%Rollout{strategy: "blue_green", state: state} = rollout)
+      when state in ~w(running paused) do
+    result =
+      Repo.transaction(fn ->
+        rollout =
+          Repo.preload(rollout, steps: from(s in RolloutStep, order_by: s.step_index))
+
+        # Set traffic_weight to 0 on active/verifying/validating steps
+        for step <- rollout.steps,
+            step.state in ~w(running verifying validating) do
+          step
+          |> Ecto.Changeset.change(%{traffic_weight: 0})
+          |> Repo.update!()
+        end
+
+        # Swap deployment slot
+        new_slot = if rollout.deployment_slot == "green", do: "blue", else: "green"
+
+        {:ok, updated} =
+          rollout
+          |> Ecto.Changeset.change(%{deployment_slot: new_slot})
+          |> Rollout.state_changeset("paused")
+          |> Repo.update()
+
+        updated
+      end)
+
+    case result do
+      {:ok, updated} ->
+        log_audit(updated, "rollout.slot_swapped")
+        broadcast_rollout_update(updated)
+        {:ok, updated}
+
+      error ->
+        error
+    end
+  end
+
+  def swap_blue_green_slot(%Rollout{strategy: "blue_green"}),
+    do: {:error, :invalid_state}
+
+  def swap_blue_green_slot(%Rollout{}), do: {:error, :not_blue_green}
+
+  @doc """
+  Instant rollback for blue-green: sets traffic weight to 0 on all active steps,
+  cancels the rollout, and clears staged bundles on affected nodes.
+  """
+  def instant_rollback_blue_green(%Rollout{strategy: "blue_green", state: state} = rollout)
+      when state in ~w(running paused) do
+    result =
+      Repo.transaction(fn ->
+        rollout =
+          Repo.preload(rollout, steps: from(s in RolloutStep, order_by: s.step_index))
+
+        # Set traffic weight to 0 on all non-completed steps
+        for step <- rollout.steps,
+            step.state not in ~w(completed failed) do
+          step
+          |> Ecto.Changeset.change(%{traffic_weight: 0})
+          |> Repo.update!()
+        end
+
+        # Cancel the rollout
+        {:ok, cancelled} =
+          rollout
+          |> Rollout.state_changeset("cancelled")
+          |> Repo.update()
+
+        # Clear staged_bundle_id on affected nodes
+        node_ids = get_rollout_node_ids(rollout.id)
+
+        if node_ids != [] do
+          from(n in Nodes.Node,
+            where: n.id in ^node_ids,
+            where: n.staged_bundle_id == ^rollout.bundle_id
+          )
+          |> Repo.update_all(set: [staged_bundle_id: nil])
+        end
+
+        cancelled
+      end)
+
+    case result do
+      {:ok, cancelled} ->
+        log_audit(cancelled, "rollout.instant_rollback")
+        broadcast_and_notify(cancelled, state, "cancelled")
+        {:ok, cancelled}
+
+      error ->
+        error
+    end
+  end
+
+  def instant_rollback_blue_green(%Rollout{strategy: "blue_green"}),
+    do: {:error, :invalid_state}
+
+  def instant_rollback_blue_green(%Rollout{}), do: {:error, :not_blue_green}
+
+  defp log_audit(rollout, action) do
+    unless Application.get_env(:sentinel_cp, :env) == :test do
+      SentinelCp.Audit.log_system_action(action, "rollout", rollout.id,
+        project_id: rollout.project_id,
+        changes: %{state: rollout.state, deployment_slot: rollout.deployment_slot}
+      )
+    end
+  end
+
   ## Queries
 
   @doc """
@@ -827,7 +1013,34 @@ defmodule SentinelCp.Rollouts do
 
   ## Private — Tick Logic
 
+  defp traffic_shift_step?(rollout, step) do
+    rollout.strategy == "blue_green" &&
+      step.deployment_slot == "green" &&
+      step.step_index > 0 &&
+      step.step_index <= length(get_traffic_steps(rollout.blue_green_config))
+  end
+
   defp start_step(rollout, step) do
+    if traffic_shift_step?(rollout, step) do
+      start_traffic_shift_step(rollout, step)
+    else
+      start_deploy_step(rollout, step)
+    end
+  end
+
+  defp start_traffic_shift_step(rollout, step) do
+    # Traffic shift steps skip bundle assignment — bundle already deployed to green nodes
+    # Transition directly to verifying (no waiting for node activation)
+    {:ok, _step} =
+      step
+      |> RolloutStep.state_changeset("running")
+      |> Repo.update()
+
+    broadcast_rollout_update(rollout)
+    {:ok, :step_started}
+  end
+
+  defp start_deploy_step(rollout, step) do
     # Re-validate bundle is still compiled (could have been revoked since rollout creation)
     bundle = Bundles.get_bundle!(rollout.bundle_id)
 
@@ -874,6 +1087,21 @@ defmodule SentinelCp.Rollouts do
   end
 
   defp check_step_running(rollout, step) do
+    # Traffic shift steps skip bundle activation check — transition to verifying immediately
+    if traffic_shift_step?(rollout, step) do
+      {:ok, _step} =
+        step
+        |> RolloutStep.state_changeset("verifying")
+        |> Repo.update()
+
+      broadcast_rollout_update(rollout)
+      {:ok, :step_verifying}
+    else
+      check_step_running_deploy(rollout, step)
+    end
+  end
+
+  defp check_step_running_deploy(rollout, step) do
     total = length(step.node_ids)
 
     # Check if all nodes in this step have active_bundle_id == bundle_id
@@ -941,14 +1169,109 @@ defmodule SentinelCp.Rollouts do
 
   defp check_step_verifying(rollout, step) do
     # Check health gates (only for available nodes when max_unavailable is set)
-    if check_health_gates(rollout, step, available_node_ids(rollout, step)) do
-      if rollout.strategy == "canary" do
+    node_ids = available_node_ids(rollout, step)
+    gates_pass = check_health_gates(rollout, step, node_ids)
+
+    cond do
+      gates_pass && rollout.strategy == "canary" ->
+        clear_health_gate_failure(step)
         check_canary_analysis(rollout, step)
-      else
+
+      gates_pass && traffic_shift_step?(rollout, step) ->
+        # Blue-green traffic shift steps enter validating state
+        clear_health_gate_failure(step)
+
+        {:ok, _step} =
+          step
+          |> RolloutStep.state_changeset("validating")
+          |> Repo.update()
+
+        broadcast_rollout_update(rollout)
+        {:ok, :step_validating}
+
+      gates_pass ->
+        clear_health_gate_failure(step)
         complete_step(rollout, step)
-      end
-    else
-      check_step_deadline(rollout, step)
+
+      rollout.auto_rollback && sustained_failure?(rollout, step) ->
+        trigger_auto_rollback(rollout, step)
+        {:ok, :auto_rollback_triggered}
+
+      true ->
+        track_health_gate_failure(step)
+        check_step_deadline(rollout, step)
+    end
+  end
+
+  defp check_step_validating(rollout, step) do
+    node_ids = available_node_ids(rollout, step)
+    gates_pass = check_health_gates(rollout, step, node_ids)
+
+    config = rollout.blue_green_config || %{}
+    auto_advance = config["auto_advance"] == true
+    advance_delay = config["advance_delay_seconds"] || 60
+    validation_period = rollout.validation_period_seconds || 300
+
+    wait_seconds = max(validation_period, advance_delay)
+    elapsed = DateTime.diff(DateTime.utc_now(), step.validated_at, :second)
+
+    cond do
+      !gates_pass && rollout.auto_rollback && sustained_failure?(rollout, step) ->
+        trigger_auto_rollback(rollout, step)
+        {:ok, :auto_rollback_triggered}
+
+      !gates_pass ->
+        track_health_gate_failure(step)
+        check_step_deadline(rollout, step)
+
+      elapsed < wait_seconds ->
+        clear_health_gate_failure(step)
+        {:ok, :validating}
+
+      auto_advance ->
+        clear_health_gate_failure(step)
+        complete_step(rollout, step)
+
+      true ->
+        # auto_advance is false — pause rollout for operator to advance
+        clear_health_gate_failure(step)
+
+        {:ok, paused_rollout} =
+          rollout
+          |> Rollout.state_changeset("paused")
+          |> Repo.update()
+
+        broadcast_and_notify(paused_rollout, "running", "paused")
+        {:ok, :paused_for_validation}
+    end
+  end
+
+  defp track_health_gate_failure(step) do
+    if is_nil(step.health_gate_failure_since) do
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      step
+      |> Ecto.Changeset.change(%{health_gate_failure_since: now})
+      |> Repo.update()
+    end
+
+    :ok
+  end
+
+  defp clear_health_gate_failure(step) do
+    if step.health_gate_failure_since != nil do
+      step
+      |> Ecto.Changeset.change(%{health_gate_failure_since: nil})
+      |> Repo.update()
+    end
+
+    :ok
+  end
+
+  defp sustained_failure?(_rollout, step) do
+    case step.health_gate_failure_since do
+      nil -> false
+      since -> DateTime.diff(DateTime.utc_now(), since, :second) > 50
     end
   end
 
@@ -969,6 +1292,30 @@ defmodule SentinelCp.Rollouts do
 
     # Set expected_bundle_id for nodes that completed this step
     SentinelCp.Nodes.set_expected_bundle_for_nodes(step.node_ids, rollout.bundle_id)
+
+    # Track active deployment slot and traffic step index for blue-green rollouts
+    if rollout.strategy == "blue_green" do
+      changes =
+        if traffic_shift_step?(rollout, step) do
+          %{traffic_step_index: (rollout.traffic_step_index || 0) + 1}
+        else
+          %{}
+        end
+
+      # Set deployment_slot to green when final traffic step (100%) completes
+      changes =
+        if step.deployment_slot == "green" && step.traffic_weight == 100 do
+          Map.put(changes, :deployment_slot, "green")
+        else
+          changes
+        end
+
+      if map_size(changes) > 0 do
+        rollout
+        |> Ecto.Changeset.change(changes)
+        |> Repo.update()
+      end
+    end
 
     broadcast_rollout_update(rollout)
     {:ok, :step_completed}
@@ -1256,6 +1603,35 @@ defmodule SentinelCp.Rollouts do
   end
 
   defp trigger_auto_rollback(rollout, failed_step) do
+    require Logger
+
+    case rollout.strategy do
+      "blue_green" ->
+        # Use instant rollback for blue-green — reverts traffic and cancels
+        case instant_rollback_blue_green(rollout) do
+          {:ok, _} ->
+            Logger.info("Auto-rollback (blue-green instant) triggered",
+              rollout_id: rollout.id
+            )
+
+          {:error, reason} ->
+            Logger.warning("Auto-rollback (blue-green) failed",
+              rollout_id: rollout.id,
+              reason: inspect(reason)
+            )
+        end
+
+      "canary" ->
+        rollback_rollout(rollout)
+
+      _ ->
+        trigger_auto_rollback_generic(rollout, failed_step)
+    end
+  end
+
+  defp trigger_auto_rollback_generic(rollout, failed_step) do
+    require Logger
+
     # Get the previous bundle that was running on the affected nodes
     node_ids = failed_step.node_ids
 
@@ -1284,8 +1660,6 @@ defmodule SentinelCp.Rollouts do
 
         case create_rollout(attrs) do
           {:ok, rollback_rollout} ->
-            require Logger
-
             Logger.info("Auto-rollback initiated",
               failed_rollout_id: rollout.id,
               rollback_rollout_id: rollback_rollout.id,
@@ -1295,8 +1669,6 @@ defmodule SentinelCp.Rollouts do
             plan_rollout(rollback_rollout)
 
           {:error, reason} ->
-            require Logger
-
             Logger.warning("Auto-rollback failed to create rollout",
               failed_rollout_id: rollout.id,
               reason: inspect(reason)
@@ -1304,7 +1676,6 @@ defmodule SentinelCp.Rollouts do
         end
 
       [] ->
-        require Logger
         Logger.info("Auto-rollback skipped: no previous bundle found", rollout_id: rollout.id)
     end
   end

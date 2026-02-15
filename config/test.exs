@@ -31,6 +31,9 @@ config :sentinel_cp, Oban, testing: :inline
 # Mark test environment (used to skip async notifications)
 config :sentinel_cp, :env, :test
 
+# Disable OpenTelemetry trace export in tests
+config :opentelemetry, traces_exporter: :none
+
 # Initialize plugs at runtime for faster test compilation
 config :phoenix, :plug_init_mode, :runtime
 

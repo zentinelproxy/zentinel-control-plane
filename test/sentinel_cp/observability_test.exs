@@ -15,68 +15,15 @@ defmodule SentinelCp.ObservabilityTest do
   # ─── 15.1 Tracer ─────────────────────────────────────────────────
 
   describe "tracer" do
-    test "span emits telemetry events and returns result" do
-      ref = make_ref()
-      test_pid = self()
-
-      :telemetry.attach(
-        "test-span-start",
-        [:sentinel_cp, :bundle_compilation, :start],
-        fn _event, _measurements, metadata, _ ->
-          send(test_pid, {:start, metadata, ref})
-        end,
-        nil
-      )
-
-      :telemetry.attach(
-        "test-span-stop",
-        [:sentinel_cp, :bundle_compilation, :stop],
-        fn _event, measurements, metadata, _ ->
-          send(test_pid, {:stop, measurements, metadata, ref})
-        end,
-        nil
-      )
-
+    test "span executes function and returns result" do
       result = Tracer.trace_compilation("bundle-123", fn -> {:ok, :compiled} end)
-
       assert result == {:ok, :compiled}
-      assert_receive {:start, %{bundle_id: "bundle-123", trace_id: _}, ^ref}
-      assert_receive {:stop, %{duration: duration}, %{bundle_id: "bundle-123"}, ^ref}
-      assert duration > 0
-
-      :telemetry.detach("test-span-start")
-      :telemetry.detach("test-span-stop")
     end
 
-    test "span emits exception event on error" do
-      ref = make_ref()
-      test_pid = self()
-
-      :telemetry.attach(
-        "test-span-exception",
-        [:sentinel_cp, :bundle_compilation, :exception],
-        fn _event, _measurements, metadata, _ ->
-          send(test_pid, {:exception, metadata, ref})
-        end,
-        nil
-      )
-
+    test "span re-raises exceptions" do
       assert_raise RuntimeError, "boom", fn ->
         Tracer.trace_compilation("bundle-456", fn -> raise "boom" end)
       end
-
-      assert_receive {:exception, %{kind: :error, reason: "boom"}, ^ref}
-
-      :telemetry.detach("test-span-exception")
-    end
-
-    test "event_prefixes returns all traced operations" do
-      prefixes = Tracer.event_prefixes()
-      assert length(prefixes) == 4
-      assert [:sentinel_cp, :bundle_compilation] in prefixes
-      assert [:sentinel_cp, :rollout_tick] in prefixes
-      assert [:sentinel_cp, :webhook_processing] in prefixes
-      assert [:sentinel_cp, :node_heartbeat] in prefixes
     end
 
     test "trace_rollout_tick wraps function" do

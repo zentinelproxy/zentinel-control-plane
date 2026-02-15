@@ -618,6 +618,8 @@ defmodule SentinelCpWeb.Router do
       post "/rollouts/:id/resume", RolloutController, :resume
       post "/rollouts/:id/cancel", RolloutController, :cancel
       post "/rollouts/:id/rollback", RolloutController, :rollback
+      post "/rollouts/:id/swap-slot", RolloutController, :swap_slot
+      post "/rollouts/:id/advance-traffic", RolloutController, :advance_traffic
     end
   end
 

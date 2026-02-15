@@ -9,12 +9,19 @@ defmodule SentinelCp.Bundles.CompileWorker do
 
   require Logger
 
+  alias SentinelCp.{Audit, Plugins, Services}
   alias SentinelCp.Bundles
   alias SentinelCp.Bundles.{Compiler, Risk, Signing, Storage}
-  alias SentinelCp.{Audit, Plugins, Services}
+  alias SentinelCp.Observability.Tracer
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"bundle_id" => bundle_id}}) do
+    Tracer.trace_compilation(bundle_id, fn ->
+      do_perform(bundle_id)
+    end)
+  end
+
+  defp do_perform(bundle_id) do
     bundle = Bundles.get_bundle!(bundle_id)
 
     Logger.info("Starting compilation for bundle #{bundle_id}")

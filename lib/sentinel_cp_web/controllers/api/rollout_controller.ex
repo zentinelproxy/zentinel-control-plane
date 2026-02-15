@@ -213,6 +213,68 @@ defmodule SentinelCpWeb.Api.RolloutController do
     end
   end
 
+  @doc """
+  POST /api/v1/projects/:project_slug/rollouts/:id/swap-slot
+  """
+  def swap_slot(conn, %{"project_slug" => project_slug, "id" => rollout_id}) do
+    with {:ok, project} <- get_project(project_slug),
+         {:ok, rollout} <- get_rollout(rollout_id, project.id),
+         {:ok, updated} <- Rollouts.swap_blue_green_slot(rollout) do
+      api_key = conn.assigns.current_api_key
+
+      Audit.log_api_key_action(api_key, "rollout.slot_swapped", "rollout", rollout.id,
+        project_id: project.id
+      )
+
+      conn |> put_status(:ok) |> json(rollout_to_json(updated))
+    else
+      {:error, :project_not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Project not found"})
+
+      {:error, :rollout_not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Rollout not found"})
+
+      {:error, :not_blue_green} ->
+        conn |> put_status(:conflict) |> json(%{error: "Not a blue-green rollout"})
+
+      {:error, :invalid_state} ->
+        conn
+        |> put_status(:conflict)
+        |> json(%{error: "Rollout cannot swap slot in current state"})
+    end
+  end
+
+  @doc """
+  POST /api/v1/projects/:project_slug/rollouts/:id/advance-traffic
+  """
+  def advance_traffic(conn, %{"project_slug" => project_slug, "id" => rollout_id}) do
+    with {:ok, project} <- get_project(project_slug),
+         {:ok, rollout} <- get_rollout(rollout_id, project.id),
+         {:ok, updated} <- Rollouts.advance_blue_green_traffic(rollout) do
+      api_key = conn.assigns.current_api_key
+
+      Audit.log_api_key_action(api_key, "rollout.traffic_advanced", "rollout", rollout.id,
+        project_id: project.id
+      )
+
+      conn |> put_status(:ok) |> json(rollout_to_json(updated))
+    else
+      {:error, :project_not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Project not found"})
+
+      {:error, :rollout_not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Rollout not found"})
+
+      {:error, :not_blue_green} ->
+        conn |> put_status(:conflict) |> json(%{error: "Not a blue-green rollout"})
+
+      {:error, :invalid_state} ->
+        conn
+        |> put_status(:conflict)
+        |> json(%{error: "Rollout must be paused to advance traffic"})
+    end
+  end
+
   # Helpers
 
   defp get_project(slug) do
@@ -242,6 +304,9 @@ defmodule SentinelCpWeb.Api.RolloutController do
       progress_deadline_seconds: rollout.progress_deadline_seconds,
       health_gates: rollout.health_gates,
       state: rollout.state,
+      deployment_slot: rollout.deployment_slot,
+      blue_green_config: rollout.blue_green_config,
+      traffic_step_index: rollout.traffic_step_index,
       started_at: rollout.started_at,
       completed_at: rollout.completed_at,
       error: rollout.error,
@@ -256,6 +321,8 @@ defmodule SentinelCpWeb.Api.RolloutController do
       step_index: step.step_index,
       node_ids: step.node_ids,
       state: step.state,
+      deployment_slot: step.deployment_slot,
+      traffic_weight: step.traffic_weight,
       started_at: step.started_at,
       completed_at: step.completed_at,
       error: step.error

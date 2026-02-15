@@ -94,6 +94,9 @@ config :sentinel_cp, :github_webhook,
 # ACME / Let's Encrypt configuration
 config :sentinel_cp, :acme, directory_url: "https://acme-v02.api.letsencrypt.org/directory"
 
+# OpenTelemetry (disabled by default, enable via OTEL_EXPORTER_OTLP_ENDPOINT in runtime.exs)
+config :opentelemetry, span_processor: :batch, traces_exporter: :none
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"

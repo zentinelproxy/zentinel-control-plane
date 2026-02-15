@@ -224,6 +224,57 @@ defmodule SentinelCpWeb.RolloutsLive.Show do
   end
 
   @impl true
+  def handle_event("advance_traffic", _, socket) do
+    case Rollouts.advance_blue_green_traffic(socket.assigns.rollout) do
+      {:ok, updated} ->
+        {:noreply,
+         socket
+         |> assign(rollout: Rollouts.get_rollout_with_details(updated.id))
+         |> put_flash(:info, "Traffic advanced to next step.")}
+
+      {:error, :not_blue_green} ->
+        {:noreply, put_flash(socket, :error, "Not a blue-green rollout.")}
+
+      {:error, :invalid_state} ->
+        {:noreply, put_flash(socket, :error, "Rollout must be paused to advance traffic.")}
+    end
+  end
+
+  @impl true
+  def handle_event("swap_slot", _, socket) do
+    case Rollouts.swap_blue_green_slot(socket.assigns.rollout) do
+      {:ok, updated} ->
+        {:noreply,
+         socket
+         |> assign(rollout: Rollouts.get_rollout_with_details(updated.id))
+         |> put_flash(:info, "Deployment slot swapped.")}
+
+      {:error, :not_blue_green} ->
+        {:noreply, put_flash(socket, :error, "Not a blue-green rollout.")}
+
+      {:error, :invalid_state} ->
+        {:noreply, put_flash(socket, :error, "Cannot swap slot in current state.")}
+    end
+  end
+
+  @impl true
+  def handle_event("instant_rollback", _, socket) do
+    case Rollouts.instant_rollback_blue_green(socket.assigns.rollout) do
+      {:ok, updated} ->
+        {:noreply,
+         socket
+         |> assign(rollout: Rollouts.get_rollout_with_details(updated.id))
+         |> put_flash(:info, "Instant rollback completed. All traffic reverted.")}
+
+      {:error, :not_blue_green} ->
+        {:noreply, put_flash(socket, :error, "Not a blue-green rollout.")}
+
+      {:error, :invalid_state} ->
+        {:noreply, put_flash(socket, :error, "Cannot rollback in current state.")}
+    end
+  end
+
+  @impl true
   def handle_info({:rollout_updated, _rollout_id}, socket) do
     reload(socket)
   end
@@ -361,11 +412,34 @@ defmodule SentinelCpWeb.RolloutsLive.Show do
             Cancel
           </button>
           <button
-            :if={@rollout.state in ~w(running paused)}
+            :if={@rollout.state in ~w(running paused) and @rollout.strategy != "blue_green"}
             class="btn btn-outline btn-error btn-sm"
             phx-click="rollback"
           >
             Rollback
+          </button>
+          <button
+            :if={@rollout.strategy == "blue_green" and @rollout.state == "paused"}
+            class="btn btn-primary btn-sm"
+            phx-click="advance_traffic"
+          >
+            Advance Traffic
+          </button>
+          <button
+            :if={@rollout.strategy == "blue_green" and @rollout.state in ~w(running paused)}
+            class="btn btn-warning btn-sm"
+            phx-click="swap_slot"
+            data-confirm="Swap deployment slot? This will revert traffic weight."
+          >
+            Swap Slot
+          </button>
+          <button
+            :if={@rollout.strategy == "blue_green" and @rollout.state in ~w(running paused)}
+            class="btn btn-outline btn-error btn-sm"
+            phx-click="instant_rollback"
+            data-confirm="Instant rollback? This will cancel the rollout and revert all traffic."
+          >
+            Instant Rollback
           </button>
           <button
             :if={@rollout.state == "pending" and @rollout.approval_state == "rejected"}
@@ -480,6 +554,9 @@ defmodule SentinelCpWeb.RolloutsLive.Show do
             <:item label="ID"><span class="font-mono text-sm">{@rollout.id}</span></:item>
             <:item label="Bundle"><span class="font-mono text-sm">{@rollout.bundle_id}</span></:item>
             <:item label="Strategy">{@rollout.strategy}</:item>
+            <:item :if={@rollout.strategy == "blue_green"} label="Active Slot">
+              <span class="badge badge-sm badge-info">{@rollout.deployment_slot || "—"}</span>
+            </:item>
             <:item label="Batch Size">{@rollout.batch_size}</:item>
             <:item label="Target">{format_target(@rollout.target_selector)}</:item>
             <:item :if={@rollout.scheduled_at} label="Scheduled">
@@ -601,12 +678,76 @@ defmodule SentinelCpWeb.RolloutsLive.Show do
         </.k8s_section>
       </div>
 
+      <%!-- Blue-Green Traffic Panel --%>
+      <div :if={@rollout.strategy == "blue_green"}>
+        <.k8s_section title="Blue-Green Traffic" testid="blue-green-traffic">
+          <div class="space-y-4">
+            <div class="flex items-center gap-6">
+              <div>
+                <div class="text-3xl font-bold">{current_traffic_weight(@rollout)}%</div>
+                <div class="text-sm text-base-content/50">Traffic Weight</div>
+              </div>
+              <div>
+                <span class={[
+                  "badge badge-lg",
+                  @rollout.deployment_slot == "green" && "badge-success",
+                  @rollout.deployment_slot == "blue" && "badge-info"
+                ]}>
+                  {@rollout.deployment_slot || "—"} slot active
+                </span>
+              </div>
+              <div>
+                <div class="text-sm font-semibold">
+                  Step {@rollout.traffic_step_index || 0} / {length(
+                    blue_green_traffic_steps(@rollout)
+                  )}
+                </div>
+                <div class="text-xs text-base-content/50">Traffic Steps</div>
+              </div>
+            </div>
+
+            <progress
+              class="progress progress-success w-full"
+              value={traffic_progress_pct(@rollout)}
+              max="100"
+            >
+            </progress>
+
+            <div :if={validating_step(@rollout)} class="text-sm text-info">
+              Validating — started {Calendar.strftime(
+                validating_step(@rollout).validated_at,
+                "%H:%M:%S"
+              )}
+            </div>
+
+            <div :if={blue_green_traffic_steps(@rollout) != []} class="border-t pt-3">
+              <h4 class="text-xs font-semibold mb-2">Traffic Step History</h4>
+              <div class="flex gap-2 flex-wrap">
+                <span
+                  :for={{weight, idx} <- Enum.with_index(blue_green_traffic_steps(@rollout))}
+                  class={[
+                    "badge badge-sm",
+                    idx < (@rollout.traffic_step_index || 0) && "badge-success",
+                    idx == (@rollout.traffic_step_index || 0) && "badge-warning",
+                    idx > (@rollout.traffic_step_index || 0) && "badge-ghost"
+                  ]}
+                >
+                  {weight}%
+                </span>
+              </div>
+            </div>
+          </div>
+        </.k8s_section>
+      </div>
+
       <.k8s_section title="Steps" testid="rollout-steps">
         <table class="table table-sm">
           <thead class="bg-base-300">
             <tr>
               <th class="text-xs uppercase">Step</th>
               <th class="text-xs uppercase">State</th>
+              <th :if={@rollout.strategy == "blue_green"} class="text-xs uppercase">Slot</th>
+              <th :if={@rollout.strategy == "blue_green"} class="text-xs uppercase">Weight</th>
               <th class="text-xs uppercase">Nodes</th>
               <th class="text-xs uppercase">Started</th>
               <th class="text-xs uppercase">Completed</th>
@@ -621,11 +762,31 @@ defmodule SentinelCpWeb.RolloutsLive.Show do
                   step.state == "completed" && "badge-success",
                   step.state == "running" && "badge-warning",
                   step.state == "verifying" && "badge-info",
+                  step.state == "validating" && "badge-accent",
                   step.state == "failed" && "badge-error",
                   step.state == "pending" && "badge-ghost"
                 ]}>
                   {step.state}
                 </span>
+              </td>
+              <td :if={@rollout.strategy == "blue_green"}>
+                <span
+                  :if={step.deployment_slot}
+                  class={[
+                    "badge badge-sm",
+                    step.deployment_slot == "green" && "badge-success",
+                    step.deployment_slot == "blue" && "badge-info"
+                  ]}
+                >
+                  {step.deployment_slot}
+                </span>
+                <span :if={!step.deployment_slot}>—</span>
+              </td>
+              <td :if={@rollout.strategy == "blue_green"}>
+                <span :if={step.traffic_weight} class="badge badge-sm badge-outline">
+                  {step.traffic_weight}%
+                </span>
+                <span :if={!step.traffic_weight}>—</span>
               </td>
               <td>{length(step.node_ids)}</td>
               <td class="text-sm">
@@ -750,4 +911,36 @@ defmodule SentinelCpWeb.RolloutsLive.Show do
   defp format_number(nil), do: "0"
   defp format_number(n) when is_float(n), do: :erlang.float_to_binary(n, decimals: 2)
   defp format_number(n), do: to_string(n)
+
+  defp current_traffic_weight(rollout) do
+    steps = rollout.steps || []
+
+    # Find the most recent completed or active traffic step
+    active =
+      steps
+      |> Enum.filter(&(&1.state in ~w(running verifying validating completed)))
+      |> Enum.filter(&(&1.traffic_weight != nil))
+      |> Enum.sort_by(& &1.step_index, :desc)
+      |> List.first()
+
+    if active, do: active.traffic_weight, else: 0
+  end
+
+  defp blue_green_traffic_steps(rollout) do
+    config = rollout.blue_green_config || %{}
+    config["traffic_steps"] || [10, 50, 100]
+  end
+
+  defp traffic_progress_pct(rollout) do
+    steps = blue_green_traffic_steps(rollout)
+    idx = rollout.traffic_step_index || 0
+    total = length(steps)
+
+    if total > 0, do: div(idx * 100, total), else: 0
+  end
+
+  defp validating_step(rollout) do
+    (rollout.steps || [])
+    |> Enum.find(&(&1.state == "validating" && &1.validated_at != nil))
+  end
 end

@@ -12,6 +12,7 @@ defmodule SentinelCp.Rollouts.TickWorker do
 
   require Logger
 
+  alias SentinelCp.Observability.Tracer
   alias SentinelCp.Rollouts
 
   @tick_interval_seconds 5
@@ -25,41 +26,34 @@ defmodule SentinelCp.Rollouts.TickWorker do
 
       %{state: "running"} = rollout ->
         Logger.debug("TickWorker: ticking rollout #{rollout_id}")
-
-        case Rollouts.tick_rollout(rollout) do
-          {:ok, :step_started} ->
-            reschedule(rollout_id)
-            :ok
-
-          {:ok, :step_verifying} ->
-            reschedule(rollout_id)
-            :ok
-
-          {:ok, :step_completed} ->
-            reschedule(rollout_id)
-            :ok
-
-          {:ok, :waiting} ->
-            reschedule(rollout_id)
-            :ok
-
-          {:ok, %Rollouts.Rollout{state: "completed"}} ->
-            Logger.info("TickWorker: rollout #{rollout_id} completed")
-            :ok
-
-          {:ok, :deadline_exceeded} ->
-            Logger.warning("TickWorker: rollout #{rollout_id} failed (deadline exceeded)")
-            :ok
-
-          {:ok, :not_running} ->
-            Logger.info("TickWorker: rollout #{rollout_id} is no longer running")
-            :ok
-        end
+        result = Tracer.trace_rollout_tick(rollout_id, fn -> Rollouts.tick_rollout(rollout) end)
+        handle_tick_result(result, rollout_id)
 
       %{state: state} ->
         Logger.info("TickWorker: rollout #{rollout_id} in state #{state}, stopping ticks")
         :ok
     end
+  end
+
+  defp handle_tick_result({:ok, result}, rollout_id)
+       when result in ~w(step_started step_verifying step_completed waiting)a do
+    reschedule(rollout_id)
+    :ok
+  end
+
+  defp handle_tick_result({:ok, %Rollouts.Rollout{state: "completed"}}, rollout_id) do
+    Logger.info("TickWorker: rollout #{rollout_id} completed")
+    :ok
+  end
+
+  defp handle_tick_result({:ok, :deadline_exceeded}, rollout_id) do
+    Logger.warning("TickWorker: rollout #{rollout_id} failed (deadline exceeded)")
+    :ok
+  end
+
+  defp handle_tick_result({:ok, :not_running}, rollout_id) do
+    Logger.info("TickWorker: rollout #{rollout_id} is no longer running")
+    :ok
   end
 
   defp reschedule(rollout_id) do

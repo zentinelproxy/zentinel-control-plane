@@ -55,7 +55,11 @@ defmodule SentinelCpWeb.RolloutTemplatesLive.Index do
         Map.get(template.health_gates || %{}, "heartbeat_healthy", false),
       "health_gates_max_error_rate" =>
         Map.get(template.health_gates || %{}, "max_error_rate", ""),
-      "health_gates_max_latency_ms" => Map.get(template.health_gates || %{}, "max_latency_ms", "")
+      "health_gates_max_latency_ms" =>
+        Map.get(template.health_gates || %{}, "max_latency_ms", ""),
+      "auto_rollback" => template.auto_rollback || false,
+      "rollback_threshold" => to_string(template.rollback_threshold || 50),
+      "validation_period_seconds" => to_string(template.validation_period_seconds || 300)
     }
 
     {:noreply,
@@ -282,11 +286,20 @@ defmodule SentinelCpWeb.RolloutTemplatesLive.Index do
               <div class="form-control">
                 <label class="label"><span class="label-text">Strategy</span></label>
                 <select name="template[strategy]" class="select select-bordered select-sm">
-                  <option value="rolling" selected={@form[:strategy].value != "all_at_once"}>
+                  <option
+                    value="rolling"
+                    selected={@form[:strategy].value not in ["all_at_once", "blue_green", "canary"]}
+                  >
                     Rolling
                   </option>
                   <option value="all_at_once" selected={@form[:strategy].value == "all_at_once"}>
                     All at once
+                  </option>
+                  <option value="blue_green" selected={@form[:strategy].value == "blue_green"}>
+                    Blue-Green
+                  </option>
+                  <option value="canary" selected={@form[:strategy].value == "canary"}>
+                    Canary
                   </option>
                 </select>
               </div>
@@ -359,6 +372,47 @@ defmodule SentinelCpWeb.RolloutTemplatesLive.Index do
                   min="0"
                   class="input input-bordered input-sm w-28"
                   placeholder="e.g. 500"
+                />
+              </div>
+            </div>
+
+            <div class="divider text-sm">Auto-Rollback</div>
+
+            <div class="flex flex-wrap gap-4 items-end">
+              <div class="form-control">
+                <label class="label cursor-pointer gap-2">
+                  <input
+                    type="checkbox"
+                    name="template[auto_rollback]"
+                    value="true"
+                    checked={@form[:auto_rollback].value in [true, "true"]}
+                    class="checkbox checkbox-sm"
+                  />
+                  <span class="label-text">Auto-rollback on failure</span>
+                </label>
+              </div>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">Rollback Threshold (seconds)</span>
+                </label>
+                <input
+                  type="number"
+                  name="template[rollback_threshold]"
+                  value={@form[:rollback_threshold].value || "50"}
+                  min="1"
+                  class="input input-bordered input-sm w-28"
+                />
+              </div>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">Validation Period (seconds)</span>
+                </label>
+                <input
+                  type="number"
+                  name="template[validation_period_seconds]"
+                  value={@form[:validation_period_seconds].value || "300"}
+                  min="0"
+                  class="input input-bordered input-sm w-28"
                 />
               </div>
             </div>
@@ -466,7 +520,10 @@ defmodule SentinelCpWeb.RolloutTemplatesLive.Index do
       batch_size: parse_int(params["batch_size"], 1),
       max_unavailable: parse_int(params["max_unavailable"], 0),
       progress_deadline_seconds: parse_int(params["progress_deadline_seconds"], 600),
-      health_gates: health_gates
+      health_gates: health_gates,
+      auto_rollback: params["auto_rollback"] in ["true", true],
+      rollback_threshold: parse_int(params["rollback_threshold"], 50),
+      validation_period_seconds: parse_int(params["validation_period_seconds"], 300)
     }
 
     attrs =

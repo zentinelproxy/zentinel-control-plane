@@ -137,6 +137,22 @@ defmodule SentinelCpWeb.RolloutsLive.Index do
         nil
       end
 
+    blue_green_config =
+      if strategy == "blue_green" do
+        steps =
+          (params["bg_traffic_steps"] || "10, 50, 100")
+          |> String.split(",", trim: true)
+          |> Enum.map(&(&1 |> String.trim() |> String.to_integer()))
+
+        %{
+          "traffic_steps" => steps,
+          "auto_advance" => params["bg_auto_advance"] in ["true", true],
+          "advance_delay_seconds" => parse_int(params["bg_advance_delay"], 60)
+        }
+      else
+        nil
+      end
+
     attrs = %{
       project_id: project.id,
       bundle_id: params["bundle_id"],
@@ -148,6 +164,7 @@ defmodule SentinelCpWeb.RolloutsLive.Index do
       rollback_threshold: parse_int(params["rollback_threshold"], 50),
       custom_health_checks: custom_health_checks,
       canary_analysis_config: canary_analysis_config,
+      blue_green_config: blue_green_config,
       created_by_id: current_user && current_user.id,
       scheduled_at: scheduled_at
     }
@@ -321,6 +338,9 @@ defmodule SentinelCpWeb.RolloutsLive.Index do
                   <option value="all_at_once" selected={@selected_strategy == "all_at_once"}>
                     All at once
                   </option>
+                  <option value="blue_green" selected={@selected_strategy == "blue_green"}>
+                    Blue-Green
+                  </option>
                   <option value="canary" selected={@selected_strategy == "canary"}>
                     Canary
                   </option>
@@ -385,6 +405,56 @@ defmodule SentinelCpWeb.RolloutsLive.Index do
                     Trigger rollback at this % failures
                   </span>
                 </label>
+              </div>
+            </div>
+
+            <div
+              :if={@selected_strategy == "blue_green"}
+              class="mt-4 p-4 border border-base-300 rounded-lg space-y-3"
+              data-testid="blue-green-config"
+            >
+              <h3 class="text-sm font-semibold">Blue-Green Configuration</h3>
+              <div class="flex flex-wrap gap-4">
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text text-xs">Traffic Steps (%, comma-separated)</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="bg_traffic_steps"
+                    value="10, 50, 100"
+                    class="input input-bordered input-sm w-64"
+                    placeholder="10, 50, 100"
+                  />
+                  <label class="label">
+                    <span class="label-text-alt text-base-content/50">
+                      Traffic percentages for gradual shift to green
+                    </span>
+                  </label>
+                </div>
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text text-xs">Advance Delay (seconds)</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="bg_advance_delay"
+                    value="60"
+                    min="0"
+                    class="input input-bordered input-sm w-28"
+                  />
+                </div>
+                <div class="form-control">
+                  <label class="label cursor-pointer gap-2">
+                    <input
+                      type="checkbox"
+                      name="bg_auto_advance"
+                      value="true"
+                      class="checkbox checkbox-sm"
+                    />
+                    <span class="label-text text-xs">Auto-advance after validation</span>
+                  </label>
+                </div>
               </div>
             </div>
 
@@ -692,8 +762,8 @@ defmodule SentinelCpWeb.RolloutsLive.Index do
       strategy: template.strategy || "rolling",
       batch_size: template.batch_size || 1,
       batch_percentage: nil,
-      auto_rollback: false,
-      rollback_threshold: 50,
+      auto_rollback: template.auto_rollback || false,
+      rollback_threshold: template.rollback_threshold || 50,
       custom_health_checks: []
     }
   end

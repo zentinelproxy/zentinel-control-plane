@@ -55,6 +55,37 @@ defmodule SentinelCpWeb.GraphQL.Resolvers.Rollouts do
     {:ok, Rollouts.get_rollout_progress(rollout.id)}
   end
 
+  def resolve_steps(rollout, _args, _resolution) do
+    rollout = SentinelCp.Repo.preload(rollout, :steps)
+    {:ok, rollout.steps}
+  end
+
+  def swap_slot(_parent, %{id: id}, %{context: context}) do
+    with_rollout(id, fn rollout ->
+      case Rollouts.swap_blue_green_slot(rollout) do
+        {:ok, updated} ->
+          audit(context, "swap_slot", "rollout", id, rollout.project_id)
+          {:ok, updated}
+
+        {:error, reason} ->
+          {:error, to_string(reason)}
+      end
+    end)
+  end
+
+  def advance_traffic(_parent, %{id: id}, %{context: context}) do
+    with_rollout(id, fn rollout ->
+      case Rollouts.advance_blue_green_traffic(rollout) do
+        {:ok, updated} ->
+          audit(context, "advance_traffic", "rollout", id, rollout.project_id)
+          {:ok, updated}
+
+        {:error, reason} ->
+          {:error, to_string(reason)}
+      end
+    end)
+  end
+
   defp with_rollout(id, fun) do
     case Rollouts.get_rollout(id) do
       nil -> {:error, "Rollout not found"}

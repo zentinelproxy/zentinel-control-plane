@@ -1,58 +1,29 @@
 defmodule SentinelCp.Observability.Tracer do
   @moduledoc """
-  Telemetry-based tracing for key control plane operations.
+  OpenTelemetry tracing for key control plane operations.
 
-  Wraps `:telemetry` to emit span events for bundle compilation,
-  rollout lifecycle, webhook processing, and node heartbeats.
-  Compatible with OpenTelemetry exporters when OTEL SDK is configured.
+  Wraps `OpenTelemetry.Tracer.with_span/3` to create spans for bundle
+  compilation, rollout lifecycle, webhook processing, and node heartbeats.
   """
 
-  require Logger
+  require OpenTelemetry.Tracer, as: Tracer
 
   @doc """
-  Executes a function within a traced span.
+  Executes a function within a traced OpenTelemetry span.
 
-  Emits `[:sentinel_cp, span_name, :start]` and `[:sentinel_cp, span_name, :stop]`
-  telemetry events with timing metadata.
+  Attributes from the metadata map are set on the span.
   """
   def span(span_name, metadata, fun) when is_atom(span_name) and is_map(metadata) do
-    start_time = System.monotonic_time()
-    trace_id = generate_trace_id()
+    attributes = Enum.map(metadata, fn {k, v} -> {to_string(k), to_string(v)} end)
 
-    :telemetry.execute(
-      [:sentinel_cp, span_name, :start],
-      %{system_time: System.system_time()},
-      Map.merge(metadata, %{trace_id: trace_id})
-    )
-
-    try do
-      result = fun.()
-
-      duration = System.monotonic_time() - start_time
-
-      :telemetry.execute(
-        [:sentinel_cp, span_name, :stop],
-        %{duration: duration},
-        Map.merge(metadata, %{trace_id: trace_id, result: :ok})
-      )
-
-      result
-    rescue
-      e ->
-        duration = System.monotonic_time() - start_time
-
-        :telemetry.execute(
-          [:sentinel_cp, span_name, :exception],
-          %{duration: duration},
-          Map.merge(metadata, %{
-            trace_id: trace_id,
-            kind: :error,
-            reason: Exception.message(e),
-            stacktrace: __STACKTRACE__
-          })
-        )
-
-        reraise e, __STACKTRACE__
+    Tracer.with_span :"sentinel_cp.#{span_name}", %{attributes: attributes} do
+      try do
+        fun.()
+      rescue
+        e ->
+          Tracer.set_status(:error, Exception.message(e))
+          reraise e, __STACKTRACE__
+      end
     end
   end
 
@@ -82,21 +53,5 @@ defmodule SentinelCp.Observability.Tracer do
   """
   def trace_heartbeat(node_id, fun) do
     span(:node_heartbeat, %{node_id: node_id}, fun)
-  end
-
-  @doc """
-  Returns all telemetry event prefixes emitted by the tracer.
-  """
-  def event_prefixes do
-    [
-      [:sentinel_cp, :bundle_compilation],
-      [:sentinel_cp, :rollout_tick],
-      [:sentinel_cp, :webhook_processing],
-      [:sentinel_cp, :node_heartbeat]
-    ]
-  end
-
-  defp generate_trace_id do
-    :crypto.strong_rand_bytes(16) |> Base.hex_encode32(case: :lower, padding: false)
   end
 end

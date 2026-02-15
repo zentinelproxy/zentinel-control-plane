@@ -46,6 +46,10 @@ defmodule SentinelCp.RolloutsFixtures do
       |> maybe_put(:health_gates, attrs[:health_gates])
       |> maybe_put(:created_by_id, attrs[:created_by_id])
       |> maybe_put(:canary_analysis_config, attrs[:canary_analysis_config])
+      |> maybe_put(:blue_green_config, attrs[:blue_green_config])
+      |> maybe_put(:auto_rollback, attrs[:auto_rollback])
+      |> maybe_put(:rollback_threshold, attrs[:rollback_threshold])
+      |> maybe_put(:validation_period_seconds, attrs[:validation_period_seconds])
 
     {:ok, rollout} = Rollouts.create_rollout(create_attrs)
 

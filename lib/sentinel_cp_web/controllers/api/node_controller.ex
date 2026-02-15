@@ -5,7 +5,8 @@ defmodule SentinelCpWeb.Api.NodeController do
   """
   use SentinelCpWeb, :controller
 
-  alias SentinelCp.{Analytics, Auth, Nodes, Projects, Audit}
+  alias SentinelCp.{Analytics, Audit, Auth, Nodes, Projects, Rollouts}
+  alias SentinelCp.Observability.Tracer
 
   @doc """
   POST /api/v1/projects/:project_slug/nodes/register
@@ -46,32 +47,34 @@ defmodule SentinelCpWeb.Api.NodeController do
   def heartbeat(conn, params) do
     node = conn.assigns.current_node
 
-    attrs = %{
-      health: params["health"] || %{},
-      metrics: params["metrics"] || %{},
-      active_bundle_id: params["active_bundle_id"],
-      staged_bundle_id: params["staged_bundle_id"],
-      version: params["version"],
-      ip: params["ip"] || get_client_ip(conn),
-      hostname: params["hostname"],
-      metadata: params["metadata"] || %{}
-    }
+    Tracer.trace_heartbeat(node.id, fn ->
+      attrs = %{
+        health: params["health"] || %{},
+        metrics: params["metrics"] || %{},
+        active_bundle_id: params["active_bundle_id"],
+        staged_bundle_id: params["staged_bundle_id"],
+        version: params["version"],
+        ip: params["ip"] || get_client_ip(conn),
+        hostname: params["hostname"],
+        metadata: params["metadata"] || %{}
+      }
 
-    case Nodes.record_heartbeat(node, attrs) do
-      {:ok, updated_node} ->
-        conn
-        |> put_status(:ok)
-        |> json(%{
-          status: "ok",
-          node_id: updated_node.id,
-          last_seen_at: updated_node.last_seen_at
-        })
+      case Nodes.record_heartbeat(node, attrs) do
+        {:ok, updated_node} ->
+          conn
+          |> put_status(:ok)
+          |> json(%{
+            status: "ok",
+            node_id: updated_node.id,
+            last_seen_at: updated_node.last_seen_at
+          })
 
-      {:error, reason} ->
-        conn
-        |> put_status(:internal_server_error)
-        |> json(%{error: "Failed to record heartbeat: #{inspect(reason)}"})
-    end
+        {:error, reason} ->
+          conn
+          |> put_status(:internal_server_error)
+          |> json(%{error: "Failed to record heartbeat: #{inspect(reason)}"})
+      end
+    end)
   end
 
   @doc """
@@ -107,6 +110,7 @@ defmodule SentinelCpWeb.Api.NodeController do
             checksum: bundle.checksum,
             size_bytes: bundle.size_bytes,
             download_url: download_url,
+            traffic_weight: get_traffic_weight(node),
             poll_after_s: 30
           })
         else
@@ -318,6 +322,22 @@ defmodule SentinelCpWeb.Api.NodeController do
   end
 
   # Private helpers
+
+  defp get_traffic_weight(node) do
+    import Ecto.Query
+
+    SentinelCp.Repo.one(
+      from(s in Rollouts.RolloutStep,
+        join: r in Rollouts.Rollout,
+        on: s.rollout_id == r.id,
+        where: r.state == "running",
+        where: ^node.id in s.node_ids,
+        where: s.state in ~w(running verifying),
+        select: s.traffic_weight,
+        limit: 1
+      )
+    )
+  end
 
   defp get_project(slug) do
     case Projects.get_project_by_slug(slug) do

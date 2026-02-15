@@ -9,6 +9,7 @@ defmodule SentinelCpWeb.Api.WebhookController do
 
   require Logger
 
+  alias SentinelCp.Observability.Tracer
   alias SentinelCp.Webhooks
 
   @doc """
@@ -18,23 +19,25 @@ defmodule SentinelCpWeb.Api.WebhookController do
   Other events are acknowledged with 200 OK.
   """
   def github(conn, _params) do
-    with {:ok, body} <- read_raw_body(conn),
-         signature when is_binary(signature) <- get_signature(conn),
-         true <- Webhooks.verify_signature(body, signature) do
-      event_type = get_event_type(conn)
-      payload = Jason.decode!(body)
+    Tracer.trace_webhook("github", fn ->
+      with {:ok, body} <- read_raw_body(conn),
+           signature when is_binary(signature) <- get_signature(conn),
+           true <- Webhooks.verify_signature(body, signature) do
+        event_type = get_event_type(conn)
+        payload = Jason.decode!(body)
 
-      handle_event(conn, event_type, payload)
-    else
-      nil ->
-        conn |> put_status(:unauthorized) |> json(%{error: "Missing signature"})
+        handle_event(conn, event_type, payload)
+      else
+        nil ->
+          conn |> put_status(:unauthorized) |> json(%{error: "Missing signature"})
 
-      false ->
-        conn |> put_status(:unauthorized) |> json(%{error: "Invalid signature"})
+        false ->
+          conn |> put_status(:unauthorized) |> json(%{error: "Invalid signature"})
 
-      {:error, :no_body} ->
-        conn |> put_status(:bad_request) |> json(%{error: "Empty request body"})
-    end
+        {:error, :no_body} ->
+          conn |> put_status(:bad_request) |> json(%{error: "Empty request body"})
+      end
+    end)
   end
 
   defp handle_event(conn, "push", payload) do

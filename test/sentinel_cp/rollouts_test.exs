@@ -759,6 +759,404 @@ defmodule SentinelCp.RolloutsTest do
     end
   end
 
+  describe "blue-green strategy" do
+    test "plan_rollout creates deploy + traffic shift + final blue deploy steps" do
+      project = project_fixture()
+      bundle = compiled_bundle_fixture(%{project: project})
+      _node1 = node_fixture(%{project: project})
+      _node2 = node_fixture(%{project: project})
+      _node3 = node_fixture(%{project: project})
+      _node4 = node_fixture(%{project: project})
+
+      rollout = rollout_fixture(%{project: project, bundle: bundle, strategy: "blue_green"})
+
+      assert {:ok, {updated, steps}} = Rollouts.plan_rollout(rollout)
+      assert updated.state == "running"
+      assert updated.deployment_slot == "blue"
+
+      # Default traffic_steps [10, 50, 100] → deploy_green + 3 traffic shifts + deploy_blue = 5 steps
+      assert length(steps) == 5
+
+      # Step 0: deploy to green, weight 0
+      assert Enum.at(steps, 0).deployment_slot == "green"
+      assert Enum.at(steps, 0).traffic_weight == 0
+
+      # Steps 1-3: traffic shift steps on green with weights [10, 50, 100]
+      assert Enum.at(steps, 1).deployment_slot == "green"
+      assert Enum.at(steps, 1).traffic_weight == 10
+      assert Enum.at(steps, 2).deployment_slot == "green"
+      assert Enum.at(steps, 2).traffic_weight == 50
+      assert Enum.at(steps, 3).deployment_slot == "green"
+      assert Enum.at(steps, 3).traffic_weight == 100
+
+      # Step 4: deploy to blue (catch-up)
+      assert Enum.at(steps, 4).deployment_slot == "blue"
+      assert Enum.at(steps, 4).traffic_weight == 100
+
+      # Green and blue nodes are split evenly
+      assert length(Enum.at(steps, 0).node_ids) == 2
+      assert length(Enum.at(steps, 4).node_ids) == 2
+    end
+
+    test "plan_rollout creates single step for single node" do
+      project = project_fixture()
+      bundle = compiled_bundle_fixture(%{project: project})
+      _node = node_fixture(%{project: project})
+
+      rollout = rollout_fixture(%{project: project, bundle: bundle, strategy: "blue_green"})
+
+      assert {:ok, {_updated, steps}} = Rollouts.plan_rollout(rollout)
+      assert length(steps) == 1
+      assert hd(steps).deployment_slot == "green"
+      assert hd(steps).traffic_weight == 100
+    end
+
+    test "custom traffic_steps creates correct number of steps" do
+      project = project_fixture()
+      bundle = compiled_bundle_fixture(%{project: project})
+      _node1 = node_fixture(%{project: project})
+      _node2 = node_fixture(%{project: project})
+
+      config = %{"traffic_steps" => [25, 75, 100]}
+
+      rollout =
+        rollout_fixture(%{
+          project: project,
+          bundle: bundle,
+          strategy: "blue_green",
+          blue_green_config: config
+        })
+
+      assert {:ok, {_updated, steps}} = Rollouts.plan_rollout(rollout)
+      # deploy_green + 3 traffic shifts + deploy_blue = 5 steps
+      assert length(steps) == 5
+      assert Enum.at(steps, 1).traffic_weight == 25
+      assert Enum.at(steps, 2).traffic_weight == 75
+      assert Enum.at(steps, 3).traffic_weight == 100
+    end
+
+    test "traffic shift steps skip bundle assignment" do
+      project = project_fixture()
+      bundle = compiled_bundle_fixture(%{project: project})
+      node1 = node_fixture(%{project: project})
+      node2 = node_fixture(%{project: project})
+
+      config = %{"traffic_steps" => [100], "auto_advance" => true, "advance_delay_seconds" => 0}
+
+      rollout =
+        rollout_fixture(%{
+          project: project,
+          bundle: bundle,
+          strategy: "blue_green",
+          blue_green_config: config,
+          validation_period_seconds: 0
+        })
+
+      import Ecto.Query
+
+      from(r in Rollout, where: r.id == ^rollout.id)
+      |> Repo.update_all(set: [health_gates: %{}])
+
+      {:ok, _} = Rollouts.plan_rollout(rollout)
+
+      details = Rollouts.get_rollout_with_details(rollout.id)
+      green_node_id = hd(Enum.at(details.steps, 0).node_ids)
+
+      # Tick 1: start deploy green step
+      running = Rollouts.get_rollout!(rollout.id)
+      {:ok, :step_started} = Rollouts.tick_rollout(running)
+
+      # Simulate green node activation
+      from(n in SentinelCp.Nodes.Node, where: n.id == ^green_node_id)
+      |> Repo.update_all(set: [active_bundle_id: bundle.id])
+
+      # Tick: verifying → completed (deploy green)
+      running = Rollouts.get_rollout!(rollout.id)
+      {:ok, :step_verifying} = Rollouts.tick_rollout(running)
+      running = Rollouts.get_rollout!(rollout.id)
+      {:ok, :step_completed} = Rollouts.tick_rollout(running)
+
+      # Tick: start traffic shift step (should NOT re-assign bundles)
+      running = Rollouts.get_rollout!(rollout.id)
+      {:ok, :step_started} = Rollouts.tick_rollout(running)
+
+      # Traffic shift step should immediately move to verifying on next tick
+      running = Rollouts.get_rollout!(rollout.id)
+      {:ok, :step_verifying} = Rollouts.tick_rollout(running)
+
+      # Then to validating
+      running = Rollouts.get_rollout!(rollout.id)
+      {:ok, :step_validating} = Rollouts.tick_rollout(running)
+    end
+
+    test "auto_advance false pauses after validation" do
+      project = project_fixture()
+      bundle = compiled_bundle_fixture(%{project: project})
+      _node1 = node_fixture(%{project: project})
+      _node2 = node_fixture(%{project: project})
+
+      config = %{
+        "traffic_steps" => [100],
+        "auto_advance" => false,
+        "advance_delay_seconds" => 0
+      }
+
+      rollout =
+        rollout_fixture(%{
+          project: project,
+          bundle: bundle,
+          strategy: "blue_green",
+          blue_green_config: config,
+          validation_period_seconds: 0
+        })
+
+      import Ecto.Query
+
+      from(r in Rollout, where: r.id == ^rollout.id)
+      |> Repo.update_all(set: [health_gates: %{}])
+
+      {:ok, _} = Rollouts.plan_rollout(rollout)
+
+      details = Rollouts.get_rollout_with_details(rollout.id)
+      green_node_id = hd(Enum.at(details.steps, 0).node_ids)
+
+      # Progress through deploy green step
+      running = Rollouts.get_rollout!(rollout.id)
+      {:ok, :step_started} = Rollouts.tick_rollout(running)
+
+      from(n in SentinelCp.Nodes.Node, where: n.id == ^green_node_id)
+      |> Repo.update_all(set: [active_bundle_id: bundle.id])
+
+      running = Rollouts.get_rollout!(rollout.id)
+      {:ok, :step_verifying} = Rollouts.tick_rollout(running)
+      running = Rollouts.get_rollout!(rollout.id)
+      {:ok, :step_completed} = Rollouts.tick_rollout(running)
+
+      # Start traffic shift step
+      running = Rollouts.get_rollout!(rollout.id)
+      {:ok, :step_started} = Rollouts.tick_rollout(running)
+
+      # Progress through verifying → validating
+      running = Rollouts.get_rollout!(rollout.id)
+      {:ok, :step_verifying} = Rollouts.tick_rollout(running)
+      running = Rollouts.get_rollout!(rollout.id)
+      {:ok, :step_validating} = Rollouts.tick_rollout(running)
+
+      # Next tick should pause (auto_advance = false)
+      running = Rollouts.get_rollout!(rollout.id)
+      {:ok, :paused_for_validation} = Rollouts.tick_rollout(running)
+
+      paused = Rollouts.get_rollout!(rollout.id)
+      assert paused.state == "paused"
+    end
+
+    test "auto_advance true proceeds automatically" do
+      project = project_fixture()
+      bundle = compiled_bundle_fixture(%{project: project})
+      _node1 = node_fixture(%{project: project})
+      _node2 = node_fixture(%{project: project})
+
+      config = %{
+        "traffic_steps" => [100],
+        "auto_advance" => true,
+        "advance_delay_seconds" => 0
+      }
+
+      rollout =
+        rollout_fixture(%{
+          project: project,
+          bundle: bundle,
+          strategy: "blue_green",
+          blue_green_config: config,
+          validation_period_seconds: 0
+        })
+
+      import Ecto.Query
+
+      from(r in Rollout, where: r.id == ^rollout.id)
+      |> Repo.update_all(set: [health_gates: %{}])
+
+      {:ok, _} = Rollouts.plan_rollout(rollout)
+
+      details = Rollouts.get_rollout_with_details(rollout.id)
+      green_node_id = hd(Enum.at(details.steps, 0).node_ids)
+
+      # Deploy green step
+      running = Rollouts.get_rollout!(rollout.id)
+      {:ok, :step_started} = Rollouts.tick_rollout(running)
+
+      from(n in SentinelCp.Nodes.Node, where: n.id == ^green_node_id)
+      |> Repo.update_all(set: [active_bundle_id: bundle.id])
+
+      running = Rollouts.get_rollout!(rollout.id)
+      {:ok, :step_verifying} = Rollouts.tick_rollout(running)
+      running = Rollouts.get_rollout!(rollout.id)
+      {:ok, :step_completed} = Rollouts.tick_rollout(running)
+
+      # Traffic shift step
+      running = Rollouts.get_rollout!(rollout.id)
+      {:ok, :step_started} = Rollouts.tick_rollout(running)
+      running = Rollouts.get_rollout!(rollout.id)
+      {:ok, :step_verifying} = Rollouts.tick_rollout(running)
+      running = Rollouts.get_rollout!(rollout.id)
+      {:ok, :step_validating} = Rollouts.tick_rollout(running)
+
+      # Should auto-complete (auto_advance = true, validation_period = 0)
+      running = Rollouts.get_rollout!(rollout.id)
+      {:ok, :step_completed} = Rollouts.tick_rollout(running)
+
+      # Verify the rollout is still running (blue step pending)
+      updated = Rollouts.get_rollout!(rollout.id)
+      assert updated.state == "running"
+    end
+
+    test "full end-to-end blue-green tick progression" do
+      project = project_fixture()
+      bundle = compiled_bundle_fixture(%{project: project})
+      node1 = node_fixture(%{project: project})
+      node2 = node_fixture(%{project: project})
+
+      config = %{
+        "traffic_steps" => [100],
+        "auto_advance" => true,
+        "advance_delay_seconds" => 0
+      }
+
+      rollout =
+        rollout_fixture(%{
+          project: project,
+          bundle: bundle,
+          strategy: "blue_green",
+          blue_green_config: config,
+          validation_period_seconds: 0
+        })
+
+      import Ecto.Query
+
+      from(r in Rollout, where: r.id == ^rollout.id)
+      |> Repo.update_all(set: [health_gates: %{}])
+
+      {:ok, _} = Rollouts.plan_rollout(rollout)
+
+      details = Rollouts.get_rollout_with_details(rollout.id)
+      green_node_id = hd(Enum.at(details.steps, 0).node_ids)
+      blue_step = Enum.find(details.steps, &(&1.deployment_slot == "blue"))
+      blue_node_id = hd(blue_step.node_ids)
+
+      # Deploy green step: start → activate → verify → complete
+      running = Rollouts.get_rollout!(rollout.id)
+      {:ok, :step_started} = Rollouts.tick_rollout(running)
+
+      from(n in SentinelCp.Nodes.Node, where: n.id == ^green_node_id)
+      |> Repo.update_all(set: [active_bundle_id: bundle.id])
+
+      running = Rollouts.get_rollout!(rollout.id)
+      {:ok, :step_verifying} = Rollouts.tick_rollout(running)
+      running = Rollouts.get_rollout!(rollout.id)
+      {:ok, :step_completed} = Rollouts.tick_rollout(running)
+
+      # Traffic shift step (100%): start → verify → validate → complete
+      running = Rollouts.get_rollout!(rollout.id)
+      {:ok, :step_started} = Rollouts.tick_rollout(running)
+      running = Rollouts.get_rollout!(rollout.id)
+      {:ok, :step_verifying} = Rollouts.tick_rollout(running)
+      running = Rollouts.get_rollout!(rollout.id)
+      {:ok, :step_validating} = Rollouts.tick_rollout(running)
+      running = Rollouts.get_rollout!(rollout.id)
+      {:ok, :step_completed} = Rollouts.tick_rollout(running)
+
+      # Verify deployment_slot updated to green after 100% traffic step
+      updated = Rollouts.get_rollout!(rollout.id)
+      assert updated.deployment_slot == "green"
+
+      # Blue deploy step: start → activate → verify → complete
+      running = Rollouts.get_rollout!(rollout.id)
+      {:ok, :step_started} = Rollouts.tick_rollout(running)
+
+      from(n in SentinelCp.Nodes.Node, where: n.id == ^blue_node_id)
+      |> Repo.update_all(set: [active_bundle_id: bundle.id])
+
+      running = Rollouts.get_rollout!(rollout.id)
+      {:ok, :step_verifying} = Rollouts.tick_rollout(running)
+      running = Rollouts.get_rollout!(rollout.id)
+      {:ok, :step_completed} = Rollouts.tick_rollout(running)
+
+      # Rollout completed
+      running = Rollouts.get_rollout!(rollout.id)
+      {:ok, %Rollout{state: "completed"}} = Rollouts.tick_rollout(running)
+    end
+
+    test "advance_blue_green_traffic resumes paused rollout" do
+      project = project_fixture()
+      bundle = compiled_bundle_fixture(%{project: project})
+      _node1 = node_fixture(%{project: project})
+      _node2 = node_fixture(%{project: project})
+
+      rollout = rollout_fixture(%{project: project, bundle: bundle, strategy: "blue_green"})
+      {:ok, _} = Rollouts.plan_rollout(rollout)
+
+      running = Rollouts.get_rollout!(rollout.id)
+      {:ok, paused} = Rollouts.pause_rollout(running)
+      assert paused.state == "paused"
+
+      {:ok, advanced} = Rollouts.advance_blue_green_traffic(paused)
+      assert advanced.state == "running"
+    end
+
+    test "advance on non-blue-green returns error" do
+      project = project_fixture()
+      bundle = compiled_bundle_fixture(%{project: project})
+      _node = node_fixture(%{project: project})
+
+      rollout = rollout_fixture(%{project: project, bundle: bundle, strategy: "rolling"})
+      {:ok, _} = Rollouts.plan_rollout(rollout)
+
+      running = Rollouts.get_rollout!(rollout.id)
+      {:ok, paused} = Rollouts.pause_rollout(running)
+
+      assert {:error, :not_blue_green} = Rollouts.advance_blue_green_traffic(paused)
+    end
+
+    test "swap_blue_green_slot reverts traffic weight and swaps slot" do
+      project = project_fixture()
+      bundle = compiled_bundle_fixture(%{project: project})
+      _node1 = node_fixture(%{project: project})
+      _node2 = node_fixture(%{project: project})
+
+      rollout = rollout_fixture(%{project: project, bundle: bundle, strategy: "blue_green"})
+      {:ok, _} = Rollouts.plan_rollout(rollout)
+
+      running = Rollouts.get_rollout!(rollout.id)
+      assert running.deployment_slot == "blue"
+
+      {:ok, swapped} = Rollouts.swap_blue_green_slot(running)
+      assert swapped.state == "paused"
+      assert swapped.deployment_slot == "green"
+    end
+
+    test "instant_rollback_blue_green cancels and clears staged bundles" do
+      project = project_fixture()
+      bundle = compiled_bundle_fixture(%{project: project})
+      node = node_fixture(%{project: project})
+      _node2 = node_fixture(%{project: project})
+
+      rollout = rollout_fixture(%{project: project, bundle: bundle, strategy: "blue_green"})
+      {:ok, _} = Rollouts.plan_rollout(rollout)
+
+      running = Rollouts.get_rollout!(rollout.id)
+      # Start first step so bundle gets assigned
+      {:ok, :step_started} = Rollouts.tick_rollout(running)
+
+      running = Rollouts.get_rollout!(rollout.id)
+      {:ok, cancelled} = Rollouts.instant_rollback_blue_green(running)
+      assert cancelled.state == "cancelled"
+
+      # Staged bundle should be cleared
+      updated_node = SentinelCp.Nodes.get_node!(node.id)
+      assert updated_node.staged_bundle_id == nil
+    end
+  end
+
   describe "get_rollout_progress/1" do
     test "returns correct progress counts" do
       project = project_fixture()

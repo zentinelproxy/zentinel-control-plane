@@ -92,6 +92,11 @@ defmodule SentinelCp.MixProject do
       # Observability
       {:prom_ex, "~> 1.11"},
       {:logger_json, "~> 7.0"},
+      {:opentelemetry, "~> 1.4"},
+      {:opentelemetry_api, "~> 1.3"},
+      {:opentelemetry_exporter, "~> 1.7"},
+      {:opentelemetry_phoenix, "~> 1.2"},
+      {:opentelemetry_ecto, "~> 1.2"},
 
       # GraphQL
       {:absinthe, "~> 1.7"},

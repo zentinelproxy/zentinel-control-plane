@@ -8,7 +8,7 @@ defmodule SentinelCp.Rollouts.RolloutStep do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
 
-  @states ~w(pending running verifying completed failed)
+  @states ~w(pending running verifying validating completed failed)
 
   schema "rollout_steps" do
     field :step_index, :integer
@@ -17,6 +17,10 @@ defmodule SentinelCp.Rollouts.RolloutStep do
     field :started_at, :utc_datetime
     field :completed_at, :utc_datetime
     field :error, :map
+    field :deployment_slot, :string
+    field :traffic_weight, :integer
+    field :validated_at, :utc_datetime
+    field :health_gate_failure_since, :utc_datetime
 
     belongs_to :rollout, SentinelCp.Rollouts.Rollout
 
@@ -25,7 +29,7 @@ defmodule SentinelCp.Rollouts.RolloutStep do
 
   def create_changeset(step, attrs) do
     step
-    |> cast(attrs, [:rollout_id, :step_index, :node_ids])
+    |> cast(attrs, [:rollout_id, :step_index, :node_ids, :deployment_slot, :traffic_weight])
     |> validate_required([:rollout_id, :step_index, :node_ids])
     |> validate_number(:step_index, greater_than_or_equal_to: 0)
     |> put_change(:state, "pending")
@@ -40,6 +44,7 @@ defmodule SentinelCp.Rollouts.RolloutStep do
       %{state: state}
       |> maybe_set_started_at(state, step, now)
       |> maybe_set_completed_at(state, now)
+      |> maybe_set_validated_at(state, now)
       |> maybe_set_error(opts[:error])
 
     step
@@ -58,6 +63,12 @@ defmodule SentinelCp.Rollouts.RolloutStep do
   end
 
   defp maybe_set_completed_at(changes, _state, _now), do: changes
+
+  defp maybe_set_validated_at(changes, "validating", now) do
+    Map.put(changes, :validated_at, now)
+  end
+
+  defp maybe_set_validated_at(changes, _state, _now), do: changes
 
   defp maybe_set_error(changes, nil), do: changes
   defp maybe_set_error(changes, error), do: Map.put(changes, :error, error)

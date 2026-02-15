@@ -40,6 +40,12 @@ if s3_endpoint = System.get_env("S3_ENDPOINT") do
     ]
 end
 
+# OpenTelemetry exporter (enable by setting OTEL_EXPORTER_OTLP_ENDPOINT)
+if otlp_endpoint = System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT") do
+  config :opentelemetry_exporter, otlp_protocol: :http_protobuf, otlp_endpoint: otlp_endpoint
+  config :opentelemetry, span_processor: :batch, traces_exporter: {:opentelemetry_exporter, %{}}
+end
+
 # Bundle compiler
 if sentinel_binary = System.get_env("SENTINEL_BINARY") do
   config :sentinel_cp, SentinelCp.Bundles.Compiler, sentinel_binary: sentinel_binary

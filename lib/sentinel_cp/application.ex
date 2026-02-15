@@ -7,6 +7,10 @@ defmodule SentinelCp.Application do
 
   @impl true
   def start(_type, _args) do
+    # Set up OpenTelemetry auto-instrumentation
+    OpentelemetryPhoenix.setup()
+    OpentelemetryEcto.setup([:sentinel_cp, :repo])
+
     children = [
       SentinelCpWeb.Telemetry,
       SentinelCp.Repo,
