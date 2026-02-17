@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.AddServicePolicyFields do
+defmodule ZentinelCp.Repo.Migrations.AddServicePolicyFields do
   use Ecto.Migration
 
   def change do

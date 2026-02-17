@@ -1,11 +1,11 @@
-defmodule SentinelCpWeb.Integration.Api.ServiceWorkflowTest do
+defmodule ZentinelCpWeb.Integration.Api.ServiceWorkflowTest do
   @moduledoc """
   Integration tests for service API workflows.
 
   Tests the complete lifecycle: create → list → show → update → delete,
   as well as KDL preview, reorder, and bundle generation.
   """
-  use SentinelCpWeb.IntegrationCase
+  use ZentinelCpWeb.IntegrationCase
 
   @moduletag :integration
 
@@ -335,8 +335,8 @@ defmodule SentinelCpWeb.Integration.Api.ServiceWorkflowTest do
       service_id = create_resp["service"]["id"]
 
       # Create a different project
-      other_org = SentinelCp.OrgsFixtures.org_fixture(%{name: "Other Org"})
-      other_project = SentinelCp.ProjectsFixtures.project_fixture(%{org: other_org})
+      other_org = ZentinelCp.OrgsFixtures.org_fixture(%{name: "Other Org"})
+      other_project = ZentinelCp.ProjectsFixtures.project_fixture(%{org: other_org})
 
       # Try to access the service via the other project's slug
       api_conn

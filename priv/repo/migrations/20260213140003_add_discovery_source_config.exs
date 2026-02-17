@@ -1,8 +1,8 @@
-defmodule SentinelCp.Repo.Migrations.AddDiscoverySourceConfig do
+defmodule ZentinelCp.Repo.Migrations.AddDiscoverySourceConfig do
   use Ecto.Migration
 
   def up do
-    if Application.get_env(:sentinel_cp, :ecto_adapter) == Ecto.Adapters.Postgres do
+    if Application.get_env(:zentinel_cp, :ecto_adapter) == Ecto.Adapters.Postgres do
       # PostgreSQL supports ALTER COLUMN directly
       alter table(:discovery_sources) do
         modify :hostname, :string, null: true
@@ -46,7 +46,7 @@ defmodule SentinelCp.Repo.Migrations.AddDiscoverySourceConfig do
   end
 
   def down do
-    if Application.get_env(:sentinel_cp, :ecto_adapter) == Ecto.Adapters.Postgres do
+    if Application.get_env(:zentinel_cp, :ecto_adapter) == Ecto.Adapters.Postgres do
       alter table(:discovery_sources) do
         modify :hostname, :string, null: false
         remove :config

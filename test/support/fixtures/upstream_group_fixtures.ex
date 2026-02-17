@@ -1,4 +1,4 @@
-defmodule SentinelCp.UpstreamGroupFixtures do
+defmodule ZentinelCp.UpstreamGroupFixtures do
   @moduledoc """
   Test helpers for creating UpstreamGroup entities.
   """
@@ -6,10 +6,10 @@ defmodule SentinelCp.UpstreamGroupFixtures do
   def unique_group_name, do: "group-#{System.unique_integer([:positive])}"
 
   def upstream_group_fixture(attrs \\ %{}) do
-    project = attrs[:project] || SentinelCp.ProjectsFixtures.project_fixture()
+    project = attrs[:project] || ZentinelCp.ProjectsFixtures.project_fixture()
 
     {:ok, group} =
-      SentinelCp.Services.create_upstream_group(%{
+      ZentinelCp.Services.create_upstream_group(%{
         name: attrs[:name] || unique_group_name(),
         description: attrs[:description] || "A test upstream group",
         algorithm: attrs[:algorithm] || "round_robin",
@@ -23,7 +23,7 @@ defmodule SentinelCp.UpstreamGroupFixtures do
     group = attrs[:group] || upstream_group_fixture()
 
     {:ok, target} =
-      SentinelCp.Services.add_upstream_target(%{
+      ZentinelCp.Services.add_upstream_target(%{
         upstream_group_id: group.id,
         host: attrs[:host] || "api.internal",
         port: attrs[:port] || 8080,

@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.AddInferenceToServices do
+defmodule ZentinelCp.Repo.Migrations.AddInferenceToServices do
   use Ecto.Migration
 
   def change do

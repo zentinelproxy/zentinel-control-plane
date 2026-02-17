@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.AddDriftSeverity do
+defmodule ZentinelCp.Repo.Migrations.AddDriftSeverity do
   use Ecto.Migration
 
   def change do

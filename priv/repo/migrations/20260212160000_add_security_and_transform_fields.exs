@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.AddSecurityAndTransformFields do
+defmodule ZentinelCp.Repo.Migrations.AddSecurityAndTransformFields do
   use Ecto.Migration
 
   def change do

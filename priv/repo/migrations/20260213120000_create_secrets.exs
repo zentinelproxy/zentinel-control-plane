@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.CreateSecrets do
+defmodule ZentinelCp.Repo.Migrations.CreateSecrets do
   use Ecto.Migration
 
   def change do

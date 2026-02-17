@@ -1,4 +1,4 @@
-defmodule SentinelCp.CertificateFixtures do
+defmodule ZentinelCp.CertificateFixtures do
   @moduledoc """
   Test helpers for creating Certificate entities.
   """
@@ -15,10 +15,10 @@ defmodule SentinelCp.CertificateFixtures do
   def unique_cert_name, do: "cert-#{System.unique_integer([:positive])}"
 
   def certificate_fixture(attrs \\ %{}) do
-    project = attrs[:project] || SentinelCp.ProjectsFixtures.project_fixture()
+    project = attrs[:project] || ZentinelCp.ProjectsFixtures.project_fixture()
 
     {:ok, cert} =
-      SentinelCp.Services.create_certificate(%{
+      ZentinelCp.Services.create_certificate(%{
         name: attrs[:name] || unique_cert_name(),
         domain: attrs[:domain] || "test.example.com",
         cert_pem: attrs[:cert_pem] || test_cert_pem(),

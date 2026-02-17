@@ -1,11 +1,11 @@
 <div align="center">
 
 <h1 align="center">
-  Sentinel Control Plane
+  Zentinel Control Plane
 </h1>
 
 <p align="center">
-  <em>Fleet management for Sentinel reverse proxies.</em><br>
+  <em>Fleet management for Zentinel reverse proxies.</em><br>
   <em>Declarative configuration distribution with safe rollouts.</em>
 </p>
 
@@ -22,19 +22,19 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/raskell-io/sentinel">Sentinel Proxy</a> •
+  <a href="https://github.com/zentinelproxy/zentinel">Zentinel Proxy</a> •
   <a href="docs/index.md">Documentation</a> •
-  <a href="https://github.com/raskell-io/sentinel/discussions">Discussions</a>
+  <a href="https://github.com/zentinelproxy/zentinel/discussions">Discussions</a>
 </p>
 
 </div>
 
 ---
 
-Sentinel Control Plane is a fleet management system for [Sentinel](https://github.com/raskell-io/sentinel) reverse proxies. It handles configuration distribution, rolling deployments, and real-time node monitoring — built with Elixir/Phoenix and LiveView.
+Zentinel Control Plane is a fleet management system for [Zentinel](https://github.com/zentinelproxy/zentinel) reverse proxies. It handles configuration distribution, rolling deployments, and real-time node monitoring — built with Elixir/Phoenix and LiveView.
 
 <p align="center">
-  <img src="priv/static/images/dashboard-screenshot.png" alt="Sentinel Control Plane Dashboard" width="800">
+  <img src="priv/static/images/dashboard-screenshot.png" alt="Zentinel Control Plane Dashboard" width="800">
 </p>
 
 ## Status
@@ -47,7 +47,7 @@ Sentinel Control Plane is a fleet management system for [Sentinel](https://githu
 KDL Config → Compile & Sign → Immutable Bundle → Rollout → Nodes Pull & Activate
 ```
 
-1. **Upload** a KDL configuration (validated via `sentinel validate`)
+1. **Upload** a KDL configuration (validated via `zentinel validate`)
 2. **Compile** into an immutable, signed bundle (tar.zst with manifest, checksums, SBOM)
 3. **Create a rollout** targeting nodes by label selectors
 4. **Orchestrate** batched deployment with health gates, pause/resume/rollback
@@ -121,8 +121,8 @@ The control plane provides a comprehensive LiveView UI with real-time updates:
 The fastest way to get running. Starts the control plane, PostgreSQL, and MinIO with a single command:
 
 ```bash
-git clone https://github.com/raskell-io/sentinel-control-plane.git
-cd sentinel-control-plane
+git clone https://github.com/zentinelproxy/zentinel-control-plane.git
+cd zentinel-control-plane
 docker compose up
 ```
 
@@ -133,8 +133,8 @@ This builds the image, runs database migrations automatically, and serves the co
 For development with hot-reloading and SQLite (no external databases needed):
 
 ```bash
-git clone https://github.com/raskell-io/sentinel-control-plane.git
-cd sentinel-control-plane
+git clone https://github.com/zentinelproxy/zentinel-control-plane.git
+cd zentinel-control-plane
 mise install
 mise run setup
 mise run dev
@@ -142,7 +142,7 @@ mise run dev
 
 Visit [localhost:4000](http://localhost:4000).
 
-**Prerequisites:** [mise](https://mise.jdx.dev/) (manages Elixir/OTP), Docker (for MinIO), and optionally a [Sentinel](https://github.com/raskell-io/sentinel) binary for config validation.
+**Prerequisites:** [mise](https://mise.jdx.dev/) (manages Elixir/OTP), Docker (for MinIO), and optionally a [Zentinel](https://github.com/zentinelproxy/zentinel) binary for config validation.
 
 ### Development Commands
 
@@ -235,7 +235,7 @@ POST /api/v1/webhooks/github    # Auto-compile on push (signature verified)
          │  Rollout assigns bundle  │  Heartbeat + status
          ▼                          │
 ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
-│  Sentinel   │  │  Sentinel   │  │  Sentinel   │
+│  Zentinel   │  │  Zentinel   │  │  Zentinel   │
 │   Node A    │  │   Node B    │  │   Node C    │
 └─────────────┘  └─────────────┘  └─────────────┘
 ```
@@ -266,8 +266,8 @@ Full documentation is available in the [`docs/`](docs/index.md) directory:
 
 ## Related
 
-- [**Sentinel**](https://github.com/raskell-io/sentinel) — The reverse proxy this control plane manages
-- [**sentinel.raskell.io**](https://sentinel.raskell.io) — Documentation and marketing site
+- [**Zentinel**](https://github.com/zentinelproxy/zentinel) — The reverse proxy this control plane manages
+- [**zentinelproxy.io**](https://zentinelproxy.io) — Documentation and marketing site
 
 ## License
 

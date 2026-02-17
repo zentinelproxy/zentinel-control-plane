@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.AddRolloutApprovals do
+defmodule ZentinelCp.Repo.Migrations.AddRolloutApprovals do
   use Ecto.Migration
 
   def change do

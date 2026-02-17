@@ -1,8 +1,8 @@
-defmodule SentinelCp.Repo.Migrations.CreateObanJobs do
+defmodule ZentinelCp.Repo.Migrations.CreateObanJobs do
   use Ecto.Migration
 
   def up do
-    if Application.get_env(:sentinel_cp, :ecto_adapter) == Ecto.Adapters.Postgres do
+    if Application.get_env(:zentinel_cp, :ecto_adapter) == Ecto.Adapters.Postgres do
       # PostgreSQL Oban tables are handled by the earlier migration
       :ok
     else
@@ -11,7 +11,7 @@ defmodule SentinelCp.Repo.Migrations.CreateObanJobs do
   end
 
   def down do
-    if Application.get_env(:sentinel_cp, :ecto_adapter) == Ecto.Adapters.Postgres do
+    if Application.get_env(:zentinel_cp, :ecto_adapter) == Ecto.Adapters.Postgres do
       :ok
     else
       Oban.Migrations.SQLite.down(version: 1)

@@ -1,9 +1,9 @@
-# Sentinel Control Plane — Feature Roadmap v2
+# Zentinel Control Plane — Feature Roadmap v2
 
 > Competitive feature roadmap based on analysis of nevisAdmin4, HAProxy Fusion,
 > NGINX One, Traefik Hub, Kong Konnect, and Envoy/Istio control planes.
 >
-> **Goal:** Make Sentinel CP a "single pane of glass" where everything can be
+> **Goal:** Make Zentinel CP a "single pane of glass" where everything can be
 > configured and deployed through one application (inspired by nevisAdmin4).
 
 ---
@@ -36,7 +36,7 @@
 
 ## Phase 8 — Full Proxy Configuration (Complete)
 
-> Make Sentinel CP capable of configuring all core proxy features through the UI.
+> Make Zentinel CP capable of configuring all core proxy features through the UI.
 > Every competitor has these — they are table stakes.
 
 ### 8.1 TLS / Certificate Management — DONE
@@ -130,7 +130,7 @@
 
 ## Phase 10 — Traffic Intelligence (Complete)
 
-> Advanced traffic management features that differentiate Sentinel CP.
+> Advanced traffic management features that differentiate Zentinel CP.
 
 ### 10.1 Traffic Splitting / Weighted Routing — DONE
 - [x] Weight-based routing between upstream groups (canary at the proxy level) — `Service.traffic_split`
@@ -238,11 +238,11 @@ All originally-identified stretch goals have been implemented:
 
 ## Competitive Positioning
 
-### Where Sentinel CP Can Win
+### Where Zentinel CP Can Win
 1. **Unified config-to-deploy pipeline** — nevisAdmin4-style "configure everything and
    deploy from one place" but for a general-purpose proxy (not vendor-locked)
 2. **Immutable, signed bundles** — unique in the space; most competitors do live config
-   pushes. Sentinel's compile→sign→distribute model is inherently safer.
+   pushes. Zentinel's compile→sign→distribute model is inherently safer.
 3. **Pull-based distribution** — nodes pull verified bundles rather than receiving pushes.
    Better security posture than HAProxy Fusion or NGINX One push models.
 4. **Configuration templates with best practices** — nevisAdmin4's strongest idea,
@@ -254,7 +254,7 @@ All originally-identified stretch goals have been implemented:
 1. **WAF maturity** — HAProxy and NGINX/F5 have years of WAF signature development
 2. **Plugin ecosystem** — Kong's 100+ plugins are hard to replicate
 3. **API lifecycle management** — Kong Konnect and Traefik Hub are full API platforms
-4. **Service mesh** — Istio/Envoy own this space; Sentinel is not a mesh
+4. **Service mesh** — Istio/Envoy own this space; Zentinel is not a mesh
 5. **AI-assisted config** — NGINX One has AI config assistance (potential future feature)
 
 ---

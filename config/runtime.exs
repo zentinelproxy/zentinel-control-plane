@@ -12,24 +12,24 @@ import Config
 # If you use `mix release`, you need to explicitly enable the server
 # by passing the PHX_SERVER=true when you start it:
 #
-#     PHX_SERVER=true bin/sentinel_cp start
+#     PHX_SERVER=true bin/zentinel_cp start
 #
 # Alternatively, you can use `mix phx.gen.release` to generate a `bin/server`
 # script that automatically sets the env var above.
 if System.get_env("PHX_SERVER") do
-  config :sentinel_cp, SentinelCpWeb.Endpoint, server: true
+  config :zentinel_cp, ZentinelCpWeb.Endpoint, server: true
 end
 
 # Configure port from environment variable (skip in test to preserve test.exs config)
 if config_env() != :test do
-  config :sentinel_cp, SentinelCpWeb.Endpoint,
+  config :zentinel_cp, ZentinelCpWeb.Endpoint,
     http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 end
 
 # Bundle storage (S3/MinIO)
 if s3_endpoint = System.get_env("S3_ENDPOINT") do
-  config :sentinel_cp, SentinelCp.Bundles.Storage,
-    bucket: System.get_env("S3_BUCKET", "sentinel-bundles"),
+  config :zentinel_cp, ZentinelCp.Bundles.Storage,
+    bucket: System.get_env("S3_BUCKET", "zentinel-bundles"),
     ex_aws_config: [
       access_key_id: System.get_env("S3_ACCESS_KEY_ID"),
       secret_access_key: System.get_env("S3_SECRET_ACCESS_KEY"),
@@ -47,13 +47,13 @@ if otlp_endpoint = System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT") do
 end
 
 # Bundle compiler
-if sentinel_binary = System.get_env("SENTINEL_BINARY") do
-  config :sentinel_cp, SentinelCp.Bundles.Compiler, sentinel_binary: sentinel_binary
+if zentinel_binary = System.get_env("ZENTINEL_BINARY") do
+  config :zentinel_cp, ZentinelCp.Bundles.Compiler, zentinel_binary: zentinel_binary
 end
 
 # GitHub webhook secret
 if webhook_secret = System.get_env("GITHUB_WEBHOOK_SECRET") do
-  config :sentinel_cp, :github_webhook, secret: webhook_secret
+  config :zentinel_cp, :github_webhook, secret: webhook_secret
 end
 
 if config_env() == :prod do
@@ -66,7 +66,7 @@ if config_env() == :prod do
 
   maybe_ipv6 = if System.get_env("ECTO_IPV6") in ~w(true 1), do: [:inet6], else: []
 
-  config :sentinel_cp, SentinelCp.Repo,
+  config :zentinel_cp, ZentinelCp.Repo,
     # ssl: true,
     url: database_url,
     pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
@@ -88,9 +88,9 @@ if config_env() == :prod do
 
   host = System.get_env("PHX_HOST") || "example.com"
 
-  config :sentinel_cp, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
+  config :zentinel_cp, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
-  config :sentinel_cp, SentinelCpWeb.Endpoint,
+  config :zentinel_cp, ZentinelCpWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
     http: [
       # Enable IPv6 and bind on all interfaces.
@@ -106,7 +106,7 @@ if config_env() == :prod do
   # To get SSL working, you will need to add the `https` key
   # to your endpoint configuration:
   #
-  #     config :sentinel_cp, SentinelCpWeb.Endpoint,
+  #     config :zentinel_cp, ZentinelCpWeb.Endpoint,
   #       https: [
   #         ...,
   #         port: 443,
@@ -128,7 +128,7 @@ if config_env() == :prod do
   # We also recommend setting `force_ssl` in your config/prod.exs,
   # ensuring no data is ever sent via http, always redirecting to https:
   #
-  #     config :sentinel_cp, SentinelCpWeb.Endpoint,
+  #     config :zentinel_cp, ZentinelCpWeb.Endpoint,
   #       force_ssl: [hsts: true]
   #
   # Check `Plug.SSL` for all available options in `force_ssl`.
@@ -138,7 +138,7 @@ if config_env() == :prod do
   # In production you need to configure the mailer to use a different adapter.
   # Here is an example configuration for Mailgun:
   #
-  #     config :sentinel_cp, SentinelCp.Mailer,
+  #     config :zentinel_cp, ZentinelCp.Mailer,
   #       adapter: Swoosh.Adapters.Mailgun,
   #       api_key: System.get_env("MAILGUN_API_KEY"),
   #       domain: System.get_env("MAILGUN_DOMAIN")

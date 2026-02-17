@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.AddAdvancedDeploymentFeatures do
+defmodule ZentinelCp.Repo.Migrations.AddAdvancedDeploymentFeatures do
   use Ecto.Migration
 
   def change do

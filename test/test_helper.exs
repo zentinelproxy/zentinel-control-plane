@@ -1,25 +1,25 @@
-Mox.defmock(SentinelCp.Webhooks.GitHubClient.Mock,
-  for: SentinelCp.Webhooks.GitHubClient
+Mox.defmock(ZentinelCp.Webhooks.GitHubClient.Mock,
+  for: ZentinelCp.Webhooks.GitHubClient
 )
 
-Mox.defmock(SentinelCp.Services.DnsResolver.Mock,
-  for: SentinelCp.Services.DnsResolver
+Mox.defmock(ZentinelCp.Services.DnsResolver.Mock,
+  for: ZentinelCp.Services.DnsResolver
 )
 
-Mox.defmock(SentinelCp.Services.K8sResolver.Mock,
-  for: SentinelCp.Services.K8sResolver
+Mox.defmock(ZentinelCp.Services.K8sResolver.Mock,
+  for: ZentinelCp.Services.K8sResolver
 )
 
-Mox.defmock(SentinelCp.Services.ConsulResolver.Mock,
-  for: SentinelCp.Services.ConsulResolver
+Mox.defmock(ZentinelCp.Services.ConsulResolver.Mock,
+  for: ZentinelCp.Services.ConsulResolver
 )
 
-Mox.defmock(SentinelCp.Secrets.VaultClient.Mock,
-  for: SentinelCp.Secrets.VaultClient
+Mox.defmock(ZentinelCp.Secrets.VaultClient.Mock,
+  for: ZentinelCp.Secrets.VaultClient
 )
 
-Mox.defmock(SentinelCp.Services.Acme.Client.Mock,
-  for: SentinelCp.Services.Acme.Client
+Mox.defmock(ZentinelCp.Services.Acme.Client.Mock,
+  for: ZentinelCp.Services.Acme.Client
 )
 
 # Start Wallaby only if running E2E tests and ChromeDriver is available
@@ -66,8 +66,8 @@ ExUnit.start(exclude: [:e2e, :integration])
 
 # For SQLite, the sandbox mode works but without async support
 # Check if the pool is configured as Sandbox, otherwise skip
-repo_config = Application.get_env(:sentinel_cp, SentinelCp.Repo, [])
+repo_config = Application.get_env(:zentinel_cp, ZentinelCp.Repo, [])
 
 if repo_config[:pool] == Ecto.Adapters.SQL.Sandbox do
-  Ecto.Adapters.SQL.Sandbox.mode(SentinelCp.Repo, :manual)
+  Ecto.Adapters.SQL.Sandbox.mode(ZentinelCp.Repo, :manual)
 end

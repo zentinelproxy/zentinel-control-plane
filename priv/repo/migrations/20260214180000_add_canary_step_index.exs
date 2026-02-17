@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.AddCanaryStepIndex do
+defmodule ZentinelCp.Repo.Migrations.AddCanaryStepIndex do
   use Ecto.Migration
 
   def change do

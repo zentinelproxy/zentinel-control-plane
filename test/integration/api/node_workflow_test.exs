@@ -1,10 +1,10 @@
-defmodule SentinelCpWeb.Integration.Api.NodeWorkflowTest do
+defmodule ZentinelCpWeb.Integration.Api.NodeWorkflowTest do
   @moduledoc """
   Integration tests for node API workflows.
 
   Tests the complete lifecycle: register → heartbeat → list → delete
   """
-  use SentinelCpWeb.IntegrationCase
+  use ZentinelCpWeb.IntegrationCase
 
   @moduletag :integration
 
@@ -86,7 +86,7 @@ defmodule SentinelCpWeb.Integration.Api.NodeWorkflowTest do
 
       # Use fixture to create node
       {node, node_key} =
-        SentinelCp.NodesFixtures.node_with_key_fixture(%{
+        ZentinelCp.NodesFixtures.node_with_key_fixture(%{
           project: context.project,
           name: "jwt-test-node"
         })
@@ -170,20 +170,20 @@ defmodule SentinelCpWeb.Integration.Api.NodeWorkflowTest do
 
       # Create nodes using fixtures instead of API
       online_node =
-        SentinelCp.NodesFixtures.node_fixture(%{
+        ZentinelCp.NodesFixtures.node_fixture(%{
           project: context.project,
           name: "online-node"
         })
 
       _offline_node =
-        SentinelCp.NodesFixtures.node_fixture(%{
+        ZentinelCp.NodesFixtures.node_fixture(%{
           project: context.project,
           name: "offline-node"
         })
 
       # Make one node online via heartbeat
       {:ok, _} =
-        SentinelCp.Nodes.record_heartbeat(online_node, %{health: %{"status" => "healthy"}})
+        ZentinelCp.Nodes.record_heartbeat(online_node, %{health: %{"status" => "healthy"}})
 
       # Filter by online status
       online_resp =

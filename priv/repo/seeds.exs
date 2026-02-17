@@ -5,13 +5,13 @@
 # Inside the script, you can read and write to any of your
 # repositories directly:
 #
-#     SentinelCp.Repo.insert!(%SentinelCp.SomeSchema{})
+#     ZentinelCp.Repo.insert!(%ZentinelCp.SomeSchema{})
 #
 # We recommend using the bang functions (`insert!`, `update!`
 # and so on) as they will fail if something goes wrong.
 
 # Dev admin user
-case SentinelCp.Accounts.register_user(%{
+case ZentinelCp.Accounts.register_user(%{
        email: "admin@localhost",
        password: "changeme123456",
        role: "admin"
@@ -27,10 +27,10 @@ case SentinelCp.Accounts.register_user(%{
 end
 
 # Dev org with admin as owner
-admin = SentinelCp.Accounts.get_user_by_email("admin@localhost")
+admin = ZentinelCp.Accounts.get_user_by_email("admin@localhost")
 
 if admin do
-  case SentinelCp.Orgs.create_org_with_owner(%{name: "Default"}, admin) do
+  case ZentinelCp.Orgs.create_org_with_owner(%{name: "Default"}, admin) do
     {:ok, org} ->
       IO.puts("Created org: #{org.name} (slug: #{org.slug})")
 

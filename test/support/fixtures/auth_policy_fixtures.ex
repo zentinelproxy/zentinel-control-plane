@@ -1,4 +1,4 @@
-defmodule SentinelCp.AuthPolicyFixtures do
+defmodule ZentinelCp.AuthPolicyFixtures do
   @moduledoc """
   Test helpers for creating AuthPolicy entities.
   """
@@ -6,10 +6,10 @@ defmodule SentinelCp.AuthPolicyFixtures do
   def unique_policy_name, do: "policy-#{System.unique_integer([:positive])}"
 
   def auth_policy_fixture(attrs \\ %{}) do
-    project = attrs[:project] || SentinelCp.ProjectsFixtures.project_fixture()
+    project = attrs[:project] || ZentinelCp.ProjectsFixtures.project_fixture()
 
     {:ok, policy} =
-      SentinelCp.Services.create_auth_policy(%{
+      ZentinelCp.Services.create_auth_policy(%{
         name: attrs[:name] || unique_policy_name(),
         description: attrs[:description] || "A test auth policy",
         auth_type: attrs[:auth_type] || "jwt",

@@ -1,4 +1,4 @@
-defmodule SentinelCp.ServicesFixtures do
+defmodule ZentinelCp.ServicesFixtures do
   @moduledoc """
   Test helpers for creating Services entities.
   """
@@ -6,7 +6,7 @@ defmodule SentinelCp.ServicesFixtures do
   def unique_service_name, do: "service-#{System.unique_integer([:positive])}"
 
   def valid_service_attributes(attrs \\ %{}) do
-    project = attrs[:project] || SentinelCp.ProjectsFixtures.project_fixture()
+    project = attrs[:project] || ZentinelCp.ProjectsFixtures.project_fixture()
 
     Enum.into(Map.drop(attrs, [:project]), %{
       name: unique_service_name(),
@@ -21,16 +21,16 @@ defmodule SentinelCp.ServicesFixtures do
     {:ok, service} =
       attrs
       |> valid_service_attributes()
-      |> SentinelCp.Services.create_service()
+      |> ZentinelCp.Services.create_service()
 
     service
   end
 
   def redirect_service_fixture(attrs \\ %{}) do
-    project = attrs[:project] || SentinelCp.ProjectsFixtures.project_fixture()
+    project = attrs[:project] || ZentinelCp.ProjectsFixtures.project_fixture()
 
     {:ok, service} =
-      SentinelCp.Services.create_service(%{
+      ZentinelCp.Services.create_service(%{
         name: attrs[:name] || unique_service_name(),
         description: attrs[:description] || "A redirect service",
         route_path: attrs[:route_path] || "/old/*",
@@ -42,10 +42,10 @@ defmodule SentinelCp.ServicesFixtures do
   end
 
   def static_service_fixture(attrs \\ %{}) do
-    project = attrs[:project] || SentinelCp.ProjectsFixtures.project_fixture()
+    project = attrs[:project] || ZentinelCp.ProjectsFixtures.project_fixture()
 
     {:ok, service} =
-      SentinelCp.Services.create_service(%{
+      ZentinelCp.Services.create_service(%{
         name: attrs[:name] || unique_service_name(),
         description: attrs[:description] || "A static response service",
         route_path: attrs[:route_path] || "/health",

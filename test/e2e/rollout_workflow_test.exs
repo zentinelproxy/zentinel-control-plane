@@ -1,12 +1,12 @@
-defmodule SentinelCpWeb.E2E.RolloutWorkflowTest do
+defmodule ZentinelCpWeb.E2E.RolloutWorkflowTest do
   @moduledoc """
   E2E tests for rollout management UI.
 
   Tests progress display, pause/resume, and cancel operations.
   """
-  use SentinelCpWeb.FeatureCase
+  use ZentinelCpWeb.FeatureCase
 
-  alias SentinelCp.Rollouts.Rollout
+  alias ZentinelCp.Rollouts.Rollout
 
   @moduletag :e2e
 
@@ -16,7 +16,7 @@ defmodule SentinelCpWeb.E2E.RolloutWorkflowTest do
   defp force_rollout_state(rollout, state) do
     rollout
     |> Rollout.state_changeset(state)
-    |> SentinelCp.Repo.update()
+    |> ZentinelCp.Repo.update()
   end
 
   describe "rollouts list page" do
@@ -31,8 +31,8 @@ defmodule SentinelCpWeb.E2E.RolloutWorkflowTest do
     feature "displays rollouts when they exist", %{session: session} do
       {session, context} = setup_full_context(session)
 
-      bundle = SentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
-      SentinelCp.RolloutsFixtures.rollout_fixture(%{project: context.project, bundle: bundle})
+      bundle = ZentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
+      ZentinelCp.RolloutsFixtures.rollout_fixture(%{project: context.project, bundle: bundle})
 
       session
       |> visit("/projects/#{context.project.slug}/rollouts")
@@ -46,21 +46,21 @@ defmodule SentinelCpWeb.E2E.RolloutWorkflowTest do
       {session, context} = setup_full_context(session)
 
       bundle =
-        SentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{
+        ZentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{
           project: context.project,
           version: "rollout-v1"
         })
 
       # Create some nodes
       for i <- 1..3 do
-        SentinelCp.NodesFixtures.node_fixture(%{
+        ZentinelCp.NodesFixtures.node_fixture(%{
           project: context.project,
           name: "rollout-node-#{i}"
         })
       end
 
       rollout =
-        SentinelCp.RolloutsFixtures.rollout_fixture(%{
+        ZentinelCp.RolloutsFixtures.rollout_fixture(%{
           project: context.project,
           bundle: bundle
         })
@@ -75,13 +75,13 @@ defmodule SentinelCpWeb.E2E.RolloutWorkflowTest do
     feature "shows rollout steps", %{session: session} do
       {session, context} = setup_full_context(session)
 
-      bundle = SentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
+      bundle = ZentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
 
-      SentinelCp.NodesFixtures.node_fixture(%{project: context.project, name: "step-node-1"})
-      SentinelCp.NodesFixtures.node_fixture(%{project: context.project, name: "step-node-2"})
+      ZentinelCp.NodesFixtures.node_fixture(%{project: context.project, name: "step-node-1"})
+      ZentinelCp.NodesFixtures.node_fixture(%{project: context.project, name: "step-node-2"})
 
       rollout =
-        SentinelCp.RolloutsFixtures.rollout_fixture(%{
+        ZentinelCp.RolloutsFixtures.rollout_fixture(%{
           project: context.project,
           bundle: bundle,
           batch_size: 1
@@ -97,10 +97,10 @@ defmodule SentinelCpWeb.E2E.RolloutWorkflowTest do
     feature "pause running rollout", %{session: session} do
       {session, context} = setup_full_context(session)
 
-      bundle = SentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
+      bundle = ZentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
 
       rollout =
-        SentinelCp.RolloutsFixtures.rollout_fixture(%{
+        ZentinelCp.RolloutsFixtures.rollout_fixture(%{
           project: context.project,
           bundle: bundle
         })
@@ -118,10 +118,10 @@ defmodule SentinelCpWeb.E2E.RolloutWorkflowTest do
     feature "resume paused rollout", %{session: session} do
       {session, context} = setup_full_context(session)
 
-      bundle = SentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
+      bundle = ZentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
 
       rollout =
-        SentinelCp.RolloutsFixtures.rollout_fixture(%{
+        ZentinelCp.RolloutsFixtures.rollout_fixture(%{
           project: context.project,
           bundle: bundle
         })
@@ -139,10 +139,10 @@ defmodule SentinelCpWeb.E2E.RolloutWorkflowTest do
     feature "cancel rollout", %{session: session} do
       {session, context} = setup_full_context(session)
 
-      bundle = SentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
+      bundle = ZentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
 
       rollout =
-        SentinelCp.RolloutsFixtures.rollout_fixture(%{
+        ZentinelCp.RolloutsFixtures.rollout_fixture(%{
           project: context.project,
           bundle: bundle
         })
@@ -162,17 +162,17 @@ defmodule SentinelCpWeb.E2E.RolloutWorkflowTest do
     feature "filter rollouts by state", %{session: session} do
       {session, context} = setup_full_context(session)
 
-      bundle = SentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
+      bundle = ZentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
 
       # Create rollouts in different states
       _pending =
-        SentinelCp.RolloutsFixtures.rollout_fixture(%{
+        ZentinelCp.RolloutsFixtures.rollout_fixture(%{
           project: context.project,
           bundle: bundle
         })
 
       running =
-        SentinelCp.RolloutsFixtures.rollout_fixture(%{
+        ZentinelCp.RolloutsFixtures.rollout_fixture(%{
           project: context.project,
           bundle: bundle
         })

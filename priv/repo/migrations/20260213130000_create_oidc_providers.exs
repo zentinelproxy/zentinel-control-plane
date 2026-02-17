@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.CreateOidcProviders do
+defmodule ZentinelCp.Repo.Migrations.CreateOidcProviders do
   use Ecto.Migration
 
   def change do

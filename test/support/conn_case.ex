@@ -1,4 +1,4 @@
-defmodule SentinelCpWeb.ConnCase do
+defmodule ZentinelCpWeb.ConnCase do
   @moduledoc """
   This module defines the test case to be used by
   tests that require setting up a connection.
@@ -11,7 +11,7 @@ defmodule SentinelCpWeb.ConnCase do
   we enable the SQL sandbox, so changes done to the database
   are reverted at the end of every test. If you are using
   PostgreSQL, you can even run database tests asynchronously
-  by setting `use SentinelCpWeb.ConnCase, async: true`, although
+  by setting `use ZentinelCpWeb.ConnCase, async: true`, although
   this option is not recommended for other databases.
   """
 
@@ -20,19 +20,19 @@ defmodule SentinelCpWeb.ConnCase do
   using do
     quote do
       # The default endpoint for testing
-      @endpoint SentinelCpWeb.Endpoint
+      @endpoint ZentinelCpWeb.Endpoint
 
-      use SentinelCpWeb, :verified_routes
+      use ZentinelCpWeb, :verified_routes
 
       # Import conveniences for testing with connections
       import Plug.Conn
       import Phoenix.ConnTest
-      import SentinelCpWeb.ConnCase
+      import ZentinelCpWeb.ConnCase
     end
   end
 
   setup tags do
-    SentinelCp.DataCase.setup_sandbox(tags)
+    ZentinelCp.DataCase.setup_sandbox(tags)
     {:ok, conn: Phoenix.ConnTest.build_conn()}
   end
 
@@ -41,7 +41,7 @@ defmodule SentinelCpWeb.ConnCase do
   Returns the conn with the user session set.
   """
   def log_in_user(%Plug.Conn{} = conn, user) do
-    token = SentinelCp.Accounts.generate_user_session_token(user)
+    token = ZentinelCp.Accounts.generate_user_session_token(user)
 
     conn
     |> Phoenix.ConnTest.init_test_session(%{})
@@ -60,11 +60,11 @@ defmodule SentinelCpWeb.ConnCase do
   Returns {conn, api_key}.
   """
   def authenticate_api(%Plug.Conn{} = conn, opts \\ []) do
-    user = opts[:user] || SentinelCp.AccountsFixtures.user_fixture()
-    project = opts[:project] || SentinelCp.ProjectsFixtures.project_fixture()
+    user = opts[:user] || ZentinelCp.AccountsFixtures.user_fixture()
+    project = opts[:project] || ZentinelCp.ProjectsFixtures.project_fixture()
 
     {:ok, api_key} =
-      SentinelCp.Accounts.create_api_key(%{
+      ZentinelCp.Accounts.create_api_key(%{
         name: "test-api-key",
         user_id: user.id,
         project_id: project.id,

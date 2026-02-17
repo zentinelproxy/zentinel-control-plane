@@ -1,9 +1,9 @@
-defmodule SentinelCp.MixProject do
+defmodule ZentinelCp.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :sentinel_cp,
+      app: :zentinel_cp,
       version: "0.1.0",
       elixir: "~> 1.15",
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -20,7 +20,7 @@ defmodule SentinelCp.MixProject do
   # Type `mix help compile.app` for more information.
   def application do
     [
-      mod: {SentinelCp.Application, []},
+      mod: {ZentinelCp.Application, []},
       extra_applications: [:logger, :runtime_tools]
     ]
   end
@@ -148,10 +148,10 @@ defmodule SentinelCp.MixProject do
         "test --include e2e --include integration"
       ],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
-      "assets.build": ["compile", "tailwind sentinel_cp", "esbuild sentinel_cp"],
+      "assets.build": ["compile", "tailwind zentinel_cp", "esbuild zentinel_cp"],
       "assets.deploy": [
-        "tailwind sentinel_cp --minify",
-        "esbuild sentinel_cp --minify",
+        "tailwind zentinel_cp --minify",
+        "esbuild zentinel_cp --minify",
         "phx.digest"
       ],
       precommit: ["compile --warnings-as-errors", "deps.unlock --unused", "format", "test"]

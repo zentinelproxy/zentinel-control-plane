@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.CreatePlugins do
+defmodule ZentinelCp.Repo.Migrations.CreatePlugins do
   use Ecto.Migration
 
   def change do

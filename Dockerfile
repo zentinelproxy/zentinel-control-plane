@@ -63,16 +63,16 @@ ENV MIX_ENV=prod
 ENV PHX_SERVER=true
 
 # Copy the release from the build stage
-COPY --from=builder /app/_build/prod/rel/sentinel_cp ./
+COPY --from=builder /app/_build/prod/rel/zentinel_cp ./
 
 # Create a non-root user
-RUN groupadd -r sentinel && useradd -r -g sentinel sentinel
-RUN chown -R sentinel:sentinel /app
-USER sentinel
+RUN groupadd -r zentinel && useradd -r -g zentinel zentinel
+RUN chown -R zentinel:zentinel /app
+USER zentinel
 
 EXPOSE 4000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD curl -f http://localhost:4000/health || exit 1
 
-CMD /app/bin/sentinel_cp eval "SentinelCp.Release.migrate()" && /app/bin/sentinel_cp start
+CMD /app/bin/zentinel_cp eval "ZentinelCp.Release.migrate()" && /app/bin/zentinel_cp start

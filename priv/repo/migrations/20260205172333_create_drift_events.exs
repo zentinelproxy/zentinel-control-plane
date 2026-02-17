@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.CreateDriftEvents do
+defmodule ZentinelCp.Repo.Migrations.CreateDriftEvents do
   use Ecto.Migration
 
   def change do

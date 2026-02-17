@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the system architecture of Sentinel Control Plane, including component interactions, data flow, and deployment topology.
+This document describes the system architecture of Zentinel Control Plane, including component interactions, data flow, and deployment topology.
 
 ## System Overview
 
@@ -23,7 +23,7 @@ This document describes the system architecture of Sentinel Control Plane, inclu
        │   └──────────────┘              └────────────────────┘
        │
 ┌──────┴──────────────────────────────────────────────────────┐
-│                      Sentinel Nodes                          │
+│                      Zentinel Nodes                          │
 │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐        │
 │  │ Node 1  │  │ Node 2  │  │ Node 3  │  │ Node N  │  ...   │
 │  └─────────┘  └─────────┘  └─────────┘  └─────────┘        │
@@ -37,7 +37,7 @@ This document describes the system architecture of Sentinel Control Plane, inclu
 The API layer provides endpoints for three distinct consumers:
 
 - **Operator API** — Authenticated with API keys, used by operators and CI/CD pipelines to manage bundles, rollouts, services, and other resources. All endpoints are scoped under `/api/v1/projects/:project_slug/`.
-- **Node API** — Authenticated with node keys or JWT tokens, used by Sentinel proxy nodes for registration, heartbeats, bundle polling, metrics ingestion, and event reporting.
+- **Node API** — Authenticated with node keys or JWT tokens, used by Zentinel proxy nodes for registration, heartbeats, bundle polling, metrics ingestion, and event reporting.
 - **Webhook API** — Signature-verified endpoints for GitOps integrations (GitHub, GitLab, Bitbucket, Gitea, and generic webhooks).
 
 See [API Reference](api-reference.md) for endpoint details.
@@ -50,7 +50,7 @@ A real-time web interface built with Phoenix LiveView. The UI provides dashboard
 
 The compiler validates and assembles configuration bundles:
 
-1. **Validation** — Runs `sentinel validate` against the KDL configuration source
+1. **Validation** — Runs `zentinel validate` against the KDL configuration source
 2. **Assembly** — Creates a `.tar.zst` archive containing the configuration, manifest, internal CA certificates, and plugin files
 3. **Storage** — Uploads the archive to S3-compatible storage
 4. **Signing** — Optionally signs the bundle with Ed25519 keys
@@ -144,7 +144,7 @@ Operator creates bundle
 
 ### Node Communication Flow
 
-Sentinel nodes interact with the control plane through a pull-based model:
+Zentinel nodes interact with the control plane through a pull-based model:
 
 ```
 Node Registration (once)
@@ -201,7 +201,7 @@ See [Core Concepts](core-concepts.md) for details on each resource type.
 ## Database
 
 - **Development/Test**: SQLite — zero configuration, selected at compile time
-- **Production**: PostgreSQL — selected via `config :sentinel_cp, :ecto_adapter`
+- **Production**: PostgreSQL — selected via `config :zentinel_cp, :ecto_adapter`
 
 The adapter choice is transparent to application code through Ecto's abstraction layer.
 
@@ -234,13 +234,13 @@ The control plane uses [Oban](https://hexdocs.pm/oban/) for reliable background 
 ## Observability Stack
 
 ```
-Sentinel Nodes ──metrics──▶ Control Plane ──▶ Service Metrics DB
+Zentinel Nodes ──metrics──▶ Control Plane ──▶ Service Metrics DB
                                             ──▶ Prometheus (PromEx)
                                             ──▶ OpenTelemetry (traces)
                                             ──▶ Alert Evaluator
                                             ──▶ SLI Computer
 ```
 
-The control plane exposes Prometheus metrics at `/metrics` via PromEx, including BEAM VM metrics, Phoenix HTTP metrics, Ecto query metrics, Oban job metrics, and custom Sentinel metrics (node counts, drift events, SLO status, active rollouts).
+The control plane exposes Prometheus metrics at `/metrics` via PromEx, including BEAM VM metrics, Phoenix HTTP metrics, Ecto query metrics, Oban job metrics, and custom Zentinel metrics (node counts, drift events, SLO status, active rollouts).
 
 OpenTelemetry tracing wraps key operations: bundle compilation, rollout ticks, webhook processing, and node heartbeats.

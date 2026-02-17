@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.AddMultiOrgSupport do
+defmodule ZentinelCp.Repo.Migrations.AddMultiOrgSupport do
   use Ecto.Migration
 
   def change do

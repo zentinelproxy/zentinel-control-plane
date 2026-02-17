@@ -1,6 +1,6 @@
 # API Reference
 
-This document covers the Sentinel Control Plane REST API, Node API, and GraphQL endpoint.
+This document covers the Zentinel Control Plane REST API, Node API, and GraphQL endpoint.
 
 ## Authentication
 
@@ -16,11 +16,11 @@ API keys are created via the UI or API. See [Security > API Key Management](secu
 
 ### Node Authentication
 
-Sentinel proxy nodes authenticate using one of two methods:
+Zentinel proxy nodes authenticate using one of two methods:
 
 **Static key** (simple):
 ```
-X-Sentinel-Node-Key: base64-encoded-key
+X-Zentinel-Node-Key: base64-encoded-key
 ```
 
 **JWT token** (recommended):
@@ -340,7 +340,7 @@ POST /api/v1/audit/checkpoints   # Create audit checkpoint
 
 ## Node API
 
-Node-facing endpoints used by Sentinel proxy instances.
+Node-facing endpoints used by Zentinel proxy instances.
 
 ### Register Node
 
@@ -401,7 +401,7 @@ Auth: Node key or JWT
 
 ```
 POST /api/v1/nodes/:node_id/token
-Auth: Node key (X-Sentinel-Node-Key header)
+Auth: Node key (X-Zentinel-Node-Key header)
 ```
 
 **Response** (200):

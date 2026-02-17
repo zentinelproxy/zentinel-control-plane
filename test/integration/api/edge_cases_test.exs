@@ -1,10 +1,10 @@
-defmodule SentinelCpWeb.Integration.Api.EdgeCasesTest do
+defmodule ZentinelCpWeb.Integration.Api.EdgeCasesTest do
   @moduledoc """
   Integration tests for edge cases and boundary conditions.
 
   Tests pagination, input validation, concurrent operations, and unusual inputs.
   """
-  use SentinelCpWeb.IntegrationCase
+  use ZentinelCpWeb.IntegrationCase
 
   @moduletag :integration
 
@@ -14,7 +14,7 @@ defmodule SentinelCpWeb.Integration.Api.EdgeCasesTest do
 
       # Create some nodes
       for i <- 1..5 do
-        SentinelCp.NodesFixtures.node_fixture(%{project: context.project, name: "page-node-#{i}"})
+        ZentinelCp.NodesFixtures.node_fixture(%{project: context.project, name: "page-node-#{i}"})
       end
 
       resp =
@@ -30,7 +30,7 @@ defmodule SentinelCpWeb.Integration.Api.EdgeCasesTest do
     test "invalid page parameter handled gracefully", %{conn: conn} do
       {api_conn, context} = setup_api_context(conn, scopes: ["nodes:read"])
 
-      SentinelCp.NodesFixtures.node_fixture(%{project: context.project})
+      ZentinelCp.NodesFixtures.node_fixture(%{project: context.project})
 
       resp =
         api_conn
@@ -44,7 +44,7 @@ defmodule SentinelCpWeb.Integration.Api.EdgeCasesTest do
       {api_conn, context} = setup_api_context(conn, scopes: ["nodes:read"])
 
       for i <- 1..10 do
-        SentinelCp.NodesFixtures.node_fixture(%{
+        ZentinelCp.NodesFixtures.node_fixture(%{
           project: context.project,
           name: "limit-node-#{i}"
         })
@@ -217,15 +217,15 @@ defmodule SentinelCpWeb.Integration.Api.EdgeCasesTest do
 
       # Create nodes with different statuses
       online_node =
-        SentinelCp.NodesFixtures.node_fixture(%{
+        ZentinelCp.NodesFixtures.node_fixture(%{
           project: context.project,
           name: "online-filter-node"
         })
 
       {:ok, _} =
-        SentinelCp.Nodes.record_heartbeat(online_node, %{health: %{"status" => "healthy"}})
+        ZentinelCp.Nodes.record_heartbeat(online_node, %{health: %{"status" => "healthy"}})
 
-      SentinelCp.NodesFixtures.node_fixture(%{
+      ZentinelCp.NodesFixtures.node_fixture(%{
         project: context.project,
         name: "offline-filter-node"
       })
@@ -278,7 +278,7 @@ defmodule SentinelCpWeb.Integration.Api.EdgeCasesTest do
       {_api_conn, context} = setup_api_context(conn, scopes: [])
 
       {node, node_key} =
-        SentinelCp.NodesFixtures.node_with_key_fixture(%{
+        ZentinelCp.NodesFixtures.node_with_key_fixture(%{
           project: context.project,
           name: "minimal-heartbeat-node"
         })
@@ -296,7 +296,7 @@ defmodule SentinelCpWeb.Integration.Api.EdgeCasesTest do
       {_api_conn, context} = setup_api_context(conn, scopes: [])
 
       {node, node_key} =
-        SentinelCp.NodesFixtures.node_with_key_fixture(%{
+        ZentinelCp.NodesFixtures.node_with_key_fixture(%{
           project: context.project,
           name: "large-metrics-node"
         })
@@ -324,7 +324,7 @@ defmodule SentinelCpWeb.Integration.Api.EdgeCasesTest do
       {_api_conn, context} = setup_api_context(conn, scopes: [])
 
       {node, node_key} =
-        SentinelCp.NodesFixtures.node_with_key_fixture(%{
+        ZentinelCp.NodesFixtures.node_with_key_fixture(%{
           project: context.project,
           name: "batch-events-node"
         })

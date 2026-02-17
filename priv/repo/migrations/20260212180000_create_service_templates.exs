@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.CreateServiceTemplates do
+defmodule ZentinelCp.Repo.Migrations.CreateServiceTemplates do
   use Ecto.Migration
 
   def change do

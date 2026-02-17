@@ -112,8 +112,8 @@ run = "iex -S mix phx.server"
 
 [tasks."docker:build"]
 description = "Build Docker image"
-run = "docker build -t sentinel-cp ."
+run = "docker build -t zentinel-cp ."
 
 [tasks."docker:run"]
 description = "Run Docker container"
-run = "docker run -p 4000:4000 sentinel-cp"
+run = "docker run -p 4000:4000 zentinel-cp"

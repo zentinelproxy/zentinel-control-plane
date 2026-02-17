@@ -1,6 +1,6 @@
 # Security
 
-This guide covers the security features of Sentinel Control Plane, including the Web Application Firewall, authentication policies, certificate management, bundle signing, API key management, and SSO.
+This guide covers the security features of Zentinel Control Plane, including the Web Application Firewall, authentication policies, certificate management, bundle signing, API key management, and SSO.
 
 ## Web Application Firewall
 
@@ -88,7 +88,7 @@ Auth policies define how services verify client identity and authorization.
 
 ### Attaching to Services
 
-Assign an auth policy to a service to enforce authentication on all requests matching that service's route path. The policy is evaluated by the Sentinel proxy at request time.
+Assign an auth policy to a service to enforce authentication on all requests matching that service's route path. The policy is evaluated by the Zentinel proxy at request time.
 
 ## Bundle Signing
 
@@ -106,7 +106,7 @@ Bundles can be cryptographically signed to ensure integrity and authenticity.
 Enable signing by setting the following environment variables or configuration:
 
 ```elixir
-config :sentinel_cp, :bundle_signing,
+config :zentinel_cp, :bundle_signing,
   enabled: true,
   private_key: "base64-encoded-ed25519-private-key",
   public_key: "base64-encoded-ed25519-public-key",
@@ -116,7 +116,7 @@ config :sentinel_cp, :bundle_signing,
 Or use file paths:
 
 ```elixir
-config :sentinel_cp, :bundle_signing,
+config :zentinel_cp, :bundle_signing,
   enabled: true,
   private_key_path: "/secrets/signing-key.pem",
   public_key_path: "/secrets/signing-key.pub",
@@ -151,7 +151,7 @@ Nodes can exchange their static node key for a short-lived JWT (default: 12 hour
 
 ```
 POST /api/v1/nodes/:node_id/token
-Header: X-Sentinel-Node-Key: <node_key>
+Header: X-Zentinel-Node-Key: <node_key>
 ```
 
 The JWT contains:
@@ -285,10 +285,10 @@ Sensitive data is encrypted at rest using AES-256-GCM:
 
 | Data | Encryption Key Source |
 |------|----------------------|
-| TLS private keys | `secret_key_base` → SHA256 (AAD: "sentinel-cert-key") |
-| Signing keys | `secret_key_base` → SHA256 (AAD: "SentinelCp.Auth.Encryption") |
-| Secret values | `secret_key_base` → SHA256 (AAD: "sentinel-secret") |
-| ACME account keys | `secret_key_base` → SHA256 (AAD: "sentinel-cert-key") |
+| TLS private keys | `secret_key_base` → SHA256 (AAD: "zentinel-cert-key") |
+| Signing keys | `secret_key_base` → SHA256 (AAD: "ZentinelCp.Auth.Encryption") |
+| Secret values | `secret_key_base` → SHA256 (AAD: "zentinel-secret") |
+| ACME account keys | `secret_key_base` → SHA256 (AAD: "zentinel-cert-key") |
 
 Each encrypted value includes a unique 12-byte IV and 16-byte authentication tag for integrity verification.
 

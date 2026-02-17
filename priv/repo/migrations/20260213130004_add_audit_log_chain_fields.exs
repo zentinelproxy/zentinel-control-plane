@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.AddAuditLogChainFields do
+defmodule ZentinelCp.Repo.Migrations.AddAuditLogChainFields do
   use Ecto.Migration
 
   def change do

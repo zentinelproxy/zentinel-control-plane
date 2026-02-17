@@ -12,21 +12,21 @@ config :mime, :types, %{
   "text/plain" => ["kdl"]
 }
 
-config :sentinel_cp,
-  ecto_repos: [SentinelCp.Repo],
+config :zentinel_cp,
+  ecto_repos: [ZentinelCp.Repo],
   generators: [timestamp_type: :utc_datetime],
   # Default to SQLite3 for dev/test, override in prod
   ecto_adapter: Ecto.Adapters.SQLite3
 
 # Configure the endpoint
-config :sentinel_cp, SentinelCpWeb.Endpoint,
+config :zentinel_cp, ZentinelCpWeb.Endpoint,
   url: [host: "localhost"],
   adapter: Bandit.PhoenixAdapter,
   render_errors: [
-    formats: [html: SentinelCpWeb.ErrorHTML, json: SentinelCpWeb.ErrorJSON],
+    formats: [html: ZentinelCpWeb.ErrorHTML, json: ZentinelCpWeb.ErrorJSON],
     layout: false
   ],
-  pubsub_server: SentinelCp.PubSub,
+  pubsub_server: ZentinelCp.PubSub,
   live_view: [signing_salt: "RDyF3POG"]
 
 # Configure the mailer
@@ -36,12 +36,12 @@ config :sentinel_cp, SentinelCpWeb.Endpoint,
 #
 # For production it's recommended to configure a different adapter
 # at the `config/runtime.exs`.
-config :sentinel_cp, SentinelCp.Mailer, adapter: Swoosh.Adapters.Local
+config :zentinel_cp, ZentinelCp.Mailer, adapter: Swoosh.Adapters.Local
 
 # Configure esbuild (the version is required)
 config :esbuild,
   version: "0.25.4",
-  sentinel_cp: [
+  zentinel_cp: [
     args:
       ~w(js/app.js --bundle --target=es2022 --outdir=../priv/static/assets/js --external:/fonts/* --external:/images/* --alias:@=.),
     cd: Path.expand("../assets", __DIR__),
@@ -51,7 +51,7 @@ config :esbuild,
 # Configure tailwind (the version is required)
 config :tailwind,
   version: "4.1.12",
-  sentinel_cp: [
+  zentinel_cp: [
     args: ~w(
       --input=assets/css/app.css
       --output=priv/static/assets/css/app.css
@@ -69,9 +69,9 @@ config :phoenix, :json_library, Jason
 
 # Oban background job configuration
 # Default to SQLite Lite engine for dev/test, override in prod for Postgres
-config :sentinel_cp, Oban,
+config :zentinel_cp, Oban,
   engine: Oban.Engines.Lite,
-  repo: SentinelCp.Repo,
+  repo: ZentinelCp.Repo,
   queues: [
     default: 10,
     rollouts: 5,
@@ -80,19 +80,19 @@ config :sentinel_cp, Oban,
 
 # Bundle signing configuration
 # Disabled by default. Enable in production with Ed25519 key pair.
-config :sentinel_cp, :bundle_signing,
+config :zentinel_cp, :bundle_signing,
   enabled: false,
   key_id: nil,
   private_key_path: nil,
   public_key_path: nil
 
 # GitHub webhook configuration
-config :sentinel_cp, :github_webhook,
+config :zentinel_cp, :github_webhook,
   secret: nil,
   default_branch: "main"
 
 # ACME / Let's Encrypt configuration
-config :sentinel_cp, :acme, directory_url: "https://acme-v02.api.letsencrypt.org/directory"
+config :zentinel_cp, :acme, directory_url: "https://acme-v02.api.letsencrypt.org/directory"
 
 # OpenTelemetry (disabled by default, enable via OTEL_EXPORTER_OTLP_ENDPOINT in runtime.exs)
 config :opentelemetry, span_processor: :batch, traces_exporter: :none

@@ -1,13 +1,13 @@
-defmodule SentinelCpWeb.Integration.Api.RolloutLifecycleTest do
+defmodule ZentinelCpWeb.Integration.Api.RolloutLifecycleTest do
   @moduledoc """
   Integration tests for rollout API workflows.
 
   Tests the complete lifecycle: create → plan → pause → resume → cancel
   Also tests rollback functionality.
   """
-  use SentinelCpWeb.IntegrationCase
+  use ZentinelCpWeb.IntegrationCase
 
-  alias SentinelCp.Rollouts.Rollout
+  alias ZentinelCp.Rollouts.Rollout
 
   @moduletag :integration
 
@@ -15,7 +15,7 @@ defmodule SentinelCpWeb.Integration.Api.RolloutLifecycleTest do
   defp force_rollout_state(rollout, state) do
     rollout
     |> Rollout.state_changeset(state)
-    |> SentinelCp.Repo.update()
+    |> ZentinelCp.Repo.update()
   end
 
   describe "rollout creation" do
@@ -23,11 +23,11 @@ defmodule SentinelCpWeb.Integration.Api.RolloutLifecycleTest do
       {api_conn, context} =
         setup_api_context(conn, scopes: ["rollouts:read", "rollouts:write", "bundles:read"])
 
-      bundle = SentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
+      bundle = ZentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
 
       # Create some nodes for the rollout to target
       for i <- 1..3 do
-        SentinelCp.NodesFixtures.node_fixture(%{
+        ZentinelCp.NodesFixtures.node_fixture(%{
           project: context.project,
           name: "rollout-node-#{i}"
         })
@@ -55,7 +55,7 @@ defmodule SentinelCpWeb.Integration.Api.RolloutLifecycleTest do
 
       # Create a pending bundle
       {:ok, bundle} =
-        SentinelCp.Bundles.create_bundle(%{
+        ZentinelCp.Bundles.create_bundle(%{
           project_id: context.project.id,
           version: "pending-rollout-v1",
           config_source: "system { workers 1 }"
@@ -91,11 +91,11 @@ defmodule SentinelCpWeb.Integration.Api.RolloutLifecycleTest do
     setup %{conn: conn} do
       {api_conn, context} = setup_api_context(conn, scopes: ["rollouts:read", "rollouts:write"])
 
-      bundle = SentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
+      bundle = ZentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
 
       # Create nodes
       for i <- 1..2 do
-        SentinelCp.NodesFixtures.node_fixture(%{
+        ZentinelCp.NodesFixtures.node_fixture(%{
           project: context.project,
           name: "state-node-#{i}"
         })
@@ -118,7 +118,7 @@ defmodule SentinelCpWeb.Integration.Api.RolloutLifecycleTest do
 
     test "pause running rollout", %{api_conn: api_conn, context: context, rollout_id: rollout_id} do
       # Force to running state for test
-      rollout = SentinelCp.Rollouts.get_rollout(rollout_id)
+      rollout = ZentinelCp.Rollouts.get_rollout(rollout_id)
       {:ok, _} = force_rollout_state(rollout, "running")
 
       pause_resp =
@@ -131,7 +131,7 @@ defmodule SentinelCpWeb.Integration.Api.RolloutLifecycleTest do
 
     test "resume paused rollout", %{api_conn: api_conn, context: context, rollout_id: rollout_id} do
       # Force to paused state
-      rollout = SentinelCp.Rollouts.get_rollout(rollout_id)
+      rollout = ZentinelCp.Rollouts.get_rollout(rollout_id)
       {:ok, _} = force_rollout_state(rollout, "paused")
 
       resume_resp =
@@ -144,7 +144,7 @@ defmodule SentinelCpWeb.Integration.Api.RolloutLifecycleTest do
 
     test "cancel rollout", %{api_conn: api_conn, context: context, rollout_id: rollout_id} do
       # Force to running state
-      rollout = SentinelCp.Rollouts.get_rollout(rollout_id)
+      rollout = ZentinelCp.Rollouts.get_rollout(rollout_id)
       {:ok, _} = force_rollout_state(rollout, "running")
 
       cancel_resp =
@@ -160,7 +160,7 @@ defmodule SentinelCpWeb.Integration.Api.RolloutLifecycleTest do
       context: context,
       rollout_id: rollout_id
     } do
-      rollout = SentinelCp.Rollouts.get_rollout(rollout_id)
+      rollout = ZentinelCp.Rollouts.get_rollout(rollout_id)
       {:ok, _} = force_rollout_state(rollout, "paused")
 
       error_resp =
@@ -176,7 +176,7 @@ defmodule SentinelCpWeb.Integration.Api.RolloutLifecycleTest do
       context: context,
       rollout_id: rollout_id
     } do
-      rollout = SentinelCp.Rollouts.get_rollout(rollout_id)
+      rollout = ZentinelCp.Rollouts.get_rollout(rollout_id)
       {:ok, _} = force_rollout_state(rollout, "running")
 
       error_resp =
@@ -192,7 +192,7 @@ defmodule SentinelCpWeb.Integration.Api.RolloutLifecycleTest do
     test "list rollouts with state filter", %{conn: conn} do
       {api_conn, context} = setup_api_context(conn, scopes: ["rollouts:read", "rollouts:write"])
 
-      bundle = SentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
+      bundle = ZentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
 
       # Create a rollout
       api_conn
@@ -221,9 +221,9 @@ defmodule SentinelCpWeb.Integration.Api.RolloutLifecycleTest do
     test "show rollout with steps and progress", %{conn: conn} do
       {api_conn, context} = setup_api_context(conn, scopes: ["rollouts:read", "rollouts:write"])
 
-      bundle = SentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
+      bundle = ZentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
 
-      SentinelCp.NodesFixtures.node_fixture(%{project: context.project, name: "progress-node"})
+      ZentinelCp.NodesFixtures.node_fixture(%{project: context.project, name: "progress-node"})
 
       create_resp =
         api_conn
@@ -249,7 +249,7 @@ defmodule SentinelCpWeb.Integration.Api.RolloutLifecycleTest do
     test "rollback running rollout", %{conn: conn} do
       {api_conn, context} = setup_api_context(conn, scopes: ["rollouts:read", "rollouts:write"])
 
-      bundle = SentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
+      bundle = ZentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
 
       create_resp =
         api_conn
@@ -261,7 +261,7 @@ defmodule SentinelCpWeb.Integration.Api.RolloutLifecycleTest do
       rollout_id = create_resp["id"]
 
       # Force to running state
-      rollout = SentinelCp.Rollouts.get_rollout(rollout_id)
+      rollout = ZentinelCp.Rollouts.get_rollout(rollout_id)
       {:ok, _} = force_rollout_state(rollout, "running")
 
       rollback_resp =

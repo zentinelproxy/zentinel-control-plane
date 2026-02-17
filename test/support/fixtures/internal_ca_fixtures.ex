@@ -1,9 +1,9 @@
-defmodule SentinelCp.InternalCaFixtures do
+defmodule ZentinelCp.InternalCaFixtures do
   @moduledoc """
   Test helpers for creating Internal CA and Issued Certificate entities.
   """
 
-  alias SentinelCp.Services
+  alias ZentinelCp.Services
 
   def unique_ca_name, do: "test-ca-#{System.unique_integer([:positive])}"
   def unique_cert_name, do: "test-cert-#{System.unique_integer([:positive])}"
@@ -18,7 +18,7 @@ defmodule SentinelCp.InternalCaFixtures do
     * `:key_algorithm` — Algorithm (default: "EC-P384")
   """
   def internal_ca_fixture(attrs \\ %{}) do
-    project = attrs[:project] || SentinelCp.ProjectsFixtures.project_fixture()
+    project = attrs[:project] || ZentinelCp.ProjectsFixtures.project_fixture()
 
     {:ok, ca} =
       Services.initialize_internal_ca(%{

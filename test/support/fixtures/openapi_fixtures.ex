@@ -1,9 +1,9 @@
-defmodule SentinelCp.OpenApiFixtures do
+defmodule ZentinelCp.OpenApiFixtures do
   @moduledoc """
   Fixtures for OpenAPI spec testing.
   """
 
-  alias SentinelCp.Services
+  alias ZentinelCp.Services
 
   def petstore_spec_json do
     Jason.encode!(petstore_spec_map())
@@ -149,7 +149,7 @@ defmodule SentinelCp.OpenApiFixtures do
   end
 
   def openapi_spec_fixture(attrs \\ %{}) do
-    project = attrs[:project] || SentinelCp.ProjectsFixtures.project_fixture()
+    project = attrs[:project] || ZentinelCp.ProjectsFixtures.project_fixture()
     spec_data = attrs[:spec_data] || petstore_spec_map()
     content = Jason.encode!(spec_data)
 

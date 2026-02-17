@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.AddSsoFieldsToUsers do
+defmodule ZentinelCp.Repo.Migrations.AddSsoFieldsToUsers do
   use Ecto.Migration
 
   def change do

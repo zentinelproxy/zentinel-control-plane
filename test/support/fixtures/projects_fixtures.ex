@@ -1,4 +1,4 @@
-defmodule SentinelCp.ProjectsFixtures do
+defmodule ZentinelCp.ProjectsFixtures do
   @moduledoc """
   Test helpers for creating Projects entities.
   """
@@ -6,7 +6,7 @@ defmodule SentinelCp.ProjectsFixtures do
   def unique_project_name, do: "project-#{System.unique_integer([:positive])}"
 
   def valid_project_attributes(attrs \\ %{}) do
-    org = attrs[:org] || SentinelCp.OrgsFixtures.org_fixture()
+    org = attrs[:org] || ZentinelCp.OrgsFixtures.org_fixture()
 
     base = %{
       name: unique_project_name(),
@@ -28,7 +28,7 @@ defmodule SentinelCp.ProjectsFixtures do
     {:ok, project} =
       attrs
       |> valid_project_attributes()
-      |> SentinelCp.Projects.create_project()
+      |> ZentinelCp.Projects.create_project()
 
     project
   end

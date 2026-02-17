@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.CreateMiddlewares do
+defmodule ZentinelCp.Repo.Migrations.CreateMiddlewares do
   use Ecto.Migration
 
   def change do

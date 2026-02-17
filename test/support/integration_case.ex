@@ -1,4 +1,4 @@
-defmodule SentinelCpWeb.IntegrationCase do
+defmodule ZentinelCpWeb.IntegrationCase do
   @moduledoc """
   This module defines the test case for API integration tests.
 
@@ -8,7 +8,7 @@ defmodule SentinelCpWeb.IntegrationCase do
 
   ## Usage
 
-      use SentinelCpWeb.IntegrationCase
+      use ZentinelCpWeb.IntegrationCase
 
       @tag :integration
       describe "node registration workflow" do
@@ -27,18 +27,18 @@ defmodule SentinelCpWeb.IntegrationCase do
 
   using do
     quote do
-      use SentinelCpWeb, :verified_routes
+      use ZentinelCpWeb, :verified_routes
 
       import Plug.Conn
       import Phoenix.ConnTest
-      import SentinelCpWeb.IntegrationCase
+      import ZentinelCpWeb.IntegrationCase
 
-      @endpoint SentinelCpWeb.Endpoint
+      @endpoint ZentinelCpWeb.Endpoint
     end
   end
 
   setup tags do
-    SentinelCp.DataCase.setup_sandbox(tags)
+    ZentinelCp.DataCase.setup_sandbox(tags)
     {:ok, conn: Phoenix.ConnTest.build_conn()}
   end
 
@@ -61,20 +61,20 @@ defmodule SentinelCpWeb.IntegrationCase do
   def setup_api_context(conn, opts \\ []) do
     # Create org with owner
     user_attrs = opts[:user_attrs] || %{}
-    user = SentinelCp.AccountsFixtures.user_fixture(user_attrs)
+    user = ZentinelCp.AccountsFixtures.user_fixture(user_attrs)
 
     org_attrs = opts[:org_attrs] || %{}
-    org = SentinelCp.OrgsFixtures.org_fixture(org_attrs)
+    org = ZentinelCp.OrgsFixtures.org_fixture(org_attrs)
 
     # Create project in org
     project_attrs = Map.merge(opts[:project_attrs] || %{}, %{org: org})
-    project = SentinelCp.ProjectsFixtures.project_fixture(project_attrs)
+    project = ZentinelCp.ProjectsFixtures.project_fixture(project_attrs)
 
     # Create API key with specified scopes
     scopes = opts[:scopes] || []
 
     {:ok, api_key} =
-      SentinelCp.Accounts.create_api_key(%{
+      ZentinelCp.Accounts.create_api_key(%{
         name: "integration-test-key",
         user_id: user.id,
         project_id: project.id,
@@ -105,7 +105,7 @@ defmodule SentinelCpWeb.IntegrationCase do
   def setup_scoped_keys(conn, project, user, scope_sets) do
     Enum.reduce(scope_sets, %{}, fn {name, scopes}, acc ->
       {:ok, api_key} =
-        SentinelCp.Accounts.create_api_key(%{
+        ZentinelCp.Accounts.create_api_key(%{
           name: "#{name}-key",
           user_id: user.id,
           project_id: project.id,
@@ -148,16 +148,16 @@ defmodule SentinelCpWeb.IntegrationCase do
   Creates a node and returns {node, node_key} for use in node-authenticated requests.
   """
   def register_node(project, attrs \\ %{}) do
-    SentinelCp.NodesFixtures.node_with_key_fixture(Map.put(attrs, :project, project))
+    ZentinelCp.NodesFixtures.node_with_key_fixture(Map.put(attrs, :project, project))
   end
 
   @doc """
   Authenticates a connection as a node using its node key.
-  Uses X-Sentinel-Node-Key header (static key auth).
+  Uses X-Zentinel-Node-Key header (static key auth).
   """
   def authenticate_as_node(conn, node_key) do
     conn
-    |> Plug.Conn.put_req_header("x-sentinel-node-key", node_key)
+    |> Plug.Conn.put_req_header("x-zentinel-node-key", node_key)
     |> Plug.Conn.put_req_header("content-type", "application/json")
   end
 

@@ -1,13 +1,13 @@
-defmodule SentinelCpWeb.Integration.Auth.ErrorScenariosTest do
+defmodule ZentinelCpWeb.Integration.Auth.ErrorScenariosTest do
   @moduledoc """
   Integration tests for API error scenarios.
 
   Tests 401 (missing/invalid/expired/revoked key), 403 (insufficient scope),
   404 (not found), 409 (conflict), 422 (validation error).
   """
-  use SentinelCpWeb.IntegrationCase
+  use ZentinelCpWeb.IntegrationCase
 
-  alias SentinelCp.Rollouts.Rollout
+  alias ZentinelCp.Rollouts.Rollout
 
   @moduletag :integration
 
@@ -15,12 +15,12 @@ defmodule SentinelCpWeb.Integration.Auth.ErrorScenariosTest do
   defp force_rollout_state(rollout, state) do
     rollout
     |> Rollout.state_changeset(state)
-    |> SentinelCp.Repo.update()
+    |> ZentinelCp.Repo.update()
   end
 
   describe "401 Unauthorized errors" do
     test "missing Authorization header", %{conn: conn} do
-      project = SentinelCp.ProjectsFixtures.project_fixture()
+      project = ZentinelCp.ProjectsFixtures.project_fixture()
 
       error_resp =
         conn
@@ -32,7 +32,7 @@ defmodule SentinelCpWeb.Integration.Auth.ErrorScenariosTest do
     end
 
     test "invalid API key", %{conn: conn} do
-      project = SentinelCp.ProjectsFixtures.project_fixture()
+      project = ZentinelCp.ProjectsFixtures.project_fixture()
 
       error_resp =
         conn
@@ -45,12 +45,12 @@ defmodule SentinelCpWeb.Integration.Auth.ErrorScenariosTest do
     end
 
     test "expired API key", %{conn: conn} do
-      user = SentinelCp.AccountsFixtures.user_fixture()
-      project = SentinelCp.ProjectsFixtures.project_fixture()
+      user = ZentinelCp.AccountsFixtures.user_fixture()
+      project = ZentinelCp.ProjectsFixtures.project_fixture()
 
       # Create an expired key
       {:ok, api_key} =
-        SentinelCp.Accounts.create_api_key(%{
+        ZentinelCp.Accounts.create_api_key(%{
           name: "expired-key",
           user_id: user.id,
           project_id: project.id,
@@ -69,11 +69,11 @@ defmodule SentinelCpWeb.Integration.Auth.ErrorScenariosTest do
     end
 
     test "revoked API key", %{conn: conn} do
-      user = SentinelCp.AccountsFixtures.user_fixture()
-      project = SentinelCp.ProjectsFixtures.project_fixture()
+      user = ZentinelCp.AccountsFixtures.user_fixture()
+      project = ZentinelCp.ProjectsFixtures.project_fixture()
 
       {:ok, api_key} =
-        SentinelCp.Accounts.create_api_key(%{
+        ZentinelCp.Accounts.create_api_key(%{
           name: "revoked-key",
           user_id: user.id,
           project_id: project.id,
@@ -81,7 +81,7 @@ defmodule SentinelCpWeb.Integration.Auth.ErrorScenariosTest do
         })
 
       # Revoke the key
-      {:ok, _} = SentinelCp.Accounts.revoke_api_key(api_key)
+      {:ok, _} = ZentinelCp.Accounts.revoke_api_key(api_key)
 
       error_resp =
         conn
@@ -94,7 +94,7 @@ defmodule SentinelCpWeb.Integration.Auth.ErrorScenariosTest do
     end
 
     test "malformed Authorization header", %{conn: conn} do
-      project = SentinelCp.ProjectsFixtures.project_fixture()
+      project = ZentinelCp.ProjectsFixtures.project_fixture()
 
       error_resp =
         conn
@@ -190,8 +190,8 @@ defmodule SentinelCpWeb.Integration.Auth.ErrorScenariosTest do
       {api_conn, context} = setup_api_context(conn, scopes: [])
 
       # Create node in different project
-      other_project = SentinelCp.ProjectsFixtures.project_fixture()
-      other_node = SentinelCp.NodesFixtures.node_fixture(%{project: other_project})
+      other_project = ZentinelCp.ProjectsFixtures.project_fixture()
+      other_node = ZentinelCp.NodesFixtures.node_fixture(%{project: other_project})
 
       error_resp =
         api_conn
@@ -208,7 +208,7 @@ defmodule SentinelCpWeb.Integration.Auth.ErrorScenariosTest do
 
       # Create bundle in pending state
       {:ok, bundle} =
-        SentinelCp.Bundles.create_bundle(%{
+        ZentinelCp.Bundles.create_bundle(%{
           project_id: context.project.id,
           version: "conflict-v1",
           config_source: "system { workers 1 }"
@@ -225,8 +225,8 @@ defmodule SentinelCpWeb.Integration.Auth.ErrorScenariosTest do
     test "bundle revoked", %{conn: conn} do
       {api_conn, context} = setup_api_context(conn, scopes: ["bundles:read", "bundles:write"])
 
-      bundle = SentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
-      {:ok, _} = SentinelCp.Bundles.revoke_bundle(bundle)
+      bundle = ZentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
+      {:ok, _} = ZentinelCp.Bundles.revoke_bundle(bundle)
 
       error_resp =
         api_conn
@@ -239,10 +239,10 @@ defmodule SentinelCpWeb.Integration.Auth.ErrorScenariosTest do
     test "rollout cannot be paused in current state", %{conn: conn} do
       {api_conn, context} = setup_api_context(conn, scopes: ["rollouts:read", "rollouts:write"])
 
-      bundle = SentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
+      bundle = ZentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
 
       rollout =
-        SentinelCp.RolloutsFixtures.rollout_fixture(%{project: context.project, bundle: bundle})
+        ZentinelCp.RolloutsFixtures.rollout_fixture(%{project: context.project, bundle: bundle})
 
       # Force to completed state
       {:ok, _} = force_rollout_state(rollout, "completed")
@@ -260,7 +260,7 @@ defmodule SentinelCpWeb.Integration.Auth.ErrorScenariosTest do
 
       # Create pending bundle
       {:ok, bundle} =
-        SentinelCp.Bundles.create_bundle(%{
+        ZentinelCp.Bundles.create_bundle(%{
           project_id: context.project.id,
           version: "rollout-conflict-v1",
           config_source: "system { workers 1 }"
@@ -279,13 +279,13 @@ defmodule SentinelCpWeb.Integration.Auth.ErrorScenariosTest do
     test "drift event already resolved", %{conn: conn} do
       {api_conn, context} = setup_api_context(conn, scopes: ["nodes:read", "nodes:write"])
 
-      node = SentinelCp.NodesFixtures.node_fixture(%{project: context.project})
+      node = ZentinelCp.NodesFixtures.node_fixture(%{project: context.project})
 
       event =
-        SentinelCp.NodesFixtures.drift_event_fixture(%{node: node, project: context.project})
+        ZentinelCp.NodesFixtures.drift_event_fixture(%{node: node, project: context.project})
 
       # Resolve the event
-      {:ok, _} = SentinelCp.Nodes.resolve_drift_event(event, "manual")
+      {:ok, _} = ZentinelCp.Nodes.resolve_drift_event(event, "manual")
 
       error_resp =
         api_conn
@@ -334,7 +334,7 @@ defmodule SentinelCpWeb.Integration.Auth.ErrorScenariosTest do
     end
 
     test "node registration without name", %{conn: conn} do
-      project = SentinelCp.ProjectsFixtures.project_fixture()
+      project = ZentinelCp.ProjectsFixtures.project_fixture()
 
       error_resp =
         conn
@@ -352,7 +352,7 @@ defmodule SentinelCpWeb.Integration.Auth.ErrorScenariosTest do
     test "heartbeat without node auth", %{conn: conn} do
       {_api_conn, context} = setup_api_context(conn, scopes: [])
 
-      node = SentinelCp.NodesFixtures.node_fixture(%{project: context.project})
+      node = ZentinelCp.NodesFixtures.node_fixture(%{project: context.project})
 
       error_resp =
         conn
@@ -366,7 +366,7 @@ defmodule SentinelCpWeb.Integration.Auth.ErrorScenariosTest do
     test "heartbeat with invalid node key", %{conn: conn} do
       {_api_conn, context} = setup_api_context(conn, scopes: [])
 
-      node = SentinelCp.NodesFixtures.node_fixture(%{project: context.project})
+      node = ZentinelCp.NodesFixtures.node_fixture(%{project: context.project})
 
       error_resp =
         conn

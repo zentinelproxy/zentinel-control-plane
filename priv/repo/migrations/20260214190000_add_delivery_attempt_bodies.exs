@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.AddDeliveryAttemptBodies do
+defmodule ZentinelCp.Repo.Migrations.AddDeliveryAttemptBodies do
   use Ecto.Migration
 
   def change do

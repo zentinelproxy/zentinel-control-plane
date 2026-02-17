@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.AddExpectedBundleToNodes do
+defmodule ZentinelCp.Repo.Migrations.AddExpectedBundleToNodes do
   use Ecto.Migration
 
   def change do

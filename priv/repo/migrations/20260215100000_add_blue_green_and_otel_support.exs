@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.AddBlueGreenAndOtelSupport do
+defmodule ZentinelCp.Repo.Migrations.AddBlueGreenAndOtelSupport do
   use Ecto.Migration
 
   def change do

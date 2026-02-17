@@ -1,4 +1,4 @@
-defmodule SentinelCp.DataCase do
+defmodule ZentinelCp.DataCase do
   @moduledoc """
   This module defines the setup for tests requiring
   access to the application's data layer.
@@ -10,7 +10,7 @@ defmodule SentinelCp.DataCase do
   we enable the SQL sandbox, so changes done to the database
   are reverted at the end of every test. If you are using
   PostgreSQL, you can even run database tests asynchronously
-  by setting `use SentinelCp.DataCase, async: true`, although
+  by setting `use ZentinelCp.DataCase, async: true`, although
   this option is not recommended for other databases.
   """
 
@@ -18,17 +18,17 @@ defmodule SentinelCp.DataCase do
 
   using do
     quote do
-      alias SentinelCp.Repo
+      alias ZentinelCp.Repo
 
       import Ecto
       import Ecto.Changeset
       import Ecto.Query
-      import SentinelCp.DataCase
+      import ZentinelCp.DataCase
     end
   end
 
   setup tags do
-    SentinelCp.DataCase.setup_sandbox(tags)
+    ZentinelCp.DataCase.setup_sandbox(tags)
     :ok
   end
 
@@ -36,7 +36,7 @@ defmodule SentinelCp.DataCase do
   Sets up the sandbox based on the test tags.
   """
   def setup_sandbox(tags) do
-    pid = Ecto.Adapters.SQL.Sandbox.start_owner!(SentinelCp.Repo, shared: not tags[:async])
+    pid = Ecto.Adapters.SQL.Sandbox.start_owner!(ZentinelCp.Repo, shared: not tags[:async])
     on_exit(fn -> Ecto.Adapters.SQL.Sandbox.stop_owner(pid) end)
   end
 

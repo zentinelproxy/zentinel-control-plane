@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.CreateAnalyticsTables do
+defmodule ZentinelCp.Repo.Migrations.CreateAnalyticsTables do
   use Ecto.Migration
 
   def change do

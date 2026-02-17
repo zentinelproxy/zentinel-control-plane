@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.CreatePolicyInfrastructure do
+defmodule ZentinelCp.Repo.Migrations.CreatePolicyInfrastructure do
   use Ecto.Migration
 
   def change do

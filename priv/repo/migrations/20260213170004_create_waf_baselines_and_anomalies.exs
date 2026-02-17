@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.CreateWafBaselinesAndAnomalies do
+defmodule ZentinelCp.Repo.Migrations.CreateWafBaselinesAndAnomalies do
   use Ecto.Migration
 
   def change do

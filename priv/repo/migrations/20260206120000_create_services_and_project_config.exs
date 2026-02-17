@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.CreateServicesAndProjectConfig do
+defmodule ZentinelCp.Repo.Migrations.CreateServicesAndProjectConfig do
   use Ecto.Migration
 
   def change do

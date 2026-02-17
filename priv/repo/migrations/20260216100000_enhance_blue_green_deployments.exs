@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.EnhanceBlueGreenDeployments do
+defmodule ZentinelCp.Repo.Migrations.EnhanceBlueGreenDeployments do
   use Ecto.Migration
 
   def change do

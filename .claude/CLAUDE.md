@@ -1,8 +1,8 @@
-# Sentinel Control Plane - Development Guide
+# Zentinel Control Plane - Development Guide
 
 ## Overview
 
-Sentinel CP is a fleet management control plane for Sentinel reverse proxies, built in Elixir/Phoenix. It provides:
+Zentinel CP is a fleet management control plane for Zentinel reverse proxies, built in Elixir/Phoenix. It provides:
 
 - Bundle compilation and distribution
 - Safe rollout orchestration with health gates
@@ -44,7 +44,7 @@ mise run test
        │              └───────────────────────────┘
        │
 ┌──────┴──────────────────────────────────────────────────────┐
-│                      Sentinel Nodes                          │
+│                      Zentinel Nodes                          │
 │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐        │
 │  │ Node 1  │  │ Node 2  │  │ Node 3  │  │ Node N  │  ...   │
 │  └─────────┘  └─────────┘  └─────────┘  └─────────┘        │
@@ -55,7 +55,7 @@ mise run test
 
 ```
 lib/
-├── sentinel_cp/
+├── zentinel_cp/
 │   ├── accounts/       # Users, API keys, authentication
 │   ├── audit/          # Audit logging
 │   ├── auth/           # JWT signing keys, node tokens (Ed25519)
@@ -64,11 +64,11 @@ lib/
 │   ├── nodes/          # Node management, heartbeats
 │   ├── orgs/           # Multi-org support, memberships
 │   ├── projects/       # Project/tenant management
-│   ├── prom_ex/        # Prometheus metrics (custom Sentinel plugin)
+│   ├── prom_ex/        # Prometheus metrics (custom Zentinel plugin)
 │   ├── rollouts/       # Rollout orchestration, tick worker, health gates
 │   ├── simulator/      # Node simulator (GenServer fleet)
 │   └── webhooks/       # GitHub webhook integration (GitOps)
-└── sentinel_cp_web/
+└── zentinel_cp_web/
     ├── controllers/    # REST API + webhook endpoints
     ├── live/           # LiveView pages (dashboard, nodes, bundles, rollouts, audit, orgs)
     ├── plugs/          # Auth, API auth, node auth, scope checking, org scoping
@@ -79,7 +79,7 @@ lib/
 
 ### Bundles
 Immutable, content-addressed configuration artifacts:
-- Validated via `sentinel validate`
+- Validated via `zentinel validate`
 - Compressed as `.tar.zst`
 - Stored in S3/MinIO
 - Identified by SHA256 hash
@@ -92,7 +92,7 @@ Safe deployment plans:
 - Manual rollback support
 
 ### Nodes
-Sentinel proxy instances:
+Zentinel proxy instances:
 - Pull-based bundle distribution
 - Heartbeat-based health tracking
 - Per-node status during rollouts
@@ -102,7 +102,7 @@ Sentinel proxy instances:
 - **Development/Test**: SQLite (zero configuration)
 - **Production**: PostgreSQL
 
-The adapter is selected at compile time via `config :sentinel_cp, :ecto_adapter`.
+The adapter is selected at compile time via `config :zentinel_cp, :ecto_adapter`.
 
 ## Background Jobs
 
@@ -158,11 +158,11 @@ When implementing features:
 
 ### Naming Conventions
 
-- Contexts: `SentinelCp.Nodes`, `SentinelCp.Bundles`, `SentinelCp.Orgs`
-- Schemas: `SentinelCp.Nodes.Node`, `SentinelCp.Bundles.Bundle`, `SentinelCp.Orgs.Org`
-- Workers: `SentinelCp.Rollouts.TickWorker`, `SentinelCp.Bundles.CompileWorker`
-- LiveViews: `SentinelCpWeb.NodesLive.Index`, `SentinelCpWeb.DashboardLive.Index`
-- Plugs: `SentinelCpWeb.Plugs.Auth`, `SentinelCpWeb.Plugs.NodeAuth`
+- Contexts: `ZentinelCp.Nodes`, `ZentinelCp.Bundles`, `ZentinelCp.Orgs`
+- Schemas: `ZentinelCp.Nodes.Node`, `ZentinelCp.Bundles.Bundle`, `ZentinelCp.Orgs.Org`
+- Workers: `ZentinelCp.Rollouts.TickWorker`, `ZentinelCp.Bundles.CompileWorker`
+- LiveViews: `ZentinelCpWeb.NodesLive.Index`, `ZentinelCpWeb.DashboardLive.Index`
+- Plugs: `ZentinelCpWeb.Plugs.Auth`, `ZentinelCpWeb.Plugs.NodeAuth`
 
 ## Environment Variables
 
@@ -172,9 +172,9 @@ When implementing features:
 | `SECRET_KEY_BASE` | Phoenix secret | Required in prod |
 | `PHX_HOST` | Public hostname | `localhost` |
 | `PORT` | HTTP port | `4000` |
-| `S3_BUCKET` | Bundle storage bucket | `sentinel-bundles` |
+| `S3_BUCKET` | Bundle storage bucket | `zentinel-bundles` |
 | `S3_ENDPOINT` | S3/MinIO endpoint | `http://localhost:9000` |
 | `S3_ACCESS_KEY_ID` | S3 access key | - |
 | `S3_SECRET_ACCESS_KEY` | S3 secret key | - |
-| `SENTINEL_BINARY` | Path to `sentinel` CLI binary | `sentinel` |
+| `ZENTINEL_BINARY` | Path to `zentinel` CLI binary | `zentinel` |
 | `GITHUB_WEBHOOK_SECRET` | HMAC secret for GitHub webhooks | - |

@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.AddCanaryNodeGroupsAndValidation do
+defmodule ZentinelCp.Repo.Migrations.AddCanaryNodeGroupsAndValidation do
   use Ecto.Migration
 
   def change do

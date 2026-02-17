@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.AddRiskReasonsToBundles do
+defmodule ZentinelCp.Repo.Migrations.AddRiskReasonsToBundles do
   use Ecto.Migration
 
   def change do

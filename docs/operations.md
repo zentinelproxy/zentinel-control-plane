@@ -247,12 +247,12 @@ The control plane uses Oban for reliable background job processing. Jobs are sto
 | `PHX_HOST` | Production | `localhost` | Public hostname |
 | `PORT` | No | `4000` | HTTP port |
 | `POOL_SIZE` | No | `10` | Database connection pool size |
-| `S3_BUCKET` | No | `sentinel-bundles` | S3 bucket for bundle storage |
+| `S3_BUCKET` | No | `zentinel-bundles` | S3 bucket for bundle storage |
 | `S3_ENDPOINT` | No | `http://localhost:9000` | S3/MinIO endpoint |
 | `S3_ACCESS_KEY_ID` | Production | — | S3 access key |
 | `S3_SECRET_ACCESS_KEY` | Production | — | S3 secret key |
 | `S3_REGION` | No | `us-east-1` | AWS region |
-| `SENTINEL_BINARY` | No | `sentinel` | Path to Sentinel CLI binary |
+| `ZENTINEL_BINARY` | No | `zentinel` | Path to Zentinel CLI binary |
 | `GITHUB_WEBHOOK_SECRET` | If using GitHub | — | HMAC secret for webhook verification |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | If using tracing | — | OpenTelemetry exporter endpoint |
 

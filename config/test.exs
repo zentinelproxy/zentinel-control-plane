@@ -5,19 +5,19 @@ import Config
 # The MIX_TEST_PARTITION environment variable can be used
 # to provide built-in test partitioning in CI environment.
 # Run `mix help test` for more information.
-config :sentinel_cp, SentinelCp.Repo,
-  database: Path.expand("../sentinel_cp_test#{System.get_env("MIX_TEST_PARTITION")}.db", __DIR__),
+config :zentinel_cp, ZentinelCp.Repo,
+  database: Path.expand("../zentinel_cp_test#{System.get_env("MIX_TEST_PARTITION")}.db", __DIR__),
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: System.schedulers_online() * 2
 
 # Enable server for E2E tests (Wallaby requires the server to be running)
-config :sentinel_cp, SentinelCpWeb.Endpoint,
+config :zentinel_cp, ZentinelCpWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
   secret_key_base: "mweJf2rSnJcf9V7CCs4PuqhL5GB97+9ODEFraHiqbGuEA2AOh1jd0PWGlMIhr6Kv",
   server: true
 
 # In test we don't send emails
-config :sentinel_cp, SentinelCp.Mailer, adapter: Swoosh.Adapters.Test
+config :zentinel_cp, ZentinelCp.Mailer, adapter: Swoosh.Adapters.Test
 
 # Disable swoosh api client as it is only required for production adapters
 config :swoosh, :api_client, false
@@ -26,10 +26,10 @@ config :swoosh, :api_client, false
 config :logger, level: :warning
 
 # Disable Oban queues during tests (use Oban.Testing)
-config :sentinel_cp, Oban, testing: :inline
+config :zentinel_cp, Oban, testing: :inline
 
 # Mark test environment (used to skip async notifications)
-config :sentinel_cp, :env, :test
+config :zentinel_cp, :env, :test
 
 # Disable OpenTelemetry trace export in tests
 config :opentelemetry, traces_exporter: :none
@@ -46,37 +46,37 @@ config :phoenix,
   sort_verified_routes_query_params: true
 
 # Bundle storage (local filesystem in test)
-config :sentinel_cp, SentinelCp.Bundles.Storage,
+config :zentinel_cp, ZentinelCp.Bundles.Storage,
   backend: :local,
   local_dir: Path.expand("../tmp/test_bundles", __DIR__)
 
 # Bundle signing disabled in test (individual tests can override)
-config :sentinel_cp, :bundle_signing, enabled: false
+config :zentinel_cp, :bundle_signing, enabled: false
 
 # GitHub webhook test secret
-config :sentinel_cp, :github_webhook, secret: "test_webhook_secret"
+config :zentinel_cp, :github_webhook, secret: "test_webhook_secret"
 
 # Use mock GitHub client in tests
-config :sentinel_cp, :github_client, SentinelCp.Webhooks.GitHubClient.Mock
+config :zentinel_cp, :github_client, ZentinelCp.Webhooks.GitHubClient.Mock
 
 # Use mock DNS resolver in tests
-config :sentinel_cp, :dns_resolver, SentinelCp.Services.DnsResolver.Mock
+config :zentinel_cp, :dns_resolver, ZentinelCp.Services.DnsResolver.Mock
 
 # Use mock K8s resolver in tests
-config :sentinel_cp, :k8s_resolver, SentinelCp.Services.K8sResolver.Mock
+config :zentinel_cp, :k8s_resolver, ZentinelCp.Services.K8sResolver.Mock
 
 # Use mock Consul resolver in tests
-config :sentinel_cp, :consul_resolver, SentinelCp.Services.ConsulResolver.Mock
+config :zentinel_cp, :consul_resolver, ZentinelCp.Services.ConsulResolver.Mock
 
 # Use mock Vault client in tests
-config :sentinel_cp, :vault_client, SentinelCp.Secrets.VaultClient.Mock
+config :zentinel_cp, :vault_client, ZentinelCp.Secrets.VaultClient.Mock
 
 # Use mock ACME client in tests
-config :sentinel_cp, :acme_client, SentinelCp.Services.Acme.Client.Mock
+config :zentinel_cp, :acme_client, ZentinelCp.Services.Acme.Client.Mock
 
 # Wallaby E2E test configuration
 config :wallaby,
-  otp_app: :sentinel_cp,
+  otp_app: :zentinel_cp,
   driver: Wallaby.Chrome,
   base_url: "http://localhost:4002",
   screenshot_on_failure: true,

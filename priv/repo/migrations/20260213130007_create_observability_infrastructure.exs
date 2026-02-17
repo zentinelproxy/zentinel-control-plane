@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.CreateObservabilityInfrastructure do
+defmodule ZentinelCp.Repo.Migrations.CreateObservabilityInfrastructure do
   use Ecto.Migration
 
   def change do

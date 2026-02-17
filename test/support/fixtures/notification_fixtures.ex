@@ -1,12 +1,12 @@
-defmodule SentinelCp.NotificationFixtures do
+defmodule ZentinelCp.NotificationFixtures do
   @moduledoc """
   Test helpers for creating notification channels, rules, events, and delivery attempts.
   """
 
-  alias SentinelCp.Events
-  alias SentinelCp.Events.DeliveryAttempt
-  alias SentinelCp.ProjectsFixtures
-  alias SentinelCp.Repo
+  alias ZentinelCp.Events
+  alias ZentinelCp.Events.DeliveryAttempt
+  alias ZentinelCp.ProjectsFixtures
+  alias ZentinelCp.Repo
 
   def unique_channel_name, do: "channel-#{System.unique_integer([:positive])}"
   def unique_rule_name, do: "rule-#{System.unique_integer([:positive])}"

@@ -1,10 +1,10 @@
-defmodule SentinelCpWeb.E2E.NodeManagementTest do
+defmodule ZentinelCpWeb.E2E.NodeManagementTest do
   @moduledoc """
   E2E tests for node management UI.
 
   Tests empty state, node list, status filter, and delete node.
   """
-  use SentinelCpWeb.FeatureCase
+  use ZentinelCpWeb.FeatureCase
 
   @moduletag :e2e
 
@@ -23,12 +23,12 @@ defmodule SentinelCpWeb.E2E.NodeManagementTest do
     feature "displays nodes when they exist", %{session: session} do
       {session, context} = setup_full_context(session)
 
-      SentinelCp.NodesFixtures.node_fixture(%{
+      ZentinelCp.NodesFixtures.node_fixture(%{
         project: context.project,
         name: "web-proxy-1"
       })
 
-      SentinelCp.NodesFixtures.node_fixture(%{
+      ZentinelCp.NodesFixtures.node_fixture(%{
         project: context.project,
         name: "api-proxy-2"
       })
@@ -44,8 +44,8 @@ defmodule SentinelCpWeb.E2E.NodeManagementTest do
     feature "shows stats cards", %{session: session} do
       {session, context} = setup_full_context(session)
 
-      node = SentinelCp.NodesFixtures.node_fixture(%{project: context.project})
-      SentinelCp.Nodes.record_heartbeat(node, %{health: %{"status" => "healthy"}})
+      node = ZentinelCp.NodesFixtures.node_fixture(%{project: context.project})
+      ZentinelCp.Nodes.record_heartbeat(node, %{health: %{"status" => "healthy"}})
 
       session
       |> visit("/projects/#{context.project.slug}/nodes")
@@ -59,18 +59,18 @@ defmodule SentinelCpWeb.E2E.NodeManagementTest do
       {session, context} = setup_full_context(session)
 
       online_node =
-        SentinelCp.NodesFixtures.node_fixture(%{
+        ZentinelCp.NodesFixtures.node_fixture(%{
           project: context.project,
           name: "online-proxy"
         })
 
-      SentinelCp.NodesFixtures.node_fixture(%{
+      ZentinelCp.NodesFixtures.node_fixture(%{
         project: context.project,
         name: "offline-proxy"
       })
 
       # Make one node online
-      SentinelCp.Nodes.record_heartbeat(online_node, %{health: %{"status" => "healthy"}})
+      ZentinelCp.Nodes.record_heartbeat(online_node, %{health: %{"status" => "healthy"}})
 
       session
       |> visit("/projects/#{context.project.slug}/nodes")
@@ -86,7 +86,7 @@ defmodule SentinelCpWeb.E2E.NodeManagementTest do
       {session, context} = setup_full_context(session)
 
       node =
-        SentinelCp.NodesFixtures.node_fixture(%{
+        ZentinelCp.NodesFixtures.node_fixture(%{
           project: context.project,
           name: "deletable-proxy"
         })
@@ -104,7 +104,7 @@ defmodule SentinelCpWeb.E2E.NodeManagementTest do
       {session, context} = setup_full_context(session)
 
       node =
-        SentinelCp.NodesFixtures.node_fixture(%{
+        ZentinelCp.NodesFixtures.node_fixture(%{
           project: context.project,
           name: "detail-proxy",
           labels: %{"env" => "production", "region" => "us-east"}

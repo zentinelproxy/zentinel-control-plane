@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.AddTrafficSplitToServices do
+defmodule ZentinelCp.Repo.Migrations.AddTrafficSplitToServices do
   use Ecto.Migration
 
   def change do

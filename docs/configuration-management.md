@@ -1,10 +1,10 @@
 # Configuration Management
 
-This guide covers how to define and manage proxy configuration in Sentinel Control Plane. Configuration is modeled as structured resources (services, upstreams, certificates, etc.) that are compiled into immutable bundles for deployment.
+This guide covers how to define and manage proxy configuration in Zentinel Control Plane. Configuration is modeled as structured resources (services, upstreams, certificates, etc.) that are compiled into immutable bundles for deployment.
 
 ## Services
 
-Services are the primary configuration unit. Each service defines how Sentinel routes traffic for a specific path.
+Services are the primary configuration unit. Each service defines how Zentinel routes traffic for a specific path.
 
 ### Creating a Service
 
@@ -215,7 +215,7 @@ This allows a single rate limiter middleware to be shared across services with d
 
 ## Plugins
 
-Plugins extend Sentinel's functionality with custom code or configuration files.
+Plugins extend Zentinel's functionality with custom code or configuration files.
 
 ### Plugin Properties
 

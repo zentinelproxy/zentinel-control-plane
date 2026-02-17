@@ -1,11 +1,11 @@
-defmodule SentinelCpWeb.Integration.Auth.ScopeEnforcementTest do
+defmodule ZentinelCpWeb.Integration.Auth.ScopeEnforcementTest do
   @moduledoc """
   Integration tests for API scope enforcement.
 
   Tests read vs write scopes, empty scopes (legacy full access),
   and multi-scope combinations.
   """
-  use SentinelCpWeb.IntegrationCase
+  use ZentinelCpWeb.IntegrationCase
 
   @moduletag :integration
 
@@ -27,7 +27,7 @@ defmodule SentinelCpWeb.Integration.Auth.ScopeEnforcementTest do
     test "read-only key can list nodes but not delete", %{keys: keys, context: context} do
       {read_conn, _} = keys.read_only
 
-      node = SentinelCp.NodesFixtures.node_fixture(%{project: context.project})
+      node = ZentinelCp.NodesFixtures.node_fixture(%{project: context.project})
 
       # Can read
       list_resp =
@@ -50,7 +50,7 @@ defmodule SentinelCpWeb.Integration.Auth.ScopeEnforcementTest do
     test "write-only key cannot list nodes", %{keys: keys, context: context} do
       {write_conn, _} = keys.write_only
 
-      SentinelCp.NodesFixtures.node_fixture(%{project: context.project})
+      ZentinelCp.NodesFixtures.node_fixture(%{project: context.project})
 
       error_resp =
         write_conn
@@ -64,7 +64,7 @@ defmodule SentinelCpWeb.Integration.Auth.ScopeEnforcementTest do
     test "write-only key can delete nodes", %{keys: keys, context: context} do
       {write_conn, _} = keys.write_only
 
-      node = SentinelCp.NodesFixtures.node_fixture(%{project: context.project})
+      node = ZentinelCp.NodesFixtures.node_fixture(%{project: context.project})
 
       write_conn
       |> delete("/api/v1/projects/#{context.project.slug}/nodes/#{node.id}")
@@ -106,7 +106,7 @@ defmodule SentinelCpWeb.Integration.Auth.ScopeEnforcementTest do
       assert is_list(list_resp["rollouts"])
 
       # Cannot create
-      bundle = SentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
+      bundle = ZentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
 
       error_resp =
         read_conn
@@ -123,7 +123,7 @@ defmodule SentinelCpWeb.Integration.Auth.ScopeEnforcementTest do
     test "legacy key with empty scopes has full access", %{conn: conn} do
       {api_conn, context} = setup_api_context(conn, scopes: [])
 
-      node = SentinelCp.NodesFixtures.node_fixture(%{project: context.project})
+      node = ZentinelCp.NodesFixtures.node_fixture(%{project: context.project})
 
       # Can read
       api_conn
@@ -189,8 +189,8 @@ defmodule SentinelCpWeb.Integration.Auth.ScopeEnforcementTest do
       {api_conn, context} = setup_api_context(conn, scopes: ["nodes:read"])
 
       # Create another project
-      other_org = SentinelCp.OrgsFixtures.org_fixture()
-      other_project = SentinelCp.ProjectsFixtures.project_fixture(%{org: other_org})
+      other_org = ZentinelCp.OrgsFixtures.org_fixture()
+      other_project = ZentinelCp.ProjectsFixtures.project_fixture(%{org: other_org})
 
       # Cannot access other project
       error_resp =
@@ -219,10 +219,10 @@ defmodule SentinelCpWeb.Integration.Auth.ScopeEnforcementTest do
     test "nodes:write scope required for drift resolution", %{conn: conn} do
       {api_conn, context} = setup_api_context(conn, scopes: ["nodes:read"])
 
-      node = SentinelCp.NodesFixtures.node_fixture(%{project: context.project})
+      node = ZentinelCp.NodesFixtures.node_fixture(%{project: context.project})
 
       event =
-        SentinelCp.NodesFixtures.drift_event_fixture(%{
+        ZentinelCp.NodesFixtures.drift_event_fixture(%{
           node: node,
           project: context.project
         })

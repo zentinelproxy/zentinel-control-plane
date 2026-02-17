@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.AddBundleSigning do
+defmodule ZentinelCp.Repo.Migrations.AddBundleSigning do
   use Ecto.Migration
 
   def change do

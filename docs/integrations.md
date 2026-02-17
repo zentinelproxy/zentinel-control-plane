@@ -21,7 +21,7 @@ The control plane supports automatic bundle creation triggered by Git push event
 1. **Configure the project** with a Git repository:
    - Repository: `owner/repo` format (e.g., `acme/proxy-config`)
    - Branch: Target branch to watch (default: `main`)
-   - Config path: Path to KDL configuration file (default: `sentinel.kdl`)
+   - Config path: Path to KDL configuration file (default: `zentinel.kdl`)
 
 2. **Add a webhook** in your Git provider pointing to the appropriate endpoint.
 
@@ -79,7 +79,7 @@ Events are mapped to PagerDuty severities:
 - `security` events → "critical"
 - Other events → "info"
 
-Resolved/completed events automatically send "resolve" actions. Dedup key format: `sentinel-{event_type}-{project_id}`.
+Resolved/completed events automatically send "resolve" actions. Dedup key format: `zentinel-{event_type}-{project_id}`.
 
 #### Microsoft Teams
 
@@ -96,7 +96,7 @@ Send notification emails via Swoosh.
 
 **Configuration**:
 ```json
-{"to": "ops@example.com", "from": "noreply@sentinel.example.com"}
+{"to": "ops@example.com", "from": "noreply@zentinel.example.com"}
 ```
 
 #### Generic Webhook
@@ -115,8 +115,8 @@ The control plane generates an HMAC signing secret for each webhook channel. Pay
 - `project_id`, `org_id`: Context identifiers
 
 Signature headers:
-- `x-sentinel-signature`: `t={unix_timestamp},v1={hmac_sha256_hex}`
-- `x-sentinel-timestamp`: Unix timestamp
+- `x-zentinel-signature`: `t={unix_timestamp},v1={hmac_sha256_hex}`
+- `x-zentinel-timestamp`: Unix timestamp
 
 ### Testing Channels
 

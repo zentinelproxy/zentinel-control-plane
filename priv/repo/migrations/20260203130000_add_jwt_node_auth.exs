@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.AddJwtNodeAuth do
+defmodule ZentinelCp.Repo.Migrations.AddJwtNodeAuth do
   use Ecto.Migration
 
   def change do

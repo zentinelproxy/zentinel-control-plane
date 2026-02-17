@@ -1,6 +1,6 @@
-# Sentinel Control Plane Documentation
+# Zentinel Control Plane Documentation
 
-Sentinel Control Plane is a fleet management system for [Sentinel](https://sentinel.dev) reverse proxies. It provides centralized configuration management, safe rollout orchestration, node lifecycle tracking, and comprehensive observability for your proxy fleet.
+Zentinel Control Plane is a fleet management system for [Zentinel](https://zentinel.dev) reverse proxies. It provides centralized configuration management, safe rollout orchestration, node lifecycle tracking, and comprehensive observability for your proxy fleet.
 
 ## Quick Navigation
 
@@ -41,4 +41,4 @@ Sentinel Control Plane is a fleet management system for [Sentinel](https://senti
 - **Elixir** 1.16+ and **Erlang/OTP** 26+
 - **PostgreSQL** 15+ (production) or **SQLite** (development)
 - **S3-compatible storage** (MinIO for development, AWS S3 for production)
-- **Sentinel CLI** binary (`sentinel`) for bundle compilation
+- **Zentinel CLI** binary (`zentinel`) for bundle compilation

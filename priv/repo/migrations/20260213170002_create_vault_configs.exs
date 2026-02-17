@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.CreateVaultConfigs do
+defmodule ZentinelCp.Repo.Migrations.CreateVaultConfigs do
   use Ecto.Migration
 
   def change do

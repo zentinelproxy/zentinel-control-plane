@@ -4,12 +4,12 @@ services:
     ports:
       - "4000:4000"
     environment:
-      DATABASE_URL: "ecto://sentinel:sentinel@postgres:5432/sentinel_cp"
+      DATABASE_URL: "ecto://zentinel:zentinel@postgres:5432/zentinel_cp"
       SECRET_KEY_BASE: "change-me-in-production-use-mix-phx-gen-secret-to-generate"
       PHX_HOST: "localhost"
       PORT: "4000"
       S3_ENDPOINT: "http://minio:9000"
-      S3_BUCKET: "sentinel-bundles"
+      S3_BUCKET: "zentinel-bundles"
       S3_ACCESS_KEY_ID: "minioadmin"
       S3_SECRET_ACCESS_KEY: "minioadmin"
       S3_REGION: "us-east-1"
@@ -29,15 +29,15 @@ services:
   postgres:
     image: postgres:17-alpine
     environment:
-      POSTGRES_USER: sentinel
-      POSTGRES_PASSWORD: sentinel
-      POSTGRES_DB: sentinel_cp
+      POSTGRES_USER: zentinel
+      POSTGRES_PASSWORD: zentinel
+      POSTGRES_DB: zentinel_cp
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sentinel"]
+      test: ["CMD-SHELL", "pg_isready -U zentinel"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -67,7 +67,7 @@ services:
     entrypoint: >
       /bin/sh -c "
       mc alias set local http://minio:9000 minioadmin minioadmin;
-      mc mb local/sentinel-bundles --ignore-existing;
+      mc mb local/zentinel-bundles --ignore-existing;
       exit 0;
       "
 

@@ -1,10 +1,10 @@
-defmodule SentinelCpWeb.Integration.Api.CertificateWorkflowTest do
+defmodule ZentinelCpWeb.Integration.Api.CertificateWorkflowTest do
   @moduledoc """
   Integration tests for certificate API workflows.
   """
-  use SentinelCpWeb.IntegrationCase
+  use ZentinelCpWeb.IntegrationCase
 
-  import SentinelCp.CertificateFixtures
+  import ZentinelCp.CertificateFixtures
 
   @moduletag :integration
 

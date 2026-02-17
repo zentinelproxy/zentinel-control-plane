@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.CreateInternalCas do
+defmodule ZentinelCp.Repo.Migrations.CreateInternalCas do
   use Ecto.Migration
 
   def change do

@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.CreateBundlesTable do
+defmodule ZentinelCp.Repo.Migrations.CreateBundlesTable do
   use Ecto.Migration
 
   def change do

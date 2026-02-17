@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.AddParentBundleId do
+defmodule ZentinelCp.Repo.Migrations.AddParentBundleId do
   use Ecto.Migration
 
   def change do

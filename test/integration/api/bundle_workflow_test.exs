@@ -1,11 +1,11 @@
-defmodule SentinelCpWeb.Integration.Api.BundleWorkflowTest do
+defmodule ZentinelCpWeb.Integration.Api.BundleWorkflowTest do
   @moduledoc """
   Integration tests for bundle API workflows.
 
   Tests the complete lifecycle: create → poll status → download
   Also tests version uniqueness and bundle assignment.
   """
-  use SentinelCpWeb.IntegrationCase
+  use ZentinelCpWeb.IntegrationCase
 
   @moduletag :integration
 
@@ -86,7 +86,7 @@ defmodule SentinelCpWeb.Integration.Api.BundleWorkflowTest do
       # This test requires S3/MinIO to be configured
       {api_conn, context} = setup_api_context(conn, scopes: ["bundles:read"])
 
-      bundle = SentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
+      bundle = ZentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
 
       download_resp =
         api_conn
@@ -108,14 +108,14 @@ defmodule SentinelCpWeb.Integration.Api.BundleWorkflowTest do
 
       # Create bundle (stays pending in test without compile worker)
       {:ok, bundle} =
-        SentinelCp.Bundles.create_bundle(%{
+        ZentinelCp.Bundles.create_bundle(%{
           project_id: context.project.id,
           version: "pending-v1",
           config_source: @valid_kdl
         })
 
       # Force pending status
-      {:ok, bundle} = SentinelCp.Bundles.update_status(bundle, "pending")
+      {:ok, bundle} = ZentinelCp.Bundles.update_status(bundle, "pending")
 
       # Attempt download - should fail
       error_resp =
@@ -133,14 +133,14 @@ defmodule SentinelCpWeb.Integration.Api.BundleWorkflowTest do
         setup_api_context(conn, scopes: ["bundles:read", "bundles:write", "nodes:read"])
 
       # Create compiled bundle
-      bundle = SentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
+      bundle = ZentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
 
       # Register some nodes
       node1 =
-        SentinelCp.NodesFixtures.node_fixture(%{project: context.project, name: "assign-node-1"})
+        ZentinelCp.NodesFixtures.node_fixture(%{project: context.project, name: "assign-node-1"})
 
       node2 =
-        SentinelCp.NodesFixtures.node_fixture(%{project: context.project, name: "assign-node-2"})
+        ZentinelCp.NodesFixtures.node_fixture(%{project: context.project, name: "assign-node-2"})
 
       # Assign bundle
       assign_resp =
@@ -159,7 +159,7 @@ defmodule SentinelCpWeb.Integration.Api.BundleWorkflowTest do
       {api_conn, context} = setup_api_context(conn, scopes: ["bundles:read"])
 
       # Bundle signing is disabled in test config
-      bundle = SentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
+      bundle = ZentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
 
       verify_resp =
         api_conn
@@ -175,7 +175,7 @@ defmodule SentinelCpWeb.Integration.Api.BundleWorkflowTest do
     test "revoke compiled bundle", %{conn: conn} do
       {api_conn, context} = setup_api_context(conn, scopes: ["bundles:read", "bundles:write"])
 
-      bundle = SentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
+      bundle = ZentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: context.project})
 
       # Revoke
       revoke_resp =
@@ -200,7 +200,7 @@ defmodule SentinelCpWeb.Integration.Api.BundleWorkflowTest do
       {api_conn, context} = setup_api_context(conn, scopes: ["bundles:read"])
 
       # Create compiled bundle
-      SentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{
+      ZentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{
         project: context.project,
         version: "compiled-v1"
       })

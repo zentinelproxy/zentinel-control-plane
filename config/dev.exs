@@ -1,8 +1,8 @@
 import Config
 
 # Configure your database (SQLite for development)
-config :sentinel_cp, SentinelCp.Repo,
-  database: Path.expand("../sentinel_cp_dev.db", __DIR__),
+config :zentinel_cp, ZentinelCp.Repo,
+  database: Path.expand("../zentinel_cp_dev.db", __DIR__),
   pool_size: 5,
   stacktrace: true,
   show_sensitive_data_on_connection_error: true
@@ -13,7 +13,7 @@ config :sentinel_cp, SentinelCp.Repo,
 # The watchers configuration can be used to run external
 # watchers to your application. For example, we can use it
 # to bundle .js and .css sources.
-config :sentinel_cp, SentinelCpWeb.Endpoint,
+config :zentinel_cp, ZentinelCpWeb.Endpoint,
   # Binding to loopback ipv4 address prevents access from other machines.
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
   http: [ip: {127, 0, 0, 1}],
@@ -22,8 +22,8 @@ config :sentinel_cp, SentinelCpWeb.Endpoint,
   debug_errors: true,
   secret_key_base: "62cER6SLSxFRVRZIw30hJM/P8U7mKivZQ1/cRB+00NdHpoiowdunHjnq7Tqd2Czg",
   watchers: [
-    esbuild: {Esbuild, :install_and_run, [:sentinel_cp, ~w(--sourcemap=inline --watch)]},
-    tailwind: {Tailwind, :install_and_run, [:sentinel_cp, ~w(--watch)]}
+    esbuild: {Esbuild, :install_and_run, [:zentinel_cp, ~w(--sourcemap=inline --watch)]},
+    tailwind: {Tailwind, :install_and_run, [:zentinel_cp, ~w(--watch)]}
   ]
 
 # ## SSL Support
@@ -50,7 +50,7 @@ config :sentinel_cp, SentinelCpWeb.Endpoint,
 # different ports.
 
 # Reload browser tabs when matching files change.
-config :sentinel_cp, SentinelCpWeb.Endpoint,
+config :zentinel_cp, ZentinelCpWeb.Endpoint,
   live_reload: [
     web_console_logger: true,
     patterns: [
@@ -59,13 +59,13 @@ config :sentinel_cp, SentinelCpWeb.Endpoint,
       # Gettext translations
       ~r"priv/gettext/.*\.po$"E,
       # Router, Controllers, LiveViews and LiveComponents
-      ~r"lib/sentinel_cp_web/router\.ex$"E,
-      ~r"lib/sentinel_cp_web/(controllers|live|components)/.*\.(ex|heex)$"E
+      ~r"lib/zentinel_cp_web/router\.ex$"E,
+      ~r"lib/zentinel_cp_web/(controllers|live|components)/.*\.(ex|heex)$"E
     ]
   ]
 
 # Enable dev routes for dashboard and mailbox
-config :sentinel_cp, dev_routes: true
+config :zentinel_cp, dev_routes: true
 
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"
@@ -89,15 +89,15 @@ config :phoenix_live_view,
 config :swoosh, :api_client, false
 
 # Bundle storage (local filesystem in development, MinIO/S3 in production)
-config :sentinel_cp, SentinelCp.Bundles.Storage,
+config :zentinel_cp, ZentinelCp.Bundles.Storage,
   backend: :local,
   local_dir: Path.expand("../priv/bundles", __DIR__)
 
-# Bundle compiler (skip validation in dev — sentinel binary not required)
-config :sentinel_cp, SentinelCp.Bundles.Compiler,
-  sentinel_binary: System.get_env("SENTINEL_BINARY", "sentinel"),
-  skip_validation: !System.get_env("SENTINEL_BINARY")
+# Bundle compiler (skip validation in dev — zentinel binary not required)
+config :zentinel_cp, ZentinelCp.Bundles.Compiler,
+  zentinel_binary: System.get_env("ZENTINEL_BINARY", "zentinel"),
+  skip_validation: !System.get_env("ZENTINEL_BINARY")
 
 # Use Let's Encrypt staging in development
-config :sentinel_cp, :acme,
+config :zentinel_cp, :acme,
   directory_url: "https://acme-staging-v02.api.letsencrypt.org/directory"

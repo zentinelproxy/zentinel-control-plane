@@ -1,10 +1,10 @@
-defmodule SentinelCpWeb.E2E.DriftResolutionTest do
+defmodule ZentinelCpWeb.E2E.DriftResolutionTest do
   @moduledoc """
   E2E tests for drift detection and resolution UI.
 
   Tests event list, resolve single, and resolve all.
   """
-  use SentinelCpWeb.FeatureCase
+  use ZentinelCpWeb.FeatureCase
 
   @moduletag :e2e
 
@@ -23,12 +23,12 @@ defmodule SentinelCpWeb.E2E.DriftResolutionTest do
       {session, context} = setup_full_context(session)
 
       node =
-        SentinelCp.NodesFixtures.node_fixture(%{
+        ZentinelCp.NodesFixtures.node_fixture(%{
           project: context.project,
           name: "drifted-node"
         })
 
-      SentinelCp.NodesFixtures.drift_event_fixture(%{
+      ZentinelCp.NodesFixtures.drift_event_fixture(%{
         node: node,
         project: context.project,
         severity: "high"
@@ -44,8 +44,8 @@ defmodule SentinelCpWeb.E2E.DriftResolutionTest do
     feature "shows drift statistics", %{session: session} do
       {session, context} = setup_full_context(session)
 
-      node = SentinelCp.NodesFixtures.node_fixture(%{project: context.project})
-      SentinelCp.NodesFixtures.drift_event_fixture(%{node: node, project: context.project})
+      node = ZentinelCp.NodesFixtures.node_fixture(%{project: context.project})
+      ZentinelCp.NodesFixtures.drift_event_fixture(%{node: node, project: context.project})
 
       session
       |> visit("/projects/#{context.project.slug}/drift")
@@ -58,13 +58,13 @@ defmodule SentinelCpWeb.E2E.DriftResolutionTest do
       {session, context} = setup_full_context(session)
 
       node =
-        SentinelCp.NodesFixtures.node_fixture(%{
+        ZentinelCp.NodesFixtures.node_fixture(%{
           project: context.project,
           name: "resolve-single-node"
         })
 
       event =
-        SentinelCp.NodesFixtures.drift_event_fixture(%{
+        ZentinelCp.NodesFixtures.drift_event_fixture(%{
           node: node,
           project: context.project
         })
@@ -86,14 +86,14 @@ defmodule SentinelCpWeb.E2E.DriftResolutionTest do
       {session, context} = setup_full_context(session)
 
       node =
-        SentinelCp.NodesFixtures.node_fixture(%{
+        ZentinelCp.NodesFixtures.node_fixture(%{
           project: context.project,
           name: "resolve-all-node"
         })
 
       # Create multiple events
       for _ <- 1..3 do
-        SentinelCp.NodesFixtures.drift_event_fixture(%{
+        ZentinelCp.NodesFixtures.drift_event_fixture(%{
           node: node,
           project: context.project
         })
@@ -121,13 +121,13 @@ defmodule SentinelCpWeb.E2E.DriftResolutionTest do
       {session, context} = setup_full_context(session)
 
       node =
-        SentinelCp.NodesFixtures.node_fixture(%{
+        ZentinelCp.NodesFixtures.node_fixture(%{
           project: context.project,
           name: "detail-drift-node"
         })
 
       event =
-        SentinelCp.NodesFixtures.drift_event_fixture(%{
+        ZentinelCp.NodesFixtures.drift_event_fixture(%{
           node: node,
           project: context.project,
           severity: "critical"
@@ -143,10 +143,10 @@ defmodule SentinelCpWeb.E2E.DriftResolutionTest do
     feature "resolve from details page", %{session: session} do
       {session, context} = setup_full_context(session)
 
-      node = SentinelCp.NodesFixtures.node_fixture(%{project: context.project})
+      node = ZentinelCp.NodesFixtures.node_fixture(%{project: context.project})
 
       event =
-        SentinelCp.NodesFixtures.drift_event_fixture(%{
+        ZentinelCp.NodesFixtures.drift_event_fixture(%{
           node: node,
           project: context.project
         })
@@ -162,15 +162,15 @@ defmodule SentinelCpWeb.E2E.DriftResolutionTest do
     feature "filter by severity", %{session: session} do
       {session, context} = setup_full_context(session)
 
-      node = SentinelCp.NodesFixtures.node_fixture(%{project: context.project})
+      node = ZentinelCp.NodesFixtures.node_fixture(%{project: context.project})
 
-      SentinelCp.NodesFixtures.drift_event_fixture(%{
+      ZentinelCp.NodesFixtures.drift_event_fixture(%{
         node: node,
         project: context.project,
         severity: "high"
       })
 
-      SentinelCp.NodesFixtures.drift_event_fixture(%{
+      ZentinelCp.NodesFixtures.drift_event_fixture(%{
         node: node,
         project: context.project,
         severity: "low"
@@ -184,21 +184,21 @@ defmodule SentinelCpWeb.E2E.DriftResolutionTest do
     feature "filter by status (active/resolved)", %{session: session} do
       {session, context} = setup_full_context(session)
 
-      node = SentinelCp.NodesFixtures.node_fixture(%{project: context.project})
+      node = ZentinelCp.NodesFixtures.node_fixture(%{project: context.project})
 
       _active_event =
-        SentinelCp.NodesFixtures.drift_event_fixture(%{
+        ZentinelCp.NodesFixtures.drift_event_fixture(%{
           node: node,
           project: context.project
         })
 
       resolved_event =
-        SentinelCp.NodesFixtures.drift_event_fixture(%{
+        ZentinelCp.NodesFixtures.drift_event_fixture(%{
           node: node,
           project: context.project
         })
 
-      {:ok, _} = SentinelCp.Nodes.resolve_drift_event(resolved_event, "manual")
+      {:ok, _} = ZentinelCp.Nodes.resolve_drift_event(resolved_event, "manual")
 
       session
       |> visit("/projects/#{context.project.slug}/drift")

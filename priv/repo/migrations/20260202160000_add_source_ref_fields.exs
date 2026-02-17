@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.AddSourceRefFields do
+defmodule ZentinelCp.Repo.Migrations.AddSourceRefFields do
   use Ecto.Migration
 
   def change do
@@ -12,7 +12,7 @@ defmodule SentinelCp.Repo.Migrations.AddSourceRefFields do
     alter table(:projects) do
       add :github_repo, :string
       add :github_branch, :string, default: "main"
-      add :config_path, :string, default: "sentinel.kdl"
+      add :config_path, :string, default: "zentinel.kdl"
     end
 
     create index(:projects, [:github_repo])

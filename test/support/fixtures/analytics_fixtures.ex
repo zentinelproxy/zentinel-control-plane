@@ -1,14 +1,14 @@
-defmodule SentinelCp.AnalyticsFixtures do
+defmodule ZentinelCp.AnalyticsFixtures do
   @moduledoc """
   Test helpers for creating analytics entities.
   """
 
-  alias SentinelCp.Repo
-  alias SentinelCp.Analytics.{ServiceMetric, RequestLog}
+  alias ZentinelCp.Repo
+  alias ZentinelCp.Analytics.{ServiceMetric, RequestLog}
 
   def metric_fixture(attrs \\ %{}) do
-    project = attrs[:project] || SentinelCp.ProjectsFixtures.project_fixture()
-    service = attrs[:service] || SentinelCp.ServicesFixtures.service_fixture(%{project: project})
+    project = attrs[:project] || ZentinelCp.ProjectsFixtures.project_fixture()
+    service = attrs[:service] || ZentinelCp.ServicesFixtures.service_fixture(%{project: project})
 
     now = DateTime.utc_now() |> DateTime.truncate(:second)
 
@@ -39,8 +39,8 @@ defmodule SentinelCp.AnalyticsFixtures do
   end
 
   def request_log_fixture(attrs \\ %{}) do
-    project = attrs[:project] || SentinelCp.ProjectsFixtures.project_fixture()
-    service = attrs[:service] || SentinelCp.ServicesFixtures.service_fixture(%{project: project})
+    project = attrs[:project] || ZentinelCp.ProjectsFixtures.project_fixture()
+    service = attrs[:service] || ZentinelCp.ServicesFixtures.service_fixture(%{project: project})
 
     {:ok, log} =
       %RequestLog{}

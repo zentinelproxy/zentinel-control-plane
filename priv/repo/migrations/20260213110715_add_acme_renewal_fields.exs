@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.AddAcmeRenewalFields do
+defmodule ZentinelCp.Repo.Migrations.AddAcmeRenewalFields do
   use Ecto.Migration
 
   def change do

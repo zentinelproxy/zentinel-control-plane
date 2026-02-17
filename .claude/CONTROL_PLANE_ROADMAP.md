@@ -1,6 +1,6 @@
-# Sentinel Control Plane (Elixir) — Implementation Roadmap
+# Zentinel Control Plane (Elixir) — Implementation Roadmap
 
-> Refined implementation plan for the Sentinel Control Plane in Elixir/Phoenix.
+> Refined implementation plan for the Zentinel Control Plane in Elixir/Phoenix.
 
 ## 0) Goals, Non-goals, Principles
 
@@ -31,7 +31,7 @@
    - REST API for nodes and operators
    - LiveView for operator workflows
 2. **Compiler Service (Hybrid)**
-   - Uses `sentinel validate` for validation (shells out to Rust binary)
+   - Uses `zentinel validate` for validation (shells out to Rust binary)
    - Elixir handles bundling, hashing, signing, storage
 3. **Bundle Store**
    - S3/MinIO (always — MinIO for dev, S3/compatible for prod)
@@ -43,7 +43,7 @@
 ### Data Flow (v1: pull)
 ```
 Desired state updated (via API or GitOps webhook)
-    → Compiler validates config via `sentinel validate`
+    → Compiler validates config via `zentinel validate`
     → Produces Bundle (tar.zst)
     → Stored in MinIO/S3
     → Rollout controller assigns target nodes
@@ -60,11 +60,11 @@ Desired state updated (via API or GitOps webhook)
 Single Phoenix application with clear module boundaries:
 
 ```
-sentinel-cp/
+zentinel-cp/
 ├── .claude/
 │   └── CONTROL_PLANE_ROADMAP.md
 ├── lib/
-│   ├── sentinel_cp/
+│   ├── zentinel_cp/
 │   │   ├── bundles/          # Bundle lifecycle
 │   │   ├── compiler/         # Compilation pipeline
 │   │   ├── nodes/            # Node management
@@ -74,7 +74,7 @@ sentinel-cp/
 │   │   ├── audit/            # Audit logging
 │   │   ├── storage/          # S3/MinIO abstraction
 │   │   └── simulator/        # Node simulator for testing
-│   └── sentinel_cp_web/
+│   └── zentinel_cp_web/
 │       ├── controllers/      # REST API
 │       ├── live/             # LiveView pages
 │       └── components/       # UI components
@@ -95,7 +95,7 @@ sentinel-cp/
 ```elixir
 # Core entities
 Project          # Tenant boundary
-Node             # Sentinel instance
+Node             # Zentinel instance
 NodeGroup        # Label selector or explicit set
 DesiredConfig    # Raw inputs (manifests)
 Bundle           # Compiled immutable artifact
@@ -121,7 +121,7 @@ Org              # Organization boundary
 ```
 bundle.tar.zst
 ├── manifest.json    # Metadata + hashes
-├── config.json      # Merged sentinel config
+├── config.json      # Merged zentinel config
 └── checksums.txt    # Per-file SHA256
 ```
 
@@ -140,7 +140,7 @@ bundle.tar.zst
     "config.json": "sha256:..."
   },
   "compat": {
-    "sentinel_min_version": "2025.01"
+    "zentinel_min_version": "2025.01"
   },
   "risk": "low|medium|high",
   "risk_reasons": []
@@ -308,7 +308,7 @@ CREATE TABLE audit_logs (
 ## 6) API Design
 
 ### Node Authentication
-- Static node keys (v1): `X-Sentinel-Node-Key: <random>` stored hashed
+- Static node keys (v1): `X-Zentinel-Node-Key: <random>` stored hashed
 - v1.1: Add JWT option for short-lived tokens
 
 ### Node Endpoints
@@ -367,12 +367,12 @@ GET    /api/v1/projects/:project/audit_logs
 ## 7) Compiler Pipeline (Hybrid Approach)
 
 ### Strategy
-Use `sentinel validate` for validation, Elixir for bundling:
+Use `zentinel validate` for validation, Elixir for bundling:
 
 ```elixir
-defmodule SentinelCp.Compiler do
+defmodule ZentinelCp.Compiler do
   def compile(project, desired_config) do
-    with {:ok, validated} <- validate_with_sentinel(desired_config),
+    with {:ok, validated} <- validate_with_zentinel(desired_config),
          {:ok, bundle_content} <- build_bundle(project, validated),
          {:ok, hashes} <- compute_hashes(bundle_content),
          {:ok, manifest} <- build_manifest(project, hashes, desired_config),
@@ -383,9 +383,9 @@ defmodule SentinelCp.Compiler do
     end
   end
 
-  defp validate_with_sentinel(config) do
+  defp validate_with_zentinel(config) do
     # Write config to temp file
-    # Run: sentinel validate --json <temp_file>
+    # Run: zentinel validate --json <temp_file>
     # Parse JSON output for errors/warnings
   end
 end
@@ -393,7 +393,7 @@ end
 
 ### Risk Scoring (v1 minimal)
 ```elixir
-defmodule SentinelCp.Compiler.Risk do
+defmodule ZentinelCp.Compiler.Risk do
   def score(prev_bundle, new_bundle) do
     reasons = []
 
@@ -421,32 +421,32 @@ end
 ### Oban Jobs
 ```elixir
 # Process rollout ticks
-defmodule SentinelCp.Rollouts.TickWorker do
+defmodule ZentinelCp.Rollouts.TickWorker do
   use Oban.Worker, queue: :rollouts, max_attempts: 3
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"rollout_id" => rollout_id}}) do
-    SentinelCp.Rollouts.Orchestrator.tick(rollout_id)
+    ZentinelCp.Rollouts.Orchestrator.tick(rollout_id)
   end
 end
 
 # Mark stale nodes offline
-defmodule SentinelCp.Nodes.StalenessWorker do
+defmodule ZentinelCp.Nodes.StalenessWorker do
   use Oban.Worker, queue: :maintenance
 
   @impl Oban.Worker
   def perform(_job) do
-    SentinelCp.Nodes.mark_stale_offline()
+    ZentinelCp.Nodes.mark_stale_offline()
   end
 end
 
 # Clean old bundles
-defmodule SentinelCp.Bundles.GCWorker do
+defmodule ZentinelCp.Bundles.GCWorker do
   use Oban.Worker, queue: :maintenance
 
   @impl Oban.Worker
   def perform(_job) do
-    SentinelCp.Bundles.garbage_collect()
+    ZentinelCp.Bundles.garbage_collect()
   end
 end
 ```
@@ -462,7 +462,7 @@ NodeBundleStatus: assigned → staged → activated → verified
 
 ### Health Gates (v1)
 ```elixir
-defmodule SentinelCp.Rollouts.HealthGates do
+defmodule ZentinelCp.Rollouts.HealthGates do
   def check(rollout, step) do
     nodes = get_step_nodes(step)
 
@@ -488,13 +488,13 @@ end
 ## 9) Node Simulator
 
 ### Purpose
-- Test rollout logic without real Sentinel instances
+- Test rollout logic without real Zentinel instances
 - Load testing (simulate 100+ nodes)
 - CI integration tests
 
 ### Implementation
 ```elixir
-defmodule SentinelCp.Simulator.Node do
+defmodule ZentinelCp.Simulator.Node do
   use GenServer
 
   defstruct [:id, :name, :project_id, :node_key, :current_bundle, :state, :config]
@@ -558,12 +558,12 @@ defmodule SentinelCp.Simulator.Node do
   end
 end
 
-defmodule SentinelCp.Simulator.Fleet do
+defmodule ZentinelCp.Simulator.Fleet do
   @moduledoc "Spawn and manage multiple simulated nodes"
 
   def spawn_nodes(project_id, count, opts \\ []) do
     for i <- 1..count do
-      SentinelCp.Simulator.Node.start_link(
+      ZentinelCp.Simulator.Node.start_link(
         name: "sim-node-#{i}",
         project_id: project_id,
         config: %{
@@ -666,7 +666,7 @@ Log all mutations:
 
 ### Phase 3 — Compiler
 **Deliverables:**
-- `sentinel validate` integration
+- `zentinel validate` integration
 - Bundle assembly (tar.zst)
 - Hashing + manifest generation
 - Risk scoring (basic)

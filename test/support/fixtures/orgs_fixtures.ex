@@ -1,4 +1,4 @@
-defmodule SentinelCp.OrgsFixtures do
+defmodule ZentinelCp.OrgsFixtures do
   @moduledoc """
   Test helpers for creating Orgs entities.
   """
@@ -15,19 +15,19 @@ defmodule SentinelCp.OrgsFixtures do
     {:ok, org} =
       attrs
       |> valid_org_attributes()
-      |> SentinelCp.Orgs.create_org()
+      |> ZentinelCp.Orgs.create_org()
 
     org
   end
 
   def org_with_owner_fixture(attrs \\ %{}) do
-    user = attrs[:user] || SentinelCp.AccountsFixtures.user_fixture()
+    user = attrs[:user] || ZentinelCp.AccountsFixtures.user_fixture()
     org_attrs = Map.drop(attrs, [:user])
 
     {:ok, org} =
       org_attrs
       |> valid_org_attributes()
-      |> SentinelCp.Orgs.create_org_with_owner(user)
+      |> ZentinelCp.Orgs.create_org_with_owner(user)
 
     {org, user}
   end

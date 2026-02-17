@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.CreateWafRulesAndPolicies do
+defmodule ZentinelCp.Repo.Migrations.CreateWafRulesAndPolicies do
   use Ecto.Migration
 
   def change do

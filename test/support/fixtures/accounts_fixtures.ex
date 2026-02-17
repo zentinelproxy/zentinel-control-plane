@@ -1,4 +1,4 @@
-defmodule SentinelCp.AccountsFixtures do
+defmodule ZentinelCp.AccountsFixtures do
   @moduledoc """
   Test helpers for creating Accounts entities.
   """
@@ -18,7 +18,7 @@ defmodule SentinelCp.AccountsFixtures do
     {:ok, user} =
       attrs
       |> valid_user_attributes()
-      |> SentinelCp.Accounts.register_user()
+      |> ZentinelCp.Accounts.register_user()
 
     user
   end
@@ -29,10 +29,10 @@ defmodule SentinelCp.AccountsFixtures do
 
   def api_key_fixture(attrs \\ %{}) do
     user = attrs[:user] || user_fixture()
-    project = attrs[:project] || SentinelCp.ProjectsFixtures.project_fixture()
+    project = attrs[:project] || ZentinelCp.ProjectsFixtures.project_fixture()
 
     {:ok, api_key} =
-      SentinelCp.Accounts.create_api_key(%{
+      ZentinelCp.Accounts.create_api_key(%{
         name: attrs[:name] || "test-key-#{System.unique_integer([:positive])}",
         user_id: user.id,
         project_id: project.id,

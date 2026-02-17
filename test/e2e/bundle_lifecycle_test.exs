@@ -1,10 +1,10 @@
-defmodule SentinelCpWeb.E2E.BundleLifecycleTest do
+defmodule ZentinelCpWeb.E2E.BundleLifecycleTest do
   @moduledoc """
   E2E tests for bundle management UI.
 
   Tests bundle list, compilation status, details view, and diff view.
   """
-  use SentinelCpWeb.FeatureCase
+  use ZentinelCpWeb.FeatureCase
 
   @moduletag :e2e
 
@@ -22,12 +22,12 @@ defmodule SentinelCpWeb.E2E.BundleLifecycleTest do
     feature "displays bundles when they exist", %{session: session} do
       {session, context} = setup_full_context(session)
 
-      SentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{
+      ZentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{
         project: context.project,
         version: "v1.0.0"
       })
 
-      SentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{
+      ZentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{
         project: context.project,
         version: "v1.1.0"
       })
@@ -42,7 +42,7 @@ defmodule SentinelCpWeb.E2E.BundleLifecycleTest do
     feature "shows compilation status badges", %{session: session} do
       {session, context} = setup_full_context(session)
 
-      SentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{
+      ZentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{
         project: context.project,
         version: "v2.0.0"
       })
@@ -58,7 +58,7 @@ defmodule SentinelCpWeb.E2E.BundleLifecycleTest do
       {session, context} = setup_full_context(session)
 
       bundle =
-        SentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{
+        ZentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{
           project: context.project,
           version: "v3.0.0"
         })
@@ -73,7 +73,7 @@ defmodule SentinelCpWeb.E2E.BundleLifecycleTest do
       {session, context} = setup_full_context(session)
 
       bundle =
-        SentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{
+        ZentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{
           project: context.project,
           version: "v4.0.0"
         })
@@ -106,14 +106,14 @@ defmodule SentinelCpWeb.E2E.BundleLifecycleTest do
       {session, context} = setup_full_context(session)
 
       bundle1 =
-        SentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{
+        ZentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{
           project: context.project,
           version: "v5.0.0",
           config_source: "system { workers 4 }"
         })
 
       bundle2 =
-        SentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{
+        ZentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{
           project: context.project,
           version: "v5.1.0",
           config_source: "system { workers 8 }"
@@ -131,7 +131,7 @@ defmodule SentinelCpWeb.E2E.BundleLifecycleTest do
     feature "filter bundles by status", %{session: session} do
       {session, context} = setup_full_context(session)
 
-      SentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{
+      ZentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{
         project: context.project,
         version: "v6.0.0"
       })

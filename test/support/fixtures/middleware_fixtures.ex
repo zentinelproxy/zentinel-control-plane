@@ -1,4 +1,4 @@
-defmodule SentinelCp.MiddlewareFixtures do
+defmodule ZentinelCp.MiddlewareFixtures do
   @moduledoc """
   Test helpers for creating Middleware and ServiceMiddleware entities.
   """
@@ -6,10 +6,10 @@ defmodule SentinelCp.MiddlewareFixtures do
   def unique_middleware_name, do: "middleware-#{System.unique_integer([:positive])}"
 
   def middleware_fixture(attrs \\ %{}) do
-    project = attrs[:project] || SentinelCp.ProjectsFixtures.project_fixture()
+    project = attrs[:project] || ZentinelCp.ProjectsFixtures.project_fixture()
 
     {:ok, middleware} =
-      SentinelCp.Services.create_middleware(%{
+      ZentinelCp.Services.create_middleware(%{
         name: attrs[:name] || unique_middleware_name(),
         description: attrs[:description] || "A test middleware",
         middleware_type: attrs[:middleware_type] || "cors",
@@ -22,11 +22,11 @@ defmodule SentinelCp.MiddlewareFixtures do
   end
 
   def service_middleware_fixture(attrs \\ %{}) do
-    service = attrs[:service] || SentinelCp.ServicesFixtures.service_fixture()
+    service = attrs[:service] || ZentinelCp.ServicesFixtures.service_fixture()
     middleware = attrs[:middleware] || middleware_fixture(%{project: attrs[:project]})
 
     {:ok, sm} =
-      SentinelCp.Services.attach_middleware(%{
+      ZentinelCp.Services.attach_middleware(%{
         service_id: service.id,
         middleware_id: middleware.id,
         position: attrs[:position] || 0,

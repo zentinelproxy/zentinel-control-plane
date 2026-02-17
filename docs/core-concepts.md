@@ -1,6 +1,6 @@
 # Core Concepts
 
-This document explains the fundamental resources and relationships in Sentinel Control Plane.
+This document explains the fundamental resources and relationships in Zentinel Control Plane.
 
 ## Organizations
 
@@ -27,7 +27,7 @@ See [Operations > Organizations](operations.md#organizations) for management det
 Projects group related proxy configurations within an organization. A project typically represents a single application, service domain, or deployment boundary.
 
 Each project contains:
-- **Nodes** — Sentinel proxy instances assigned to this project
+- **Nodes** — Zentinel proxy instances assigned to this project
 - **Bundles** — Compiled configuration artifacts
 - **Rollouts** — Deployment plans for distributing bundles
 - **Services** — Proxy route definitions
@@ -53,7 +53,7 @@ Projects can be linked to a Git repository for automatic bundle creation on push
 
 - **Repository**: Owner/repo format (e.g., `acme/proxy-config`)
 - **Branch**: Target branch to watch (default: `main`)
-- **Config Path**: Path to the KDL configuration file (default: `sentinel.kdl`)
+- **Config Path**: Path to the KDL configuration file (default: `zentinel.kdl`)
 
 See [Integrations > GitOps](integrations.md#gitops-webhooks) for setup.
 
@@ -91,7 +91,7 @@ Nodes are assigned to environments, and rollouts can target a specific environme
 
 ## Bundles
 
-Bundles are immutable, content-addressed configuration artifacts consumed by Sentinel proxy nodes.
+Bundles are immutable, content-addressed configuration artifacts consumed by Zentinel proxy nodes.
 
 ### Bundle Lifecycle
 
@@ -142,7 +142,7 @@ See [Configuration Management](configuration-management.md) for how to define th
 
 ## Nodes
 
-Nodes are Sentinel proxy instances that pull configuration bundles from the control plane.
+Nodes are Zentinel proxy instances that pull configuration bundles from the control plane.
 
 ### Node Properties
 
@@ -152,7 +152,7 @@ Nodes are Sentinel proxy instances that pull configuration bundles from the cont
 | `status` | `online`, `offline`, or `unknown` |
 | `labels` | Key-value metadata for targeting (e.g., `region: us-east-1`) |
 | `capabilities` | Feature flags and version info |
-| `version` | Sentinel software version |
+| `version` | Zentinel software version |
 | `ip`, `hostname` | Network information (updated via heartbeats) |
 | `active_bundle_id` | Currently running bundle |
 | `staged_bundle_id` | Bundle waiting to be activated |

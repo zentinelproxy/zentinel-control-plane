@@ -1,11 +1,11 @@
-defmodule SentinelCp.WafFixtures do
+defmodule ZentinelCp.WafFixtures do
   @moduledoc """
   Test helpers for creating WAF entities (rules, policies, overrides).
   """
 
-  alias SentinelCp.Repo
-  alias SentinelCp.Waf
-  alias SentinelCp.Waf.WafRule
+  alias ZentinelCp.Repo
+  alias ZentinelCp.Waf
+  alias ZentinelCp.Waf.WafRule
 
   def unique_rule_id, do: "TEST-#{System.unique_integer([:positive])}"
   def unique_policy_name, do: "waf-policy-#{System.unique_integer([:positive])}"
@@ -31,7 +31,7 @@ defmodule SentinelCp.WafFixtures do
   end
 
   def waf_policy_fixture(attrs \\ %{}) do
-    project = attrs[:project] || SentinelCp.ProjectsFixtures.project_fixture()
+    project = attrs[:project] || ZentinelCp.ProjectsFixtures.project_fixture()
 
     {:ok, policy} =
       Waf.create_policy(%{

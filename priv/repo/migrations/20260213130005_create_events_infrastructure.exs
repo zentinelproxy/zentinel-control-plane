@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.CreateEventsInfrastructure do
+defmodule ZentinelCp.Repo.Migrations.CreateEventsInfrastructure do
   use Ecto.Migration
 
   def change do

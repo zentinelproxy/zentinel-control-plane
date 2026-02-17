@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.AddScheduledRollouts do
+defmodule ZentinelCp.Repo.Migrations.AddScheduledRollouts do
   use Ecto.Migration
 
   def change do

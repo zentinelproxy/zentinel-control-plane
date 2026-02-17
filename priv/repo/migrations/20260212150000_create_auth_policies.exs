@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.CreateAuthPolicies do
+defmodule ZentinelCp.Repo.Migrations.CreateAuthPolicies do
   use Ecto.Migration
 
   def change do

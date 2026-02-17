@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.CreateOpenapiSpecs do
+defmodule ZentinelCp.Repo.Migrations.CreateOpenapiSpecs do
   use Ecto.Migration
 
   def change do

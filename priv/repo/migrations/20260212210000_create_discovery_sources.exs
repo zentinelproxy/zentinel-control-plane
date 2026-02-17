@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.CreateDiscoverySources do
+defmodule ZentinelCp.Repo.Migrations.CreateDiscoverySources do
   use Ecto.Migration
 
   def change do

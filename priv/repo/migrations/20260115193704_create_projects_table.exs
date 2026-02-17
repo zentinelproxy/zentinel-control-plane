@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.CreateProjectsTable do
+defmodule ZentinelCp.Repo.Migrations.CreateProjectsTable do
   use Ecto.Migration
 
   def change do

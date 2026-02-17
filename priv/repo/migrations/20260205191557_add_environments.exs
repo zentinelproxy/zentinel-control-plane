@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.AddEnvironments do
+defmodule ZentinelCp.Repo.Migrations.AddEnvironments do
   use Ecto.Migration
 
   def change do

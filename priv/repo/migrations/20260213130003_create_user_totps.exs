@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.CreateUserTotps do
+defmodule ZentinelCp.Repo.Migrations.CreateUserTotps do
   use Ecto.Migration
 
   def change do

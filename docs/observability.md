@@ -1,6 +1,6 @@
 # Observability
 
-This guide covers monitoring, alerting, analytics, and instrumentation in Sentinel Control Plane.
+This guide covers monitoring, alerting, analytics, and instrumentation in Zentinel Control Plane.
 
 ## Dashboard
 
@@ -266,26 +266,26 @@ Anomalies emit `security.waf_anomaly` events for notification routing.
 
 The control plane exposes Prometheus metrics at `/metrics` via PromEx.
 
-### Custom Sentinel Metrics
+### Custom Zentinel Metrics
 
 **Gauge metrics** (polled every 15 seconds):
 
 | Metric | Labels | Description |
 |--------|--------|-------------|
-| `sentinel_cp_nodes_total` | `status` | Node count by status |
-| `sentinel_cp_rollouts_active` | — | Active rollout count |
-| `sentinel_cp_drift_events_active` | — | Unresolved drift events |
-| `sentinel_cp_drift_nodes_drifted` | — | Currently drifted nodes |
-| `sentinel_cp_slos_total` | `status` | SLO count by status (healthy/warning/breached) |
-| `sentinel_cp_alerts_firing` | — | Currently firing alerts |
+| `zentinel_cp_nodes_total` | `status` | Node count by status |
+| `zentinel_cp_rollouts_active` | — | Active rollout count |
+| `zentinel_cp_drift_events_active` | — | Unresolved drift events |
+| `zentinel_cp_drift_nodes_drifted` | — | Currently drifted nodes |
+| `zentinel_cp_slos_total` | `status` | SLO count by status (healthy/warning/breached) |
+| `zentinel_cp_alerts_firing` | — | Currently firing alerts |
 
 **Counter metrics** (event-driven):
 
 | Metric | Labels | Description |
 |--------|--------|-------------|
-| `sentinel_cp_bundles_total` | `status` | Bundles by compilation status |
-| `sentinel_cp_webhook_events_total` | `event_type` | Webhook events received |
-| `sentinel_cp_drift_events_total` | `type` | Drift events (detected/resolved) |
+| `zentinel_cp_bundles_total` | `status` | Bundles by compilation status |
+| `zentinel_cp_webhook_events_total` | `event_type` | Webhook events received |
+| `zentinel_cp_drift_events_total` | `type` | Drift events (detected/resolved) |
 
 ### Standard Metrics
 
@@ -304,9 +304,9 @@ The control plane emits OpenTelemetry traces for key operations when `OTEL_EXPOR
 
 | Span Name | Attributes | Description |
 |-----------|------------|-------------|
-| `sentinel_cp.bundle_compilation` | `bundle_id` | Full compilation pipeline |
-| `sentinel_cp.rollout_tick` | `rollout_id` | Each rollout tick cycle |
-| `sentinel_cp.webhook_processing` | `provider` | Webhook event processing |
-| `sentinel_cp.node_heartbeat` | `node_id` | Heartbeat recording |
+| `zentinel_cp.bundle_compilation` | `bundle_id` | Full compilation pipeline |
+| `zentinel_cp.rollout_tick` | `rollout_id` | Each rollout tick cycle |
+| `zentinel_cp.webhook_processing` | `provider` | Webhook event processing |
+| `zentinel_cp.node_heartbeat` | `node_id` | Heartbeat recording |
 
 Each span captures timing, errors, and relevant metadata as span attributes.

@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.CreateTrustStores do
+defmodule ZentinelCp.Repo.Migrations.CreateTrustStores do
   use Ecto.Migration
 
   def change do

@@ -1,6 +1,6 @@
 # Node Management
 
-This guide covers the full lifecycle of Sentinel proxy nodes: registration, authentication, heartbeats, groups, labels, drift detection, version pinning, and decommissioning.
+This guide covers the full lifecycle of Zentinel proxy nodes: registration, authentication, heartbeats, groups, labels, drift detection, version pinning, and decommissioning.
 
 ## Node Registration
 
@@ -37,7 +37,7 @@ curl -X POST http://localhost:4000/api/v1/projects/my-project/nodes/register \
 | `name` | Yes | Unique name within the project |
 | `labels` | No | Key-value metadata for targeting |
 | `capabilities` | No | Feature flags (e.g., `["http2", "grpc"]`) |
-| `version` | No | Sentinel software version |
+| `version` | No | Zentinel software version |
 
 ## Authentication
 
@@ -45,10 +45,10 @@ Nodes authenticate with the control plane using one of two methods.
 
 ### Static Key (Simple)
 
-Send the node key in every request via the `X-Sentinel-Node-Key` header:
+Send the node key in every request via the `X-Zentinel-Node-Key` header:
 
 ```
-X-Sentinel-Node-Key: base64-encoded-node-key
+X-Zentinel-Node-Key: base64-encoded-node-key
 ```
 
 The control plane hashes the key and looks up the node. This method is simple but means the key is sent with every request.
@@ -59,7 +59,7 @@ Exchange the static key for a short-lived JWT token:
 
 ```bash
 curl -X POST http://localhost:4000/api/v1/nodes/:node_id/token \
-  -H "X-Sentinel-Node-Key: base64-encoded-node-key"
+  -H "X-Zentinel-Node-Key: base64-encoded-node-key"
 ```
 
 **Response**:

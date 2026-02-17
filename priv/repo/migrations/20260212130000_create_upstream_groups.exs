@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.CreateUpstreamGroups do
+defmodule ZentinelCp.Repo.Migrations.CreateUpstreamGroups do
   use Ecto.Migration
 
   def change do

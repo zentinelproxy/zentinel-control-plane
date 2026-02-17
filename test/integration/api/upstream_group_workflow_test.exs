@@ -1,8 +1,8 @@
-defmodule SentinelCpWeb.Integration.Api.UpstreamGroupWorkflowTest do
+defmodule ZentinelCpWeb.Integration.Api.UpstreamGroupWorkflowTest do
   @moduledoc """
   Integration tests for upstream group API workflows.
   """
-  use SentinelCpWeb.IntegrationCase
+  use ZentinelCpWeb.IntegrationCase
 
   @moduletag :integration
 

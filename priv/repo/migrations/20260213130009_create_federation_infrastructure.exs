@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.CreateFederationInfrastructure do
+defmodule ZentinelCp.Repo.Migrations.CreateFederationInfrastructure do
   use Ecto.Migration
 
   def change do

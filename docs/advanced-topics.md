@@ -4,14 +4,14 @@ This guide covers the node fleet simulator, service topology visualization, conf
 
 ## Node Fleet Simulator
 
-The control plane includes a built-in simulator for spawning virtual Sentinel nodes. This is useful for testing rollouts, drift detection, and dashboards without deploying real proxy instances.
+The control plane includes a built-in simulator for spawning virtual Zentinel nodes. This is useful for testing rollouts, drift detection, and dashboards without deploying real proxy instances.
 
 ### Spawning Simulated Nodes
 
 From an IEx console:
 
 ```elixir
-alias SentinelCp.Simulator.Fleet
+alias ZentinelCp.Simulator.Fleet
 
 # Spawn 10 simulated nodes for a project
 {:ok, nodes} = Fleet.spawn_nodes("my-project", 10,
@@ -203,7 +203,7 @@ Each bundle shows its promotion timeline: which environments it has been promote
 
 ## KDL Configuration Generation
 
-When services, upstreams, certificates, and other resources are defined in the control plane, they are compiled into KDL (KNode Document Language) configuration for the Sentinel proxy.
+When services, upstreams, certificates, and other resources are defined in the control plane, they are compiled into KDL (KNode Document Language) configuration for the Zentinel proxy.
 
 ### How It Works
 
@@ -263,7 +263,7 @@ Every compiled bundle is automatically scored for risk by comparing it against t
 **Symptom**: Bundle status stays at `compiling` or transitions to `failed`.
 
 **Check**:
-1. Ensure the `sentinel` binary is available at the configured `SENTINEL_BINARY` path
+1. Ensure the `zentinel` binary is available at the configured `ZENTINEL_BINARY` path
 2. Check the bundle's `error` field for validation messages
 3. Review the Oban job logs for `CompileWorker` failures
 

@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.CreateCircuitBreakerStatuses do
+defmodule ZentinelCp.Repo.Migrations.CreateCircuitBreakerStatuses do
   use Ecto.Migration
 
   def change do

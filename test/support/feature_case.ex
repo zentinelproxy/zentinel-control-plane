@@ -1,4 +1,4 @@
-defmodule SentinelCpWeb.FeatureCase do
+defmodule ZentinelCpWeb.FeatureCase do
   @moduledoc """
   This module defines the test case for browser-based E2E tests using Wallaby.
 
@@ -7,7 +7,7 @@ defmodule SentinelCpWeb.FeatureCase do
 
   ## Usage
 
-      use SentinelCpWeb.FeatureCase
+      use ZentinelCpWeb.FeatureCase
 
       @tag :e2e
       feature "user can log in", %{session: session} do
@@ -36,11 +36,11 @@ defmodule SentinelCpWeb.FeatureCase do
       use Wallaby.Feature
 
       import Wallaby.Query
-      import SentinelCpWeb.FeatureCase
+      import ZentinelCpWeb.FeatureCase
 
-      alias SentinelCpWeb.Router.Helpers, as: Routes
+      alias ZentinelCpWeb.Router.Helpers, as: Routes
 
-      @endpoint SentinelCpWeb.Endpoint
+      @endpoint ZentinelCpWeb.Endpoint
     end
   end
 
@@ -50,11 +50,11 @@ defmodule SentinelCpWeb.FeatureCase do
     # Calling it manually causes {:already, :owner} errors.
 
     unless tags[:async] do
-      Ecto.Adapters.SQL.Sandbox.mode(SentinelCp.Repo, {:shared, self()})
+      Ecto.Adapters.SQL.Sandbox.mode(ZentinelCp.Repo, {:shared, self()})
     end
 
     # Pass sandbox metadata to Wallaby so browser requests share the same DB transaction
-    metadata = Phoenix.Ecto.SQL.Sandbox.metadata_for(SentinelCp.Repo, self())
+    metadata = Phoenix.Ecto.SQL.Sandbox.metadata_for(ZentinelCp.Repo, self())
     {:ok, session} = Wallaby.start_session(metadata: metadata)
 
     {:ok, session: session}
@@ -84,8 +84,8 @@ defmodule SentinelCpWeb.FeatureCase do
   Returns {session, user}.
   """
   def create_and_login_user(session, attrs \\ %{}) do
-    user = SentinelCp.AccountsFixtures.user_fixture(attrs)
-    password = attrs[:password] || SentinelCp.AccountsFixtures.valid_user_password()
+    user = ZentinelCp.AccountsFixtures.user_fixture(attrs)
+    password = attrs[:password] || ZentinelCp.AccountsFixtures.valid_user_password()
 
     session = log_in_via_browser(session, user.email, password)
 
@@ -97,10 +97,10 @@ defmodule SentinelCpWeb.FeatureCase do
   Returns {session, %{user: user, org: org, project: project}}.
   """
   def setup_full_context(session, attrs \\ %{}) do
-    {org, user} = SentinelCp.OrgsFixtures.org_with_owner_fixture(attrs)
-    project = SentinelCp.ProjectsFixtures.project_fixture(%{org: org})
+    {org, user} = ZentinelCp.OrgsFixtures.org_with_owner_fixture(attrs)
+    project = ZentinelCp.ProjectsFixtures.project_fixture(%{org: org})
 
-    password = attrs[:password] || SentinelCp.AccountsFixtures.valid_user_password()
+    password = attrs[:password] || ZentinelCp.AccountsFixtures.valid_user_password()
     session = log_in_via_browser(session, user.email, password)
 
     {session, %{user: user, org: org, project: project}}

@@ -1,10 +1,10 @@
-defmodule SentinelCpWeb.Integration.Api.DriftWorkflowTest do
+defmodule ZentinelCpWeb.Integration.Api.DriftWorkflowTest do
   @moduledoc """
   Integration tests for drift detection API workflows.
 
   Tests the complete workflow: list events → resolve → verify resolved
   """
-  use SentinelCpWeb.IntegrationCase
+  use ZentinelCpWeb.IntegrationCase
 
   @moduletag :integration
 
@@ -12,16 +12,16 @@ defmodule SentinelCpWeb.Integration.Api.DriftWorkflowTest do
     test "list drift events for project", %{conn: conn} do
       {api_conn, context} = setup_api_context(conn, scopes: ["nodes:read"])
 
-      node = SentinelCp.NodesFixtures.node_fixture(%{project: context.project})
+      node = ZentinelCp.NodesFixtures.node_fixture(%{project: context.project})
 
       # Create drift events
-      SentinelCp.NodesFixtures.drift_event_fixture(%{
+      ZentinelCp.NodesFixtures.drift_event_fixture(%{
         node: node,
         project: context.project,
         severity: "high"
       })
 
-      SentinelCp.NodesFixtures.drift_event_fixture(%{
+      ZentinelCp.NodesFixtures.drift_event_fixture(%{
         node: node,
         project: context.project,
         severity: "medium"
@@ -44,23 +44,23 @@ defmodule SentinelCpWeb.Integration.Api.DriftWorkflowTest do
     test "filter by status", %{conn: conn} do
       {api_conn, context} = setup_api_context(conn, scopes: ["nodes:read", "nodes:write"])
 
-      node = SentinelCp.NodesFixtures.node_fixture(%{project: context.project})
+      node = ZentinelCp.NodesFixtures.node_fixture(%{project: context.project})
 
       # Create active event
       active_event =
-        SentinelCp.NodesFixtures.drift_event_fixture(%{
+        ZentinelCp.NodesFixtures.drift_event_fixture(%{
           node: node,
           project: context.project
         })
 
       # Create and resolve another event
       resolved_event =
-        SentinelCp.NodesFixtures.drift_event_fixture(%{
+        ZentinelCp.NodesFixtures.drift_event_fixture(%{
           node: node,
           project: context.project
         })
 
-      {:ok, _} = SentinelCp.Nodes.resolve_drift_event(resolved_event, "manual")
+      {:ok, _} = ZentinelCp.Nodes.resolve_drift_event(resolved_event, "manual")
 
       # List only active
       active_resp =
@@ -78,10 +78,10 @@ defmodule SentinelCpWeb.Integration.Api.DriftWorkflowTest do
     test "resolve single drift event", %{conn: conn} do
       {api_conn, context} = setup_api_context(conn, scopes: ["nodes:read", "nodes:write"])
 
-      node = SentinelCp.NodesFixtures.node_fixture(%{project: context.project})
+      node = ZentinelCp.NodesFixtures.node_fixture(%{project: context.project})
 
       event =
-        SentinelCp.NodesFixtures.drift_event_fixture(%{
+        ZentinelCp.NodesFixtures.drift_event_fixture(%{
           node: node,
           project: context.project
         })
@@ -98,16 +98,16 @@ defmodule SentinelCpWeb.Integration.Api.DriftWorkflowTest do
     test "cannot resolve already resolved event", %{conn: conn} do
       {api_conn, context} = setup_api_context(conn, scopes: ["nodes:read", "nodes:write"])
 
-      node = SentinelCp.NodesFixtures.node_fixture(%{project: context.project})
+      node = ZentinelCp.NodesFixtures.node_fixture(%{project: context.project})
 
       event =
-        SentinelCp.NodesFixtures.drift_event_fixture(%{
+        ZentinelCp.NodesFixtures.drift_event_fixture(%{
           node: node,
           project: context.project
         })
 
       # Resolve first time
-      {:ok, _} = SentinelCp.Nodes.resolve_drift_event(event, "manual")
+      {:ok, _} = ZentinelCp.Nodes.resolve_drift_event(event, "manual")
 
       # Try to resolve again
       error_resp =
@@ -121,11 +121,11 @@ defmodule SentinelCpWeb.Integration.Api.DriftWorkflowTest do
     test "resolve all drift events", %{conn: conn} do
       {api_conn, context} = setup_api_context(conn, scopes: ["nodes:read", "nodes:write"])
 
-      node = SentinelCp.NodesFixtures.node_fixture(%{project: context.project})
+      node = ZentinelCp.NodesFixtures.node_fixture(%{project: context.project})
 
       # Create multiple events
       for _ <- 1..3 do
-        SentinelCp.NodesFixtures.drift_event_fixture(%{
+        ZentinelCp.NodesFixtures.drift_event_fixture(%{
           node: node,
           project: context.project
         })
@@ -152,9 +152,9 @@ defmodule SentinelCpWeb.Integration.Api.DriftWorkflowTest do
     test "get drift stats for project", %{conn: conn} do
       {api_conn, context} = setup_api_context(conn, scopes: ["nodes:read"])
 
-      node = SentinelCp.NodesFixtures.node_fixture(%{project: context.project})
+      node = ZentinelCp.NodesFixtures.node_fixture(%{project: context.project})
 
-      SentinelCp.NodesFixtures.drift_event_fixture(%{
+      ZentinelCp.NodesFixtures.drift_event_fixture(%{
         node: node,
         project: context.project
       })
@@ -175,10 +175,10 @@ defmodule SentinelCpWeb.Integration.Api.DriftWorkflowTest do
     test "show single drift event", %{conn: conn} do
       {api_conn, context} = setup_api_context(conn, scopes: ["nodes:read"])
 
-      node = SentinelCp.NodesFixtures.node_fixture(%{project: context.project})
+      node = ZentinelCp.NodesFixtures.node_fixture(%{project: context.project})
 
       event =
-        SentinelCp.NodesFixtures.drift_event_fixture(%{
+        ZentinelCp.NodesFixtures.drift_event_fixture(%{
           node: node,
           project: context.project,
           severity: "critical"
@@ -212,9 +212,9 @@ defmodule SentinelCpWeb.Integration.Api.DriftWorkflowTest do
     test "export drift events as JSON", %{conn: conn} do
       {api_conn, context} = setup_api_context(conn, scopes: ["nodes:read"])
 
-      node = SentinelCp.NodesFixtures.node_fixture(%{project: context.project})
+      node = ZentinelCp.NodesFixtures.node_fixture(%{project: context.project})
 
-      SentinelCp.NodesFixtures.drift_event_fixture(%{
+      ZentinelCp.NodesFixtures.drift_event_fixture(%{
         node: node,
         project: context.project
       })
@@ -236,9 +236,9 @@ defmodule SentinelCpWeb.Integration.Api.DriftWorkflowTest do
     test "export drift events as CSV", %{conn: conn} do
       {api_conn, context} = setup_api_context(conn, scopes: ["nodes:read"])
 
-      node = SentinelCp.NodesFixtures.node_fixture(%{project: context.project})
+      node = ZentinelCp.NodesFixtures.node_fixture(%{project: context.project})
 
-      SentinelCp.NodesFixtures.drift_event_fixture(%{
+      ZentinelCp.NodesFixtures.drift_event_fixture(%{
         node: node,
         project: context.project
       })

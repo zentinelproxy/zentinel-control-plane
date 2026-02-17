@@ -1,9 +1,9 @@
-defmodule SentinelCp.RolloutsFixtures do
+defmodule ZentinelCp.RolloutsFixtures do
   @moduledoc """
   Test helpers for creating Rollouts entities.
   """
 
-  alias SentinelCp.{Rollouts, Bundles}
+  alias ZentinelCp.{Rollouts, Bundles}
 
   @valid_kdl """
   system {
@@ -15,7 +15,7 @@ defmodule SentinelCp.RolloutsFixtures do
   """
 
   def compiled_bundle_fixture(attrs \\ %{}) do
-    project = attrs[:project] || SentinelCp.ProjectsFixtures.project_fixture()
+    project = attrs[:project] || ZentinelCp.ProjectsFixtures.project_fixture()
 
     {:ok, bundle} =
       Bundles.create_bundle(%{
@@ -24,13 +24,13 @@ defmodule SentinelCp.RolloutsFixtures do
         config_source: attrs[:config_source] || @valid_kdl
       })
 
-    # Force status to compiled (compile worker may fail in test without sentinel binary)
+    # Force status to compiled (compile worker may fail in test without zentinel binary)
     {:ok, bundle} = Bundles.update_status(bundle, "compiled")
     bundle
   end
 
   def rollout_fixture(attrs \\ %{}) do
-    project = attrs[:project] || SentinelCp.ProjectsFixtures.project_fixture()
+    project = attrs[:project] || ZentinelCp.ProjectsFixtures.project_fixture()
     bundle = attrs[:bundle] || compiled_bundle_fixture(%{project: project})
 
     create_attrs =

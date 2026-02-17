@@ -1,6 +1,6 @@
 # Deployment & Rollouts
 
-This guide covers how to safely deploy configuration bundles to your Sentinel proxy fleet using rollouts.
+This guide covers how to safely deploy configuration bundles to your Zentinel proxy fleet using rollouts.
 
 ## Overview
 

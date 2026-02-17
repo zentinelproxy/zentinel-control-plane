@@ -22,7 +22,7 @@ import "phoenix_html"
 // Establish Phoenix Socket and LiveView configuration.
 import {Socket} from "phoenix"
 import {LiveSocket} from "phoenix_live_view"
-import {hooks as colocatedHooks} from "phoenix-colocated/sentinel_cp"
+import {hooks as colocatedHooks} from "phoenix-colocated/zentinel_cp"
 import topbar from "../vendor/topbar"
 
 import Topology from "./hooks/topology"

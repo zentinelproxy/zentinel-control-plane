@@ -25,7 +25,7 @@ services:
     entrypoint: >
       /bin/sh -c "
       mc alias set local http://minio:9000 minioadmin minioadmin;
-      mc mb local/sentinel-bundles --ignore-existing;
+      mc mb local/zentinel-bundles --ignore-existing;
       exit 0;
       "
 

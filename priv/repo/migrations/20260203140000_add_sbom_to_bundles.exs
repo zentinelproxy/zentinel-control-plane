@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.AddSbomToBundles do
+defmodule ZentinelCp.Repo.Migrations.AddSbomToBundles do
   use Ecto.Migration
 
   def change do

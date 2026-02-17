@@ -1,0 +1,1012 @@
+defmodule ZentinelCp.Services.KdlGenerator do
+  @moduledoc """
+  Generates KDL configuration from structured service definitions.
+
+  Pure function module — reads services and project config, produces KDL text.
+  """
+
+  alias ZentinelCp.Services
+
+  alias ZentinelCp.Services.{
+    Service,
+    ProjectConfig,
+    UpstreamGroup,
+    Certificate,
+    TrustStore,
+    AuthPolicy,
+    InternalCa
+  }
+
+  alias ZentinelCp.Waf
+  alias ZentinelCp.Waf.WafPolicy
+
+  @doc """
+  Generates KDL configuration for a project from its services and config.
+
+  ## Options
+
+    * `:resolve_secrets` - `{project_id, environment}` tuple. When provided,
+      resolves `${secrets.NAME}` references in service config maps before
+      generating KDL.
+
+  Returns `{:ok, kdl_string}` or `{:error, :no_services}`.
+  """
+  def generate(project_id, opts \\ []) do
+    services = Services.list_services(project_id, enabled: true)
+
+    if services == [] do
+      {:error, :no_services}
+    else
+      {:ok, config} = Services.get_or_create_project_config(project_id)
+      upstream_groups = Services.list_upstream_groups(project_id)
+      certificates = Services.list_certificates(project_id)
+      auth_policies = Services.list_auth_policies(project_id)
+      waf_policies = Waf.list_policies(project_id)
+      trust_stores = Services.list_trust_stores(project_id)
+      internal_ca = Services.get_internal_ca(project_id)
+
+      # Build middleware chain map: service_id -> [service_middlewares]
+      middleware_chains =
+        services
+        |> Enum.into(%{}, fn s ->
+          {s.id, Services.list_service_middlewares(s.id)}
+        end)
+
+      # Build plugin chain map: service_id -> [service_plugins]
+      plugin_chains =
+        services
+        |> Enum.into(%{}, fn s ->
+          {s.id, ZentinelCp.Plugins.list_service_plugins(s.id)}
+        end)
+
+      # Resolve secret references if requested
+      case maybe_resolve_secrets(services, opts) do
+        {:ok, resolved_services} ->
+          kdl =
+            build_kdl(
+              resolved_services,
+              config,
+              upstream_groups,
+              certificates,
+              auth_policies,
+              middleware_chains,
+              trust_stores,
+              internal_ca,
+              plugin_chains,
+              waf_policies
+            )
+
+          {:ok, kdl}
+
+        {:error, _} = error ->
+          error
+      end
+    end
+  end
+
+  defp maybe_resolve_secrets(services, opts) do
+    case Keyword.get(opts, :resolve_secrets) do
+      {project_id, environment} ->
+        resolve_service_configs(services, project_id, environment)
+
+      _ ->
+        {:ok, services}
+    end
+  end
+
+  defp resolve_service_configs(services, project_id, environment) do
+    config_fields = [
+      :headers,
+      :cors,
+      :cache,
+      :retry,
+      :rate_limit,
+      :health_check,
+      :access_control,
+      :compression,
+      :security,
+      :request_transform,
+      :response_transform,
+      :path_rewrite,
+      :inference,
+      :grpc,
+      :websocket,
+      :graphql,
+      :streaming
+    ]
+
+    Enum.reduce_while(services, {:ok, []}, fn service, {:ok, acc} ->
+      case resolve_service_config_maps(service, config_fields, project_id, environment) do
+        {:ok, resolved} -> {:cont, {:ok, acc ++ [resolved]}}
+        {:error, _} = error -> {:halt, error}
+      end
+    end)
+  end
+
+  defp resolve_service_config_maps(service, fields, project_id, environment) do
+    Enum.reduce_while(fields, {:ok, service}, fn field, {:ok, svc} ->
+      config = Map.get(svc, field)
+
+      if is_map(config) && config != %{} do
+        case ZentinelCp.Secrets.resolve_references(config, project_id, environment) do
+          {:ok, resolved} -> {:cont, {:ok, Map.put(svc, field, resolved)}}
+          {:error, _} = error -> {:halt, error}
+        end
+      else
+        {:cont, {:ok, svc}}
+      end
+    end)
+  end
+
+  @doc """
+  Generates KDL from provided services, config, and upstream groups (no DB access).
+  Useful for testing.
+  """
+  def build_kdl(
+        services,
+        %ProjectConfig{} = config,
+        upstream_groups \\ [],
+        certificates \\ [],
+        auth_policies \\ [],
+        middleware_chains \\ %{},
+        trust_stores \\ [],
+        internal_ca \\ nil,
+        plugin_chains \\ %{},
+        waf_policies \\ []
+      ) do
+    # Build lookup maps
+    group_map =
+      upstream_groups
+      |> Enum.into(%{}, fn g -> {g.id, g} end)
+
+    cert_map =
+      certificates
+      |> Enum.into(%{}, fn c -> {c.id, c} end)
+
+    auth_policy_map =
+      auth_policies
+      |> Enum.into(%{}, fn a -> {a.id, a} end)
+
+    waf_policy_map =
+      waf_policies
+      |> Enum.into(%{}, fn w -> {w.id, w} end)
+
+    trust_store_map =
+      trust_stores
+      |> Enum.into(%{}, fn t -> {t.id, t} end)
+
+    # Determine which certificates are used by services
+    used_cert_ids =
+      services
+      |> Enum.map(& &1.certificate_id)
+      |> Enum.reject(&is_nil/1)
+      |> MapSet.new()
+
+    used_certs = Enum.filter(certificates, fn c -> MapSet.member?(used_cert_ids, c.id) end)
+
+    # Determine which trust stores are used by upstream groups
+    used_trust_store_ids =
+      upstream_groups
+      |> Enum.map(& &1.trust_store_id)
+      |> Enum.reject(&is_nil/1)
+      |> MapSet.new()
+
+    used_trust_stores =
+      Enum.filter(trust_stores, fn t -> MapSet.member?(used_trust_store_ids, t.id) end)
+
+    parts = [
+      "// Generated by Zentinel Control Plane",
+      "// Do not edit manually — managed via Services UI",
+      "",
+      build_settings(config),
+      "",
+      build_tls_certificates(used_certs),
+      build_trust_stores(used_trust_stores),
+      build_client_auth_block(internal_ca),
+      build_upstream_groups(upstream_groups, trust_store_map),
+      build_routes(
+        services,
+        group_map,
+        cert_map,
+        auth_policy_map,
+        middleware_chains,
+        internal_ca,
+        plugin_chains,
+        waf_policy_map
+      ),
+      build_rate_limits(services)
+    ]
+
+    parts
+    |> List.flatten()
+    |> Enum.join("\n")
+    |> String.trim_trailing()
+    |> Kernel.<>("\n")
+  end
+
+  defp build_settings(%ProjectConfig{} = config) do
+    lines = [
+      "settings {",
+      "    log_level #{inspect(config.log_level)}",
+      "    metrics_port #{config.metrics_port}"
+    ]
+
+    custom_lines =
+      (config.custom_settings || %{})
+      |> Enum.sort_by(fn {k, _} -> k end)
+      |> Enum.map(fn {key, value} -> "    #{key} #{format_value(value)}" end)
+
+    lines = lines ++ custom_lines
+
+    lines = lines ++ build_global_compression(config)
+    lines = lines ++ build_global_access_control(config)
+    lines = lines ++ build_global_security(config)
+
+    lines ++ ["}"]
+  end
+
+  defp build_global_compression(%ProjectConfig{} = config) do
+    build_nested_map_block(config.default_compression, "compression", "    ")
+  end
+
+  defp build_global_access_control(%ProjectConfig{} = config) do
+    build_nested_map_block(config.global_access_control, "access_control", "    ")
+  end
+
+  defp build_global_security(%ProjectConfig{} = config) do
+    build_nested_map_block(config.default_security, "security", "    ")
+  end
+
+  defp build_trust_stores([]), do: []
+
+  defp build_trust_stores(trust_stores) do
+    blocks =
+      trust_stores
+      |> Enum.map(&build_trust_store_block/1)
+      |> Enum.intersperse([""])
+
+    ["trust_stores {"] ++ List.flatten(blocks) ++ ["}", ""]
+  end
+
+  defp build_trust_store_block(%TrustStore{} = ts) do
+    [
+      "    store #{inspect(ts.slug)} {",
+      "        ca_file \"/etc/zentinel/trust-stores/#{ts.slug}.pem\"",
+      "    }"
+    ]
+  end
+
+  defp build_client_auth_block(nil), do: []
+
+  defp build_client_auth_block(%InternalCa{}) do
+    [
+      "client_auth {",
+      "    ca_file \"/etc/zentinel/internal-ca/ca.pem\"",
+      "    crl_file \"/etc/zentinel/internal-ca/crl.pem\"",
+      "}",
+      ""
+    ]
+  end
+
+  defp build_upstream_groups(groups, trust_store_map)
+  defp build_upstream_groups([], _trust_store_map), do: []
+
+  defp build_upstream_groups(groups, trust_store_map) do
+    blocks =
+      groups
+      |> Enum.map(&build_upstream_group_block(&1, trust_store_map))
+      |> Enum.intersperse([""])
+
+    ["upstream_groups {"] ++ List.flatten(blocks) ++ ["}", ""]
+  end
+
+  defp build_upstream_group_block(%UpstreamGroup{} = group, trust_store_map) do
+    lines = ["    group #{inspect(group.slug)} {"]
+    lines = lines ++ ["        algorithm #{inspect(group.algorithm)}"]
+
+    # Add targets
+    targets = group.targets || []
+
+    target_lines =
+      Enum.map(targets, fn t ->
+        base = "        target #{inspect(t.host)} #{t.port}"
+        base = if t.weight != 100, do: "#{base} weight=#{t.weight}", else: base
+        base
+      end)
+
+    lines = lines ++ target_lines
+
+    # Add health check
+    lines = lines ++ build_nested_map_block(group.health_check, "health_check", "        ")
+
+    # Add circuit breaker
+    lines = lines ++ build_nested_map_block(group.circuit_breaker, "circuit_breaker", "        ")
+
+    # Add sticky sessions
+    lines = lines ++ build_nested_map_block(group.sticky_sessions, "sticky_sessions", "        ")
+
+    # Add TLS verify block if trust store is linked
+    lines = lines ++ build_upstream_tls_block(group.trust_store_id, trust_store_map)
+
+    lines ++ ["    }"]
+  end
+
+  defp build_upstream_tls_block(nil, _trust_store_map), do: []
+
+  defp build_upstream_tls_block(trust_store_id, trust_store_map) do
+    case Map.get(trust_store_map, trust_store_id) do
+      nil ->
+        []
+
+      ts ->
+        [
+          "        tls {",
+          "            verify true",
+          "            ca_file \"/etc/zentinel/trust-stores/#{ts.slug}.pem\"",
+          "        }"
+        ]
+    end
+  end
+
+  defp build_routes(
+         services,
+         group_map,
+         cert_map,
+         auth_policy_map,
+         middleware_chains,
+         internal_ca,
+         plugin_chains,
+         waf_policy_map
+       ) do
+    route_blocks =
+      services
+      |> Enum.map(fn service ->
+        chain = Map.get(middleware_chains, service.id, [])
+        plugins = Map.get(plugin_chains, service.id, [])
+
+        build_route(
+          service,
+          group_map,
+          cert_map,
+          auth_policy_map,
+          chain,
+          internal_ca,
+          plugins,
+          waf_policy_map
+        )
+      end)
+      |> Enum.intersperse([""])
+
+    ["routes {"] ++ List.flatten(route_blocks) ++ ["}"]
+  end
+
+  defp build_route(
+         %Service{} = service,
+         group_map,
+         cert_map,
+         auth_policy_map,
+         middleware_chain,
+         internal_ca,
+         plugin_chain,
+         waf_policy_map
+       ) do
+    lines = ["    route #{inspect(service.route_path)} {"]
+
+    lines =
+      if service.service_type && service.service_type != "standard" do
+        lines ++ ["        service-type #{inspect(service.service_type)}"]
+      else
+        lines
+      end
+
+    lines =
+      cond do
+        service.upstream_url ->
+          lines ++ ["        upstream #{inspect(service.upstream_url)}"]
+
+        service.upstream_group_id && Map.has_key?(group_map, service.upstream_group_id) ->
+          group = Map.get(group_map, service.upstream_group_id)
+          lines ++ ["        upstream_group #{inspect(group.slug)}"]
+
+        service.redirect_url ->
+          status = service.respond_status || 301
+          lines ++ ["        redirect #{status} #{inspect(service.redirect_url)}"]
+
+        true ->
+          lines ++
+            ["        respond #{service.respond_status} #{inspect(service.respond_body || "")}"]
+      end
+
+    lines =
+      if service.timeout_seconds do
+        lines ++ ["        timeout #{service.timeout_seconds}s"]
+      else
+        lines
+      end
+
+    lines = lines ++ build_retry_block(service.retry)
+    lines = lines ++ build_cache_block(service.cache)
+    lines = lines ++ build_health_check_block(service.health_check)
+    lines = lines ++ build_headers_block(service.headers)
+    lines = lines ++ build_cors_block(service.cors)
+    lines = lines ++ build_access_control_block(service.access_control)
+    lines = lines ++ build_compression_block(service.compression)
+    lines = lines ++ build_path_rewrite_block(service.path_rewrite)
+    lines = lines ++ build_tls_ref(service.certificate_id, cert_map)
+    lines = lines ++ build_auth_block(service.auth_policy_id, auth_policy_map, internal_ca)
+
+    lines =
+      lines ++
+        build_waf_block(
+          Map.get(service, :waf_policy_id),
+          waf_policy_map,
+          service.security
+        )
+
+    lines = lines ++ build_request_transform_block(service.request_transform)
+    lines = lines ++ build_response_transform_block(service.response_transform)
+    lines = lines ++ build_traffic_split_block(service.traffic_split, group_map)
+    lines = lines ++ build_inference_block(service.inference)
+    lines = lines ++ build_grpc_block(service.grpc)
+    lines = lines ++ build_websocket_block(service.websocket)
+    lines = lines ++ build_graphql_block(service.graphql)
+    lines = lines ++ build_streaming_block(service.streaming)
+
+    # Append middleware chain blocks (after inline fields)
+    lines = lines ++ build_middleware_chain(middleware_chain)
+
+    # Append plugin chain blocks (after middleware chain)
+    lines = lines ++ build_plugin_chain(plugin_chain)
+
+    lines ++ ["    }"]
+  end
+
+  defp build_retry_block(retry) when retry == %{} or retry == nil, do: []
+
+  defp build_retry_block(retry) do
+    build_nested_map_block(retry, "retry", "        ")
+  end
+
+  defp build_cache_block(cache) when cache == %{} or cache == nil, do: []
+
+  defp build_cache_block(cache) do
+    build_nested_map_block(cache, "cache", "        ")
+  end
+
+  defp build_health_check_block(hc) when hc == %{} or hc == nil, do: []
+
+  defp build_health_check_block(hc) do
+    build_nested_map_block(hc, "health_check", "        ")
+  end
+
+  defp build_headers_block(headers) when headers == %{} or headers == nil, do: []
+
+  defp build_headers_block(headers) do
+    build_nested_map_block(headers, "headers", "        ")
+  end
+
+  defp build_cors_block(cors) when cors == %{} or cors == nil, do: []
+
+  defp build_cors_block(cors) do
+    build_nested_map_block(cors, "cors", "        ")
+  end
+
+  defp build_access_control_block(ac) when ac == %{} or ac == nil, do: []
+
+  defp build_access_control_block(ac) do
+    build_nested_map_block(ac, "access_control", "        ")
+  end
+
+  defp build_compression_block(comp) when comp == %{} or comp == nil, do: []
+
+  defp build_compression_block(comp) do
+    build_nested_map_block(comp, "compression", "        ")
+  end
+
+  defp build_path_rewrite_block(pr) when pr == %{} or pr == nil, do: []
+
+  defp build_path_rewrite_block(pr) do
+    build_nested_map_block(pr, "path_rewrite", "        ")
+  end
+
+  defp build_nested_map_block(map, _name, _indent) when map == %{} or map == nil, do: []
+
+  defp build_nested_map_block(map, name, indent) do
+    inner =
+      map
+      |> Enum.sort_by(fn {k, _} -> k end)
+      |> Enum.map(fn {key, value} -> "#{indent}    #{key} #{format_value(value)}" end)
+
+    if inner == [] do
+      []
+    else
+      ["#{indent}#{name} {"] ++ inner ++ ["#{indent}}"]
+    end
+  end
+
+  defp build_tls_certificates([]), do: []
+
+  defp build_tls_certificates(certs) do
+    blocks =
+      certs
+      |> Enum.map(&build_tls_certificate_block/1)
+      |> Enum.intersperse([""])
+
+    ["tls {"] ++ List.flatten(blocks) ++ ["}", ""]
+  end
+
+  defp build_tls_certificate_block(%Certificate{} = cert) do
+    lines = ["    certificate #{inspect(cert.slug)} {"]
+    lines = lines ++ ["        domain #{inspect(cert.domain)}"]
+    lines = lines ++ ["        cert_file \"/etc/zentinel/certs/#{cert.slug}.pem\""]
+    lines = lines ++ ["        key_file \"/etc/zentinel/certs/#{cert.slug}.key\""]
+
+    lines =
+      if cert.san_domains && cert.san_domains != [] do
+        sans = Enum.map_join(cert.san_domains, " ", &inspect/1)
+        lines ++ ["        san_domains #{sans}"]
+      else
+        lines
+      end
+
+    lines ++ ["    }"]
+  end
+
+  defp build_tls_ref(nil, _cert_map), do: []
+
+  defp build_tls_ref(cert_id, cert_map) do
+    case Map.get(cert_map, cert_id) do
+      nil ->
+        []
+
+      cert ->
+        [
+          "        tls {",
+          "            certificate #{inspect(cert.slug)}",
+          "        }"
+        ]
+    end
+  end
+
+  defp build_security_block(sec) when sec == %{} or sec == nil, do: []
+
+  defp build_security_block(sec) do
+    build_nested_map_block(sec, "security", "        ")
+  end
+
+  # WAF block: when a policy is bound, emit structured waf {} block.
+  # When no policy but legacy security map exists, fall back to build_security_block.
+  defp build_waf_block(nil, _waf_policy_map, security_map) do
+    build_security_block(security_map)
+  end
+
+  defp build_waf_block(waf_policy_id, waf_policy_map, _security_map) do
+    case Map.get(waf_policy_map, waf_policy_id) do
+      nil ->
+        []
+
+      %WafPolicy{} = policy ->
+        effective_rules = Waf.get_effective_rules(policy)
+
+        lines = ["        waf {"]
+        lines = lines ++ ["            mode #{inspect(policy.mode)}"]
+        lines = lines ++ ["            sensitivity #{inspect(policy.sensitivity)}"]
+
+        lines =
+          if policy.max_body_size,
+            do: lines ++ ["            max_body_size #{policy.max_body_size}"],
+            else: lines
+
+        lines =
+          if policy.max_header_size,
+            do: lines ++ ["            max_header_size #{policy.max_header_size}"],
+            else: lines
+
+        lines =
+          if policy.max_uri_length,
+            do: lines ++ ["            max_uri_length #{policy.max_uri_length}"],
+            else: lines
+
+        # Group effective rules by category
+        by_category =
+          effective_rules
+          |> Enum.group_by(fn {rule, _action} -> rule.category end)
+          |> Enum.sort_by(fn {cat, _} -> cat end)
+
+        category_lines =
+          Enum.flat_map(by_category, fn {category, rules_with_actions} ->
+            rule_lines =
+              Enum.map(rules_with_actions, fn {rule, action} ->
+                "                rule #{inspect(rule.rule_id)} action=#{inspect(action)}"
+              end)
+
+            ["            category #{inspect(category)} {"] ++ rule_lines ++ ["            }"]
+          end)
+
+        lines ++ category_lines ++ ["        }"]
+    end
+  end
+
+  defp build_request_transform_block(rt) when rt == %{} or rt == nil, do: []
+
+  defp build_request_transform_block(rt) do
+    build_nested_map_block(rt, "request_transform", "        ")
+  end
+
+  defp build_response_transform_block(rt) when rt == %{} or rt == nil, do: []
+
+  defp build_response_transform_block(rt) do
+    build_nested_map_block(rt, "response_transform", "        ")
+  end
+
+  defp build_auth_block(nil, _auth_policy_map, _internal_ca), do: []
+
+  defp build_auth_block(auth_policy_id, auth_policy_map, internal_ca) do
+    case Map.get(auth_policy_map, auth_policy_id) do
+      nil ->
+        []
+
+      %AuthPolicy{auth_type: "mtls"} = policy when not is_nil(internal_ca) ->
+        verify_mode = get_in(policy.config || %{}, ["verify_mode"]) || "require"
+
+        [
+          "        auth {",
+          "            type \"mtls\"",
+          "            verify_mode #{inspect(verify_mode)}",
+          "            ca_file \"/etc/zentinel/internal-ca/ca.pem\"",
+          "            crl_file \"/etc/zentinel/internal-ca/crl.pem\"",
+          "        }"
+        ]
+
+      %AuthPolicy{} = policy ->
+        lines = ["        auth {"]
+        lines = lines ++ ["            type #{inspect(policy.auth_type)}"]
+
+        config_lines =
+          (policy.config || %{})
+          |> Enum.sort_by(fn {k, _} -> k end)
+          |> Enum.map(fn {key, value} -> "            #{key} #{format_value(value)}" end)
+
+        lines = lines ++ config_lines
+        lines ++ ["        }"]
+    end
+  end
+
+  defp build_traffic_split_block(ts, _group_map) when ts == %{} or ts == nil, do: []
+
+  defp build_traffic_split_block(ts, group_map) do
+    splits = Map.get(ts, "splits", [])
+    match_rules = Map.get(ts, "match_rules", [])
+
+    if splits == [] and match_rules == [] do
+      []
+    else
+      lines = ["        traffic_split {"]
+
+      split_lines =
+        splits
+        |> Enum.sort_by(fn s -> -Map.get(s, "weight", 0) end)
+        |> Enum.map(fn split ->
+          group_id = Map.get(split, "upstream_group_id", "")
+          weight = Map.get(split, "weight", 0)
+          group_name = resolve_group_slug(group_id, group_map)
+          "            split #{inspect(group_name)} weight=#{weight}"
+        end)
+
+      match_lines =
+        Enum.map(match_rules, fn rule ->
+          target_id = Map.get(rule, "target_group_id", "")
+          target_name = resolve_group_slug(target_id, group_map)
+
+          case Map.get(rule, "type") do
+            "header" ->
+              header = Map.get(rule, "header", "")
+              value = Map.get(rule, "value", "")
+
+              "            match_header #{inspect(header)} #{inspect(value)} target=#{inspect(target_name)}"
+
+            "cookie" ->
+              cookie = Map.get(rule, "cookie", "")
+              value = Map.get(rule, "value", "")
+
+              "            match_cookie #{inspect(cookie)} #{inspect(value)} target=#{inspect(target_name)}"
+
+            _ ->
+              nil
+          end
+        end)
+        |> Enum.reject(&is_nil/1)
+
+      lines ++ split_lines ++ match_lines ++ ["        }"]
+    end
+  end
+
+  defp resolve_group_slug(group_id, group_map) do
+    case Map.get(group_map, group_id) do
+      nil -> group_id
+      group -> group.slug
+    end
+  end
+
+  defp build_inference_block(inf) when inf == %{} or inf == nil, do: []
+
+  defp build_inference_block(inf) do
+    lines = ["        inference {"]
+
+    # Provider
+    lines =
+      case Map.get(inf, "provider") do
+        nil -> lines
+        provider -> lines ++ ["            provider #{inspect(provider)}"]
+      end
+
+    # Token rate limit
+    lines = lines ++ build_inference_sub_block(Map.get(inf, "token_rate_limit"), "rate-limit")
+
+    # Token budget
+    lines = lines ++ build_inference_sub_block(Map.get(inf, "token_budget"), "budget")
+
+    # Cost attribution
+    lines = lines ++ build_cost_attribution_block(Map.get(inf, "cost_attribution"))
+
+    # Model routing
+    lines = lines ++ build_model_routing_block(Map.get(inf, "model_routing"))
+
+    # Guardrails
+    lines = lines ++ build_guardrails_block(Map.get(inf, "guardrails"))
+
+    # Fallback
+    lines = lines ++ build_fallback_block(Map.get(inf, "fallback"))
+
+    # Streaming
+    lines = lines ++ build_inference_sub_block(Map.get(inf, "streaming"), "streaming")
+
+    lines ++ ["        }"]
+  end
+
+  defp build_grpc_block(g) when g == %{} or g == nil, do: []
+  defp build_grpc_block(g), do: build_nested_map_block(g, "grpc", "        ")
+
+  defp build_websocket_block(ws) when ws == %{} or ws == nil, do: []
+  defp build_websocket_block(ws), do: build_nested_map_block(ws, "websocket", "        ")
+
+  defp build_graphql_block(gql) when gql == %{} or gql == nil, do: []
+  defp build_graphql_block(gql), do: build_nested_map_block(gql, "graphql", "        ")
+
+  defp build_streaming_block(s) when s == %{} or s == nil, do: []
+  defp build_streaming_block(s), do: build_nested_map_block(s, "streaming", "        ")
+
+  defp build_inference_sub_block(nil, _name), do: []
+  defp build_inference_sub_block(map, _name) when map == %{}, do: []
+
+  defp build_inference_sub_block(map, name) do
+    inner =
+      map
+      |> Enum.sort_by(fn {k, _} -> k end)
+      |> Enum.map(fn {key, value} -> "                #{key} #{format_value(value)}" end)
+
+    ["            #{name} {"] ++ inner ++ ["            }"]
+  end
+
+  defp build_cost_attribution_block(nil), do: []
+  defp build_cost_attribution_block(ca) when ca == %{}, do: []
+
+  defp build_cost_attribution_block(ca) do
+    lines = ["            cost-attribution {"]
+
+    lines =
+      case Map.get(ca, "currency") do
+        nil -> lines
+        currency -> lines ++ ["                currency #{inspect(currency)}"]
+      end
+
+    models = Map.get(ca, "models", [])
+
+    model_lines =
+      Enum.flat_map(models, fn model ->
+        pattern = Map.get(model, "pattern", "*")
+
+        inner =
+          model
+          |> Map.drop(["pattern"])
+          |> Enum.sort_by(fn {k, _} -> k end)
+          |> Enum.map(fn {key, value} -> "                    #{key} #{format_value(value)}" end)
+
+        ["                model #{inspect(pattern)} {"] ++ inner ++ ["                }"]
+      end)
+
+    lines ++ model_lines ++ ["            }"]
+  end
+
+  defp build_model_routing_block(nil), do: []
+  defp build_model_routing_block(mr) when mr == %{}, do: []
+
+  defp build_model_routing_block(mr) do
+    lines = ["            model-routing {"]
+
+    routes = Map.get(mr, "routes", [])
+
+    route_lines =
+      Enum.flat_map(routes, fn route ->
+        pattern = Map.get(route, "pattern", "*")
+
+        inner =
+          route
+          |> Map.drop(["pattern"])
+          |> Enum.sort_by(fn {k, _} -> k end)
+          |> Enum.map(fn {key, value} -> "                    #{key} #{format_value(value)}" end)
+
+        ["                route #{inspect(pattern)} {"] ++ inner ++ ["                }"]
+      end)
+
+    lines ++ route_lines ++ ["            }"]
+  end
+
+  defp build_guardrails_block(nil), do: []
+  defp build_guardrails_block(gr) when gr == %{}, do: []
+
+  defp build_guardrails_block(gr) do
+    lines = ["            guardrails {"]
+
+    lines =
+      lines ++ build_inference_sub_block(Map.get(gr, "prompt_injection"), "prompt-injection")
+
+    lines = lines ++ build_inference_sub_block(Map.get(gr, "pii_detection"), "pii-detection")
+
+    lines ++ ["            }"]
+  end
+
+  defp build_fallback_block(nil), do: []
+  defp build_fallback_block(fb) when fb == %{}, do: []
+
+  defp build_fallback_block(fb) do
+    lines = ["            fallback {"]
+
+    mappings = Map.get(fb, "model_mapping", [])
+
+    mapping_lines =
+      Enum.map(mappings, fn mapping ->
+        from = Map.get(mapping, "from", "")
+        to = Map.get(mapping, "to", "")
+        "                model-mapping #{inspect(from)} #{inspect(to)}"
+      end)
+
+    # Add other top-level fallback keys
+    other_lines =
+      fb
+      |> Map.drop(["model_mapping"])
+      |> Enum.sort_by(fn {k, _} -> k end)
+      |> Enum.map(fn {key, value} -> "                #{key} #{format_value(value)}" end)
+
+    lines ++ other_lines ++ mapping_lines ++ ["            }"]
+  end
+
+  defp build_middleware_chain([]), do: []
+
+  defp build_middleware_chain(service_middlewares) do
+    service_middlewares
+    |> Enum.filter(fn sm -> sm.enabled end)
+    |> Enum.sort_by(fn sm -> sm.position end)
+    |> Enum.flat_map(&build_middleware_block/1)
+  end
+
+  defp build_plugin_chain([]), do: []
+
+  defp build_plugin_chain(service_plugins) do
+    service_plugins
+    |> Enum.filter(fn sp -> sp.enabled end)
+    |> Enum.sort_by(fn sp -> sp.position end)
+    |> Enum.flat_map(&build_plugin_block/1)
+  end
+
+  defp build_plugin_block(service_plugin) do
+    plugin = service_plugin.plugin
+
+    unless plugin.enabled do
+      []
+    else
+      version = service_plugin.plugin_version
+      config = Map.merge(plugin.default_config || %{}, service_plugin.config_override || %{})
+      ext = plugin_extension(plugin.plugin_type)
+
+      lines = [~s(        plugin "#{plugin.slug}" {)]
+      lines = lines ++ [~s(            type "#{plugin.plugin_type}")]
+
+      lines =
+        if version do
+          lines ++ [~s(            path "plugins/#{plugin.slug}/#{version.version}.#{ext}")]
+        else
+          lines
+        end
+
+      config_lines =
+        config
+        |> Enum.sort_by(fn {k, _} -> k end)
+        |> Enum.map(fn {key, value} -> "            #{key} #{format_value(value)}" end)
+
+      lines ++ config_lines ++ ["        }"]
+    end
+  end
+
+  defp plugin_extension("wasm"), do: "wasm"
+  defp plugin_extension("lua"), do: "lua"
+  defp plugin_extension(_), do: "bin"
+
+  defp build_middleware_block(service_middleware) do
+    middleware = service_middleware.middleware
+
+    # Skip disabled middleware definitions
+    unless middleware.enabled do
+      []
+    else
+      merged_config =
+        Map.merge(middleware.config || %{}, service_middleware.config_override || %{})
+
+      case middleware.middleware_type do
+        "auth" ->
+          build_middleware_auth_block(merged_config)
+
+        "custom" ->
+          block_name = Map.get(merged_config, "kdl_block_name", "custom")
+          config = Map.drop(merged_config, ["kdl_block_name"])
+          build_nested_map_block(config, block_name, "        ")
+
+        type ->
+          build_nested_map_block(merged_config, type, "        ")
+      end
+    end
+  end
+
+  defp build_middleware_auth_block(config) do
+    auth_type = Map.get(config, "type", Map.get(config, "auth_type"))
+    rest = Map.drop(config, ["type", "auth_type"])
+
+    if auth_type do
+      lines = ["        auth {"]
+      lines = lines ++ ["            type #{inspect(auth_type)}"]
+
+      config_lines =
+        rest
+        |> Enum.sort_by(fn {k, _} -> k end)
+        |> Enum.map(fn {key, value} -> "            #{key} #{format_value(value)}" end)
+
+      lines ++ config_lines ++ ["        }"]
+    else
+      build_nested_map_block(config, "auth", "        ")
+    end
+  end
+
+  defp build_rate_limits(services) do
+    rate_limited =
+      services
+      |> Enum.filter(fn s -> s.rate_limit && s.rate_limit != %{} end)
+
+    if rate_limited == [] do
+      []
+    else
+      blocks =
+        rate_limited
+        |> Enum.map(&build_rate_limit_entry/1)
+        |> Enum.intersperse([""])
+
+      ["", "rate_limits {"] ++ List.flatten(blocks) ++ ["}"]
+    end
+  end
+
+  defp build_rate_limit_entry(%Service{} = service) do
+    inner =
+      service.rate_limit
+      |> Enum.sort_by(fn {k, _} -> k end)
+      |> Enum.map(fn {key, value} -> "        #{key} #{format_value(value)}" end)
+
+    ["    limit #{inspect(service.slug)} {"] ++ inner ++ ["    }"]
+  end
+
+  defp format_value(value) when is_binary(value), do: inspect(value)
+  defp format_value(value) when is_integer(value), do: Integer.to_string(value)
+  defp format_value(value) when is_float(value), do: Float.to_string(value)
+  defp format_value(true), do: "true"
+  defp format_value(false), do: "false"
+  defp format_value(value) when is_list(value), do: inspect(value)
+  defp format_value(value), do: inspect(value)
+end

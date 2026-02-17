@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.CreateWafEvents do
+defmodule ZentinelCp.Repo.Migrations.CreateWafEvents do
   use Ecto.Migration
 
   def change do

@@ -1,6 +1,6 @@
 # Getting Started
 
-This guide walks you through installing Sentinel Control Plane, creating your first project, compiling a configuration bundle, registering a node, and deploying with a rollout.
+This guide walks you through installing Zentinel Control Plane, creating your first project, compiling a configuration bundle, registering a node, and deploying with a rollout.
 
 ## Prerequisites
 
@@ -9,7 +9,7 @@ This guide walks you through installing Sentinel Control Plane, creating your fi
 **Local development** (Option B):
 - **Elixir** 1.16+ and **Erlang/OTP** 26+ (managed via [mise](https://mise.jdx.dev/))
 - **Docker** — for MinIO (bundle storage)
-- **Sentinel CLI** — the `sentinel` binary for configuration validation and compilation
+- **Zentinel CLI** — the `zentinel` binary for configuration validation and compilation
 
 ## Installation
 
@@ -18,15 +18,15 @@ This guide walks you through installing Sentinel Control Plane, creating your fi
 The fastest way to get running. This starts the control plane, PostgreSQL, and MinIO (S3-compatible storage) with a single command:
 
 ```bash
-git clone https://github.com/raskell-io/sentinel-control-plane.git
-cd sentinel-control-plane
+git clone https://github.com/zentinelproxy/zentinel-control-plane.git
+cd zentinel-control-plane
 docker compose up
 ```
 
 This will:
 1. Build the control plane from the Dockerfile
 2. Start PostgreSQL 17 and MinIO
-3. Create the `sentinel-bundles` S3 bucket automatically
+3. Create the `zentinel-bundles` S3 bucket automatically
 4. Run database migrations on first startup
 5. Serve the control plane at `http://localhost:4000`
 
@@ -43,8 +43,8 @@ docker compose down -v
 For development with hot-reloading and SQLite (no external databases needed):
 
 ```bash
-git clone https://github.com/raskell-io/sentinel-control-plane.git
-cd sentinel-control-plane
+git clone https://github.com/zentinelproxy/zentinel-control-plane.git
+cd zentinel-control-plane
 
 # Install tooling and dependencies
 mise install
@@ -67,7 +67,7 @@ mise run console
 ```
 
 ```elixir
-SentinelCp.Accounts.register_user(%{
+ZentinelCp.Accounts.register_user(%{
   email: "admin@example.com",
   password: "your-secure-password"
 })
@@ -95,7 +95,7 @@ The project is now ready for configuration.
 
 ## Configuring Services
 
-Services define how Sentinel routes traffic. Each service maps an HTTP path to a backend upstream.
+Services define how Zentinel routes traffic. Each service maps an HTTP path to a backend upstream.
 
 1. Navigate to your project and click **Services**
 2. Click **New Service** and fill in:
@@ -108,7 +108,7 @@ See [Configuration Management](configuration-management.md) for the full range o
 
 ## Compiling a Bundle
 
-Bundles are immutable, content-addressed configuration artifacts that Sentinel nodes consume.
+Bundles are immutable, content-addressed configuration artifacts that Zentinel nodes consume.
 
 ### Via the Web UI
 
@@ -131,7 +131,7 @@ curl -X POST http://localhost:4000/api/v1/projects/my-project/bundles \
 The response includes a `bundle_id`. Poll `GET /api/v1/projects/my-project/bundles/:id` until `status` is `"compiled"`.
 
 During compilation, the control plane:
-1. Validates the KDL configuration with `sentinel validate`
+1. Validates the KDL configuration with `zentinel validate`
 2. Assembles a `.tar.zst` archive with manifest, CA certs, and plugins
 3. Uploads to S3/MinIO storage
 4. Signs the bundle (if signing is enabled)
@@ -141,7 +141,7 @@ See [Core Concepts > Bundles](core-concepts.md#bundles) for details.
 
 ## Registering a Node
 
-Sentinel proxy nodes register with the control plane and then poll for bundle updates.
+Zentinel proxy nodes register with the control plane and then poll for bundle updates.
 
 ### Via the API
 
@@ -157,7 +157,7 @@ curl -X POST http://localhost:4000/api/v1/projects/my-project/nodes/register \
 The response includes a `node_id` and `node_key`. **Store the `node_key` securely** — it is only returned once and cannot be retrieved later.
 
 Nodes authenticate with the control plane using either:
-- **Static key**: `X-Sentinel-Node-Key` header (simple, suitable for getting started)
+- **Static key**: `X-Zentinel-Node-Key` header (simple, suitable for getting started)
 - **JWT token**: Exchange the static key for a short-lived JWT via `POST /api/v1/nodes/:id/token` (recommended for production)
 
 See [Node Management](node-management.md) for the full node lifecycle.

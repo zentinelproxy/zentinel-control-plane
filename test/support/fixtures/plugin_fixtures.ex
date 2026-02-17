@@ -1,4 +1,4 @@
-defmodule SentinelCp.PluginFixtures do
+defmodule ZentinelCp.PluginFixtures do
   @moduledoc """
   Test helpers for creating Plugin, PluginVersion, and ServicePlugin entities.
   """
@@ -6,10 +6,10 @@ defmodule SentinelCp.PluginFixtures do
   def unique_plugin_name, do: "plugin-#{System.unique_integer([:positive])}"
 
   def plugin_fixture(attrs \\ %{}) do
-    project = attrs[:project] || SentinelCp.ProjectsFixtures.project_fixture()
+    project = attrs[:project] || ZentinelCp.ProjectsFixtures.project_fixture()
 
     {:ok, plugin} =
-      SentinelCp.Plugins.create_plugin(%{
+      ZentinelCp.Plugins.create_plugin(%{
         name: attrs[:name] || unique_plugin_name(),
         description: attrs[:description] || "A test plugin",
         plugin_type: attrs[:plugin_type] || "wasm",
@@ -30,7 +30,7 @@ defmodule SentinelCp.PluginFixtures do
     version = attrs[:version] || "1.0.0"
 
     {:ok, plugin_version} =
-      SentinelCp.Plugins.create_plugin_version(plugin, binary, %{
+      ZentinelCp.Plugins.create_plugin_version(plugin, binary, %{
         version: version,
         changelog: attrs[:changelog] || "Initial release"
       })
@@ -39,11 +39,11 @@ defmodule SentinelCp.PluginFixtures do
   end
 
   def service_plugin_fixture(attrs \\ %{}) do
-    service = attrs[:service] || SentinelCp.ServicesFixtures.service_fixture()
+    service = attrs[:service] || ZentinelCp.ServicesFixtures.service_fixture()
     plugin = attrs[:plugin] || plugin_fixture(%{project: attrs[:project]})
 
     {:ok, sp} =
-      SentinelCp.Plugins.attach_plugin(%{
+      ZentinelCp.Plugins.attach_plugin(%{
         service_id: service.id,
         plugin_id: plugin.id,
         plugin_version_id: attrs[:plugin_version_id],

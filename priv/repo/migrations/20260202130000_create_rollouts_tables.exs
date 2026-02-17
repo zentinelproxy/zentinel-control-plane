@@ -1,4 +1,4 @@
-defmodule SentinelCp.Repo.Migrations.CreateRolloutsTables do
+defmodule ZentinelCp.Repo.Migrations.CreateRolloutsTables do
   use Ecto.Migration
 
   def change do

@@ -1,10 +1,10 @@
-defmodule SentinelCpWeb.E2E.LoginFlowTest do
+defmodule ZentinelCpWeb.E2E.LoginFlowTest do
   @moduledoc """
   E2E tests for user login flows.
 
   Tests valid login, invalid credentials, and redirect to login.
   """
-  use SentinelCpWeb.FeatureCase
+  use ZentinelCpWeb.FeatureCase
 
   @moduletag :e2e
 
@@ -13,7 +13,7 @@ defmodule SentinelCpWeb.E2E.LoginFlowTest do
   describe "login flow" do
     feature "valid login redirects away from login page", %{session: session} do
       user =
-        SentinelCp.AccountsFixtures.user_fixture(%{
+        ZentinelCp.AccountsFixtures.user_fixture(%{
           email: "test@example.com",
           password: "SecurePassword123!"
         })
@@ -39,7 +39,7 @@ defmodule SentinelCpWeb.E2E.LoginFlowTest do
     end
 
     feature "invalid password shows error", %{session: session} do
-      user = SentinelCp.AccountsFixtures.user_fixture()
+      user = ZentinelCp.AccountsFixtures.user_fixture()
 
       session
       |> visit("/login")
@@ -60,7 +60,7 @@ defmodule SentinelCpWeb.E2E.LoginFlowTest do
 
   describe "redirect to login" do
     feature "unauthenticated user redirected to login", %{session: session} do
-      org = SentinelCp.OrgsFixtures.org_fixture()
+      org = ZentinelCp.OrgsFixtures.org_fixture()
 
       session
       |> visit("/orgs/#{org.slug}/dashboard")

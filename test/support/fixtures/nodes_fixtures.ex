@@ -1,4 +1,4 @@
-defmodule SentinelCp.NodesFixtures do
+defmodule ZentinelCp.NodesFixtures do
   @moduledoc """
   Test helpers for creating Nodes entities.
   """
@@ -6,7 +6,7 @@ defmodule SentinelCp.NodesFixtures do
   def unique_node_name, do: "node-#{System.unique_integer([:positive])}"
 
   def valid_node_attributes(attrs \\ %{}) do
-    project = attrs[:project] || SentinelCp.ProjectsFixtures.project_fixture()
+    project = attrs[:project] || ZentinelCp.ProjectsFixtures.project_fixture()
 
     Enum.into(attrs, %{
       name: unique_node_name(),
@@ -25,7 +25,7 @@ defmodule SentinelCp.NodesFixtures do
     {:ok, node} =
       attrs
       |> valid_node_attributes()
-      |> SentinelCp.Nodes.register_node()
+      |> ZentinelCp.Nodes.register_node()
 
     node
   end
@@ -44,10 +44,10 @@ defmodule SentinelCp.NodesFixtures do
   """
   def drift_event_fixture(attrs \\ %{}) do
     node = attrs[:node] || node_fixture()
-    project = attrs[:project] || SentinelCp.ProjectsFixtures.project_fixture()
+    project = attrs[:project] || ZentinelCp.ProjectsFixtures.project_fixture()
 
     {:ok, event} =
-      SentinelCp.Nodes.create_drift_event(%{
+      ZentinelCp.Nodes.create_drift_event(%{
         node_id: node.id,
         project_id: project.id,
         expected_bundle_id: attrs[:expected_bundle_id] || Ecto.UUID.generate(),
