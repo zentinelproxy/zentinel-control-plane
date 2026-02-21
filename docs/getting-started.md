@@ -1,21 +1,17 @@
 # Getting Started
 
-This guide walks you through installing Zentinel Control Plane, creating your first project, compiling a configuration bundle, registering a node, and deploying with a rollout.
-
 ## Prerequisites
 
-**Docker Compose** (Option A): Only [Docker](https://docs.docker.com/get-docker/) is required — all dependencies are included.
+**Docker Compose (Option A):** Only [Docker](https://docs.docker.com/get-docker/) required — all dependencies included.
 
-**Local development** (Option B):
-- **Elixir** 1.16+ and **Erlang/OTP** 26+ (managed via [mise](https://mise.jdx.dev/))
-- **Docker** — for MinIO (bundle storage)
-- **Zentinel CLI** — the `zentinel` binary for configuration validation and compilation
+**Local development (Option B):**
+- Elixir 1.16+ and Erlang/OTP 26+ (managed via [mise](https://mise.jdx.dev/))
+- Docker — for MinIO (bundle storage)
+- `zentinel` CLI binary — for configuration validation and compilation
 
-## Installation
+## Docker Compose
 
-### Option A: Docker Compose (Recommended)
-
-The fastest way to get running. This starts the control plane, PostgreSQL, and MinIO (S3-compatible storage) with a single command:
+Starts the control plane, PostgreSQL 17, and MinIO with one command:
 
 ```bash
 git clone https://github.com/zentinelproxy/zentinel-control-plane.git
@@ -23,44 +19,82 @@ cd zentinel-control-plane
 docker compose up
 ```
 
-This will:
-1. Build the control plane from the Dockerfile
-2. Start PostgreSQL 17 and MinIO
-3. Create the `zentinel-bundles` S3 bucket automatically
-4. Run database migrations on first startup
-5. Serve the control plane at `http://localhost:4000`
+What happens:
 
-MinIO console is available at `http://localhost:9001` (credentials: `minioadmin` / `minioadmin`).
+1. Multi-stage Dockerfile builds the Elixir release (base: `hexpm/elixir:1.19.5-erlang-28.3.1-debian-bookworm`)
+2. PostgreSQL 17 starts (port 5432, user: `zentinel`, password: `zentinel`)
+3. MinIO starts (port 9000 API, port 9001 console)
+4. `minio-init` container creates the `zentinel-bundles` bucket
+5. App waits for PostgreSQL readiness (`pg_isready`), runs Ecto migrations
+6. Database seeded with default org and admin user
+7. Control plane available at **http://localhost:4000**
 
-To stop and remove volumes:
+MinIO console: **http://localhost:9001** (credentials: `minioadmin` / `minioadmin`)
+
+Tear down (including volumes):
 
 ```bash
 docker compose down -v
 ```
 
-### Option B: Local Development
+### Services
 
-For development with hot-reloading and SQLite (no external databases needed):
+| Service | Port | Purpose |
+|---------|------|---------|
+| `app` | 4000 | Control plane |
+| `postgres` | 5432 | PostgreSQL 17 |
+| `minio` | 9000, 9001 | S3-compatible storage |
+| `minio-init` | — | Creates bundle bucket on startup |
+
+### Environment Variables (Docker)
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `DATABASE_URL` | `ecto://zentinel:zentinel@postgres:5432/zentinel_cp` | PostgreSQL connection |
+| `SECRET_KEY_BASE` | Set in compose file | Phoenix secret key |
+| `S3_ENDPOINT` | `http://minio:9000` | MinIO endpoint |
+| `S3_BUCKET` | `zentinel-bundles` | Bundle storage bucket |
+| `S3_ACCESS_KEY_ID` | `minioadmin` | MinIO access key |
+| `S3_SECRET_ACCESS_KEY` | `minioadmin` | MinIO secret key |
+| `S3_REGION` | `us-east-1` | S3 region |
+| `PORT` | `4000` | HTTP listen port |
+
+## Local Development
+
+Hot-reloading with SQLite (no external databases):
 
 ```bash
 git clone https://github.com/zentinelproxy/zentinel-control-plane.git
 cd zentinel-control-plane
 
-# Install tooling and dependencies
-mise install
-mise run setup
-
-# Start the development server
-mise run dev
+mise install          # Install Elixir/Erlang toolchain
+mise run setup        # Fetch deps, create DB, migrate, seed
+mise run dev          # Start Phoenix dev server with hot reload
 ```
 
-This uses SQLite (zero configuration) and starts MinIO via `docker-compose.dev.yml` for bundle storage.
+Uses SQLite (zero configuration). MinIO starts via `docker-compose.dev.yml` for bundle storage.
 
-The control plane starts at `http://localhost:4000`.
+Control plane starts at **http://localhost:4000**.
 
-## Creating Your First User
+## Default Credentials
 
-Register an account through the web UI at `/register`, or create one via the console:
+On first startup, the database is seeded with a default admin account:
+
+| Field | Value |
+|-------|-------|
+| **Email** | `admin@localhost` |
+| **Password** | `changeme123456` |
+| **Role** | `admin` |
+
+Created by `priv/repo/seeds.exs`. **Change these credentials immediately in any non-development environment.**
+
+### Creating Your Own User
+
+**Via the web UI:**
+
+Navigate to `/register` and fill in the registration form.
+
+**Via IEx console:**
 
 ```bash
 mise run console
@@ -68,139 +102,61 @@ mise run console
 
 ```elixir
 ZentinelCp.Accounts.register_user(%{
-  email: "admin@example.com",
-  password: "your-secure-password"
+  email: "you@example.com",
+  password: "your-secure-password-here"
 })
 ```
 
-## Creating an Organization
-
-Organizations are the top-level tenant boundary. All projects, members, and signing keys belong to an org.
-
-1. Log in to the web UI
-2. Navigate to **Organizations** and click **New Organization**
-3. Enter a name (e.g., "Acme Corp") — a URL-safe slug is generated automatically
-
-See [Operations > Organizations](operations.md#organizations) for details on member management and roles.
-
-## Creating a Project
-
-Projects group related proxy configurations, nodes, bundles, and rollouts.
-
-1. From your organization dashboard, click **New Project**
-2. Enter a name and optional description
-3. Optionally configure a GitHub repository for GitOps (see [Integrations > GitOps](integrations.md#gitops-webhooks))
-
-The project is now ready for configuration.
-
-## Configuring Services
-
-Services define how Zentinel routes traffic. Each service maps an HTTP path to a backend upstream.
-
-1. Navigate to your project and click **Services**
-2. Click **New Service** and fill in:
-   - **Name**: e.g., "API Backend"
-   - **Route Path**: e.g., `/api/*`
-   - **Upstream URL**: e.g., `http://api.internal:8080`
-3. Optionally attach middlewares for rate limiting, caching, CORS, etc.
-
-See [Configuration Management](configuration-management.md) for the full range of service options.
-
-## Compiling a Bundle
-
-Bundles are immutable, content-addressed configuration artifacts that Zentinel nodes consume.
-
-### Via the Web UI
-
-1. Navigate to **Bundles** and click **New Bundle**
-2. Enter your KDL configuration or let it generate from your services
-3. Click **Create** — compilation runs in the background
-4. The bundle transitions from `compiling` to `compiled` when ready
-
-### Via the API
+**Via Docker:**
 
 ```bash
-curl -X POST http://localhost:4000/api/v1/projects/my-project/bundles \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "config_source": "route \"/api/*\" {\n  upstream \"http://api.internal:8080\"\n}"
-  }'
+docker compose exec app bin/zentinel_cp eval '
+  ZentinelCp.Accounts.register_user(%{
+    email: "you@example.com",
+    password: "your-secure-password-here"
+  })
+'
 ```
 
-The response includes a `bundle_id`. Poll `GET /api/v1/projects/my-project/bundles/:id` until `status` is `"compiled"`.
+Password requirements: minimum 12 characters, maximum 72 characters. Hashed with Argon2.
 
-During compilation, the control plane:
-1. Validates the KDL configuration with `zentinel validate`
-2. Assembles a `.tar.zst` archive with manifest, CA certs, and plugins
-3. Uploads to S3/MinIO storage
-4. Signs the bundle (if signing is enabled)
-5. Scores risk against the previous bundle
+### User Roles
 
-See [Core Concepts > Bundles](core-concepts.md#bundles) for details.
+| Role | Permissions |
+|------|-------------|
+| `admin` | Full org control, manage members, projects, signing keys, API keys |
+| `operator` | Manage projects, bundles, rollouts, services, nodes |
+| `reader` | Read-only access to all resources |
 
-## Registering a Node
+Roles are per-organization. A user can have different roles in different orgs.
 
-Zentinel proxy nodes register with the control plane and then poll for bundle updates.
+## First Steps After Login
 
-### Via the API
+1. **Create an Organization** — Organizations > New Organization. Enter a name; a URL-safe slug is auto-generated.
 
-```bash
-curl -X POST http://localhost:4000/api/v1/projects/my-project/nodes/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "proxy-us-east-1",
-    "labels": {"region": "us-east-1", "env": "production"}
-  }'
-```
+2. **Create a Project** — From the org dashboard, click New Project. Projects group related proxy configs, nodes, and bundles.
 
-The response includes a `node_id` and `node_key`. **Store the `node_key` securely** — it is only returned once and cannot be retrieved later.
+3. **Configure Services** — Services > New Service. Define route paths and upstreams (e.g., `/api/*` → `http://api.internal:8080`).
 
-Nodes authenticate with the control plane using either:
-- **Static key**: `X-Zentinel-Node-Key` header (simple, suitable for getting started)
-- **JWT token**: Exchange the static key for a short-lived JWT via `POST /api/v1/nodes/:id/token` (recommended for production)
+4. **Compile a Bundle** — Bundles > New Bundle. Enter KDL configuration or generate from services. Compilation runs in background.
 
-See [Node Management](node-management.md) for the full node lifecycle.
+5. **Register a Node** — Register a Zentinel proxy instance via the API:
+   ```bash
+   curl -X POST http://localhost:4000/api/v1/projects/my-project/nodes/register \
+     -H "Content-Type: application/json" \
+     -d '{"name": "proxy-1", "labels": {"env": "dev"}}'
+   ```
+   Store the returned `node_key` — it is only shown once.
 
-## Deploying with a Rollout
-
-Rollouts safely deploy a compiled bundle to your node fleet.
-
-### Via the Web UI
-
-1. Navigate to **Rollouts** and click **New Rollout**
-2. Select the compiled bundle
-3. Choose a deployment strategy:
-   - **Rolling** (default): Deploy in batches with health checks between steps
-   - **Canary**: Gradually increase traffic to the new bundle
-   - **Blue-Green**: Deploy to standby slot, shift traffic, then swap
-   - **All at Once**: Deploy to all nodes simultaneously
-4. Configure health gates (heartbeat checks, error rate thresholds, latency limits)
-5. Click **Create** and then **Start**
-
-### Via the API
-
-```bash
-curl -X POST http://localhost:4000/api/v1/projects/my-project/rollouts \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "bundle_id": "BUNDLE_ID",
-    "strategy": "rolling",
-    "batch_size": 2,
-    "target_selector": {"type": "all"},
-    "health_gates": {"heartbeat_healthy": true}
-  }'
-```
-
-The rollout engine advances through batches automatically, pausing if health gates fail. You can pause, resume, cancel, or rollback at any time.
-
-See [Deployment & Rollouts](deployment-and-rollouts.md) for strategy details and advanced options.
+6. **Deploy with a Rollout** — Rollouts > New Rollout. Select bundle, choose strategy (rolling, canary, blue-green, all-at-once), configure health gates, start.
 
 ## Next Steps
 
-- [Core Concepts](core-concepts.md) — Understand the data model
-- [Configuration Management](configuration-management.md) — Configure services, upstreams, TLS, and more
-- [Security](security.md) — Set up WAF rules, auth policies, and bundle signing
-- [Observability](observability.md) — Create SLOs, alerts, and dashboards
-- [API Reference](api-reference.md) — Full API endpoint documentation
+- [ARCHITECTURE.md](ARCHITECTURE.md) — System design and data flow
+- [API.md](API.md) — Full REST API reference with curl examples
+- [AUTHENTICATION.md](AUTHENTICATION.md) — API keys, node auth, SSO, MFA
+- [CONFIGURATION.md](CONFIGURATION.md) — Services, upstreams, TLS, environment variables
+- [DEPLOYMENT.md](DEPLOYMENT.md) — Production deployment and rollout strategies
+- [SECURITY.md](SECURITY.md) — WAF, auth policies, bundle signing
+- [OBSERVABILITY.md](OBSERVABILITY.md) — Prometheus, SLOs, alerts, tracing
+- [DEVELOPMENT.md](DEVELOPMENT.md) — Building, testing, contributing
