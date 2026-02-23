@@ -30,14 +30,17 @@ end
 admin = ZentinelCp.Accounts.get_user_by_email("admin@localhost")
 
 if admin do
-  case ZentinelCp.Orgs.create_org_with_owner(%{name: "Default"}, admin) do
-    {:ok, org} ->
-      IO.puts("Created org: #{org.name} (slug: #{org.slug})")
-
-    {:error, %{errors: [slug: {"has already been taken", _}]}} ->
+  case ZentinelCp.Orgs.get_org_by_slug("default") do
+    %{} ->
       IO.puts("Default org already exists")
 
-    {:error, reason} ->
-      IO.inspect(reason, label: "Failed to create org")
+    nil ->
+      case ZentinelCp.Orgs.create_org_with_owner(%{name: "Default"}, admin) do
+        {:ok, org} ->
+          IO.puts("Created org: #{org.name} (slug: #{org.slug})")
+
+        {:error, reason} ->
+          IO.inspect(reason, label: "Failed to create org")
+      end
   end
 end
