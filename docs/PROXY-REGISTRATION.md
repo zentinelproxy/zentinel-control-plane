@@ -178,6 +178,9 @@ Registered proxies can send operational data back to the control plane:
 
 ### Events
 
+Valid event types: `config_reload`, `bundle_switch`, `error`, `startup`, `shutdown`, `warning`, `info`.
+Valid severities: `debug`, `info`, `warn`, `error`.
+
 ```bash
 curl -X POST http://localhost:4000/api/v1/nodes/NODE_ID/events \
   -H "Authorization: Bearer TOKEN" \
@@ -197,21 +200,65 @@ curl -X POST http://localhost:4000/api/v1/nodes/NODE_ID/events \
   -H "Content-Type: application/json" \
   -d '{
     "events": [
-      {"event_type": "config_applied", "severity": "info", "message": "Bundle v1.2.3 applied"},
-      {"event_type": "health_check", "severity": "info", "message": "All upstreams healthy"}
+      {"event_type": "bundle_switch", "severity": "info", "message": "Switched to bundle v1.2.3"},
+      {"event_type": "info", "severity": "info", "message": "All upstreams healthy"}
     ]
   }'
 ```
 
 ### Metrics
 
+Service-level metrics require `service_id` and `project_id`. These are structured metric snapshots, not free-form key-value pairs:
+
 ```bash
 curl -X POST http://localhost:4000/api/v1/nodes/NODE_ID/metrics \
   -H "Authorization: Bearer TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "metrics": [{"metric": "requests_total", "value": 150000}],
-    "request_logs": [{"timestamp": "2026-02-23T10:00:00Z", "method": "GET", "path": "/api/health", "status": 200, "duration_ms": 5}]
+    "metrics": [{
+      "service_id": "SERVICE_UUID",
+      "project_id": "PROJECT_UUID",
+      "period_start": "2026-02-23T10:00:00Z",
+      "period_seconds": 60,
+      "request_count": 1500,
+      "error_count": 3,
+      "status_2xx": 1450,
+      "status_4xx": 47,
+      "status_5xx": 3
+    }],
+    "request_logs": [{
+      "service_id": "SERVICE_UUID",
+      "project_id": "PROJECT_UUID",
+      "timestamp": "2026-02-23T10:00:00Z",
+      "method": "GET",
+      "path": "/api/health",
+      "status": 200,
+      "latency_ms": 5
+    }]
+  }'
+```
+
+### WAF Events
+
+WAF events require `rule_type`, `rule_id`, `action`, and `severity`:
+
+```bash
+curl -X POST http://localhost:4000/api/v1/nodes/NODE_ID/waf-events \
+  -H "Authorization: Bearer TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "events": [{
+      "rule_type": "crs",
+      "rule_id": "942100",
+      "action": "blocked",
+      "severity": "warn",
+      "client_ip": "1.2.3.4",
+      "method": "POST",
+      "path": "/login",
+      "timestamp": "2026-02-23T10:00:00Z",
+      "matched_data": "1 OR 1=1",
+      "metadata": {"category": "sql_injection"}
+    }]
   }'
 ```
 
