@@ -65,9 +65,12 @@ ENV PHX_SERVER=true
 # Copy the release from the build stage
 COPY --from=builder /app/_build/prod/rel/zentinel_cp ./
 
+# Copy entrypoint script
+COPY entrypoint.sh /app/entrypoint.sh
+
 # Create a non-root user
 RUN groupadd -r zentinel && useradd -r -g zentinel zentinel
-RUN chown -R zentinel:zentinel /app
+RUN chmod +x /app/entrypoint.sh && chown -R zentinel:zentinel /app
 USER zentinel
 
 EXPOSE 4000
@@ -75,6 +78,4 @@ EXPOSE 4000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD curl -f http://localhost:4000/health || exit 1
 
-CMD /app/bin/zentinel_cp eval "ZentinelCp.Release.migrate()" && \
-    /app/bin/zentinel_cp eval "ZentinelCp.Release.seed()" && \
-    /app/bin/zentinel_cp start
+ENTRYPOINT ["/app/entrypoint.sh"]

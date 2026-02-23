@@ -5,7 +5,8 @@ services:
       - "4000:4000"
     environment:
       DATABASE_URL: "ecto://zentinel:zentinel@postgres:5432/zentinel_cp"
-      SECRET_KEY_BASE: "change-me-in-production-use-mix-phx-gen-secret-to-generate"
+      # SECRET_KEY_BASE is auto-generated if not set. To persist sessions across
+      # restarts, set it explicitly: openssl rand -base64 48
       # PHX_HOST: "your-domain.com"  # Set to your server's domain or IP
       PORT: "4000"
       S3_ENDPOINT: "http://minio:9000"
@@ -24,7 +25,7 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 15s
+      start_period: 60s
 
   postgres:
     image: postgres:17-alpine
