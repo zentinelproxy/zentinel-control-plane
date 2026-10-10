@@ -33,26 +33,22 @@ defmodule ZentinelCpWeb.NotificationsLive.ChannelShow do
     channel = socket.assigns.channel
     project = socket.assigns.project
 
-    case Events.test_channel(channel) do
-      {:ok, _attempt} ->
-        Audit.log_user_action(
-          socket.assigns.current_user,
-          "test",
-          "notification_channel",
-          channel.id,
-          project_id: project.id
-        )
+    {:ok, _attempt} = Events.test_channel(channel)
 
-        attempts = Events.list_delivery_attempts(channel_id: channel.id, limit: 20)
+    Audit.log_user_action(
+      socket.assigns.current_user,
+      "test",
+      "notification_channel",
+      channel.id,
+      project_id: project.id
+    )
 
-        {:noreply,
-         socket
-         |> assign(:attempts, attempts)
-         |> put_flash(:info, "Test notification sent.")}
+    attempts = Events.list_delivery_attempts(channel_id: channel.id, limit: 20)
 
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Could not send test notification.")}
-    end
+    {:noreply,
+     socket
+     |> assign(:attempts, attempts)
+     |> put_flash(:info, "Test notification sent.")}
   end
 
   @impl true

@@ -158,12 +158,14 @@ defmodule ZentinelCpWeb.Integration.Api.PerNodeConfigTest do
 
       for node <- frontend_nodes do
         db_node = Nodes.get_node!(node.id)
+
         assert db_node.active_bundle_id == frontend_bundle.id,
                "Frontend node #{db_node.name} should have frontend bundle"
       end
 
       for node <- backend_nodes do
         db_node = Nodes.get_node!(node.id)
+
         assert db_node.active_bundle_id == backend_bundle.id,
                "Backend node #{db_node.name} should have backend bundle"
       end

@@ -116,8 +116,10 @@ defmodule ZentinelCpWeb.Integration.Api.HealthGateRolloutTest do
 
       detailed = Rollouts.get_rollout_with_details(rollout_id)
       step1_updated = hd(detailed.steps)
+
       assert step1_updated.state == "verifying",
              "Step should remain verifying due to failed health gate, got: #{step1_updated.state}"
+
       assert step1_updated.health_gate_failure_since != nil
 
       # Fix the bad node: send healthy heartbeat

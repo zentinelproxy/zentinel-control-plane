@@ -302,17 +302,11 @@ defmodule ZentinelCpWeb.Api.NodeController do
         |> Map.put("project_id", node.project_id)
       end)
 
-    case Analytics.ingest_waf_events(events_with_node) do
-      {:ok, count} ->
-        conn
-        |> put_status(:ok)
-        |> json(%{status: "ok", events_ingested: count})
+    {:ok, count} = Analytics.ingest_waf_events(events_with_node)
 
-      {:error, reason} ->
-        conn
-        |> put_status(:internal_server_error)
-        |> json(%{error: "Failed to ingest WAF events: #{inspect(reason)}"})
-    end
+    conn
+    |> put_status(:ok)
+    |> json(%{status: "ok", events_ingested: count})
   end
 
   def waf_events(conn, _params) do

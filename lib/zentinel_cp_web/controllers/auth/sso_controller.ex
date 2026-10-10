@@ -16,19 +16,13 @@ defmodule ZentinelCpWeb.Auth.SsoController do
         |> redirect(to: "/login")
 
       provider ->
-        case Sso.oidc_authorize_url(provider) do
-          {:ok, url, state, code_verifier} ->
-            conn
-            |> put_session(:oidc_state, state)
-            |> put_session(:oidc_code_verifier, code_verifier)
-            |> put_session(:oidc_provider_id, provider_id)
-            |> redirect(external: url)
+        {:ok, url, state, code_verifier} = Sso.oidc_authorize_url(provider)
 
-          {:error, _reason} ->
-            conn
-            |> put_flash(:error, "Failed to initiate SSO login")
-            |> redirect(to: "/login")
-        end
+        conn
+        |> put_session(:oidc_state, state)
+        |> put_session(:oidc_code_verifier, code_verifier)
+        |> put_session(:oidc_provider_id, provider_id)
+        |> redirect(external: url)
     end
   end
 
@@ -94,18 +88,12 @@ defmodule ZentinelCpWeb.Auth.SsoController do
         |> redirect(to: "/login")
 
       provider ->
-        case Sso.saml_authn_request_url(provider) do
-          {:ok, url, request_id} ->
-            conn
-            |> put_session(:saml_request_id, request_id)
-            |> put_session(:saml_provider_id, provider_id)
-            |> redirect(external: url)
+        {:ok, url, request_id} = Sso.saml_authn_request_url(provider)
 
-          {:error, _reason} ->
-            conn
-            |> put_flash(:error, "Failed to initiate SAML login")
-            |> redirect(to: "/login")
-        end
+        conn
+        |> put_session(:saml_request_id, request_id)
+        |> put_session(:saml_provider_id, provider_id)
+        |> redirect(external: url)
     end
   end
 
