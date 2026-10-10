@@ -62,7 +62,7 @@ defmodule ZentinelCp.ClusterTest do
       project = project_fixture()
 
       exports = Backup.export_all_projects()
-      assert length(exports) >= 1
+      assert exports != []
 
       {slug, config} = Enum.find(exports, fn {s, _} -> s == project.slug end)
       assert slug == project.slug

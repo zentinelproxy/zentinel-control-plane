@@ -81,7 +81,7 @@ defmodule ZentinelCp.AnalyticsTest do
       _metric = metric_fixture(%{project: project, service: service})
 
       metrics = Analytics.get_service_metrics(service.id, 1)
-      assert length(metrics) >= 1
+      assert metrics != []
       assert hd(metrics).service_id == service.id
     end
 
@@ -109,7 +109,7 @@ defmodule ZentinelCp.AnalyticsTest do
       _metric = metric_fixture(%{project: project, service: service, request_count: 500})
 
       services = Analytics.get_top_services(project.id, 1)
-      assert length(services) >= 1
+      assert services != []
       assert hd(services).service_id == service.id
       assert hd(services).total_requests >= 500
     end
@@ -138,7 +138,7 @@ defmodule ZentinelCp.AnalyticsTest do
       _log = request_log_fixture(%{project: project, service: service})
 
       logs = Analytics.get_recent_logs(service.id, limit: 10)
-      assert length(logs) >= 1
+      assert logs != []
       assert hd(logs).service_id == service.id
     end
 

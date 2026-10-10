@@ -121,7 +121,7 @@ defmodule ZentinelCp.ConfigExportTest do
       {:ok, changes} = ConfigExport.diff(project.id, config)
 
       removals = Enum.filter(changes, fn {action, _, _} -> action == :remove end)
-      assert length(removals) >= 1
+      assert removals != []
     end
 
     test "detects no changes for matching config", %{project: project} do

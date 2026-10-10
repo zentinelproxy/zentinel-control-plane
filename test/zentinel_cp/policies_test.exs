@@ -380,7 +380,7 @@ defmodule ZentinelCp.PoliciesTest do
 
       # Each line should be valid JSON
       lines = String.split(output, "\n", trim: true)
-      assert length(lines) >= 1
+      assert lines != []
       assert {:ok, decoded} = Jason.decode(hd(lines))
       assert decoded["action"] == "node.registered"
       assert decoded["source"] == "zentinel_cp"

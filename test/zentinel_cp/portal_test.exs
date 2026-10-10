@@ -216,7 +216,7 @@ defmodule ZentinelCp.PortalTest do
 
       # Should not appear in active keys list
       keys = Portal.list_portal_keys(project.id, user.id)
-      assert length(keys) == 0
+      assert keys == []
     end
 
     test "revoke_portal_key rejects other user's key" do

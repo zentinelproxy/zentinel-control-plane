@@ -177,10 +177,10 @@ defmodule ZentinelCp.Rollouts.Rollout do
         %{"type" => "labels", "labels" => labels} when is_map(labels) and map_size(labels) > 0 ->
           []
 
-        %{"type" => "node_ids", "node_ids" => ids} when is_list(ids) and length(ids) > 0 ->
+        %{"type" => "node_ids", "node_ids" => ids} when is_list(ids) and ids != [] ->
           []
 
-        %{"type" => "groups", "group_ids" => ids} when is_list(ids) and length(ids) > 0 ->
+        %{"type" => "groups", "group_ids" => ids} when is_list(ids) and ids != [] ->
           []
 
         _ ->

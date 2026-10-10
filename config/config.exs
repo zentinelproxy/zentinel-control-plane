@@ -60,9 +60,41 @@ config :tailwind,
   ]
 
 # Configure Elixir's Logger
+#
+# Metadata keys passed to Logger calls are dropped unless listed here. The same
+# list feeds the production JSON formatter below, whose default is to drop all.
+logger_metadata = [
+  :request_id,
+  :attempt,
+  :branch,
+  :bundle_id,
+  :channel_id,
+  :commit,
+  :error,
+  :event,
+  :event_type,
+  :failed_rollout_id,
+  :node_id,
+  :path,
+  :reason,
+  :ref,
+  :repo,
+  :rollback_rollout_id,
+  :rollout_id,
+  :status,
+  :type,
+  :url
+]
+
 config :logger, :default_formatter,
   format: "$time $metadata[$level] $message\n",
-  metadata: [:request_id]
+  metadata: logger_metadata
+
+# Use structured JSON logging in production
+if config_env() == :prod do
+  config :logger, :default_handler,
+    formatter: {LoggerJSON.Formatters.Basic, metadata: logger_metadata}
+end
 
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason

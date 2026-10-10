@@ -551,7 +551,7 @@ defmodule ZentinelCpWeb.RolloutTemplatesLive.Index do
 
       "node_ids" ->
         ids = parse_node_ids(params["node_ids"] || "")
-        if length(ids) > 0, do: %{"type" => "node_ids", "node_ids" => ids}, else: nil
+        if ids != [], do: %{"type" => "node_ids", "node_ids" => ids}, else: nil
 
       _ ->
         nil

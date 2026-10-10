@@ -27,7 +27,7 @@ defmodule ZentinelCp.WafTest do
 
     test "filters by search term" do
       rules = Waf.list_rules(search: "CRS-942100")
-      assert length(rules) >= 1
+      assert rules != []
       assert Enum.any?(rules, fn r -> r.rule_id == "CRS-942100" end)
     end
   end

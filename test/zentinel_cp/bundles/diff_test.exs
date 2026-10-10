@@ -33,7 +33,7 @@ defmodule ZentinelCp.Bundles.DiffTest do
       a = bundle("")
       b = bundle("new content")
       diff = Diff.config_diff(a, b)
-      assert length(diff) > 0
+      assert diff != []
     end
   end
 

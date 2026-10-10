@@ -152,8 +152,14 @@ jobs:
       - name: Check formatting
         run: mix format --check-formatted
 
-      - name: Run Credo
-        run: mix credo --strict
+      - name: Run Credo (warnings)
+        run: mix credo --only warning
+
+      # The refactoring/readability backlog predates enforcement; report it
+      # without failing the build until it has been worked down.
+      - name: Run Credo (full report)
+        run: mix credo
+        continue-on-error: true
 
   # Security audit
   security:

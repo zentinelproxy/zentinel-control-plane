@@ -29,7 +29,7 @@ defmodule ZentinelCp.Services.Acme.Crypto do
 
   Returns `{:ok, der_binary}` or `{:error, reason}`.
   """
-  def build_csr(private_key, domains) when is_list(domains) and length(domains) > 0 do
+  def build_csr(private_key, domains) when is_list(domains) and domains != [] do
     [primary | _] = domains
 
     # Build CSR info DER manually

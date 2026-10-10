@@ -252,7 +252,7 @@ defmodule ZentinelCpWeb.Integration.Api.AgentEventPipelineTest do
 
       # Verify that the alert is firing
       alert_states = Observability.active_alert_states(rule.id)
-      assert length(alert_states) >= 1
+      assert alert_states != []
 
       firing = hd(alert_states)
       assert firing.value > 10.0

@@ -44,7 +44,7 @@ defmodule ZentinelCp.Analytics.WafAnomalyWorkerTest do
       assert :ok = WafBaselineWorker.perform(%Oban.Job{args: %{}})
 
       baselines = Analytics.get_waf_baselines(project.id)
-      assert length(baselines) > 0
+      assert baselines != []
 
       # Should have at least total_blocks baseline
       types = Enum.map(baselines, & &1.metric_type)

@@ -26,7 +26,7 @@ defmodule ZentinelCp.Bundles.Risk do
     level =
       cond do
         Enum.any?(reasons, &high_risk?/1) -> "high"
-        length(reasons) > 0 -> "medium"
+        reasons != [] -> "medium"
         true -> "low"
       end
 
