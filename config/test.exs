@@ -8,7 +8,10 @@ import Config
 config :zentinel_cp, ZentinelCp.Repo,
   database: Path.expand("../zentinel_cp_test#{System.get_env("MIX_TEST_PARTITION")}.db", __DIR__),
   pool: Ecto.Adapters.SQL.Sandbox,
-  pool_size: System.schedulers_online() * 2
+  pool_size: System.schedulers_online() * 2,
+  # Async tests share one SQLite file; the 2s default lock wait is too short on
+  # CI runners and surfaces as `Exqlite.Error: Database busy`.
+  busy_timeout: 30_000
 
 # Enable server for E2E tests (Wallaby requires the server to be running)
 config :zentinel_cp, ZentinelCpWeb.Endpoint,
