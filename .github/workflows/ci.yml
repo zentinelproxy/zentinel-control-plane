@@ -105,6 +105,14 @@ jobs:
       - name: Install dependencies
         run: mix deps.get
 
+      # priv/static/assets is not committed. Without this the pages load with
+      # no JavaScript, the LiveView socket never connects, and every
+      # phx-click / phx-change in the tests is a no-op.
+      - name: Build assets
+        run: mix assets.setup && mix assets.build
+        env:
+          MIX_ENV: test
+
       - name: Set up Chrome
         uses: browser-actions/setup-chrome@v1
         with:
