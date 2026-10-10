@@ -15,7 +15,7 @@ defmodule ZentinelCpWeb.E2E.BundleLifecycleTest do
       {session, context} = setup_full_context(session)
 
       session
-      |> visit("/projects/#{context.project.slug}/bundles")
+      |> visit_live("/projects/#{context.project.slug}/bundles")
       |> assert_has(css("h1", text: "Bundles"))
     end
 
@@ -33,7 +33,7 @@ defmodule ZentinelCpWeb.E2E.BundleLifecycleTest do
       })
 
       session
-      |> visit("/projects/#{context.project.slug}/bundles")
+      |> visit_live("/projects/#{context.project.slug}/bundles")
       |> assert_has(css("table"))
       |> assert_has(css("td", text: "v1.0.0"))
       |> assert_has(css("td", text: "v1.1.0"))
@@ -48,7 +48,7 @@ defmodule ZentinelCpWeb.E2E.BundleLifecycleTest do
       })
 
       session
-      |> visit("/projects/#{context.project.slug}/bundles")
+      |> visit_live("/projects/#{context.project.slug}/bundles")
       |> assert_has(css("[data-testid='status-badge']", text: "compiled"))
     end
   end
@@ -64,7 +64,7 @@ defmodule ZentinelCpWeb.E2E.BundleLifecycleTest do
         })
 
       session
-      |> visit("/projects/#{context.project.slug}/bundles/#{bundle.id}")
+      |> visit_live("/projects/#{context.project.slug}/bundles/#{bundle.id}")
       |> assert_has(css("h1", text: "v3.0.0"))
       |> assert_has(css("[data-testid='bundle-status']", text: "compiled"))
     end
@@ -79,7 +79,7 @@ defmodule ZentinelCpWeb.E2E.BundleLifecycleTest do
         })
 
       session
-      |> visit("/projects/#{context.project.slug}/bundles/#{bundle.id}")
+      |> visit_live("/projects/#{context.project.slug}/bundles/#{bundle.id}")
       |> assert_has(css("[data-testid='bundle-version']", text: "v4.0.0"))
     end
   end
@@ -93,7 +93,7 @@ defmodule ZentinelCpWeb.E2E.BundleLifecycleTest do
       {session, context} = setup_full_context(session)
 
       session
-      |> visit("/projects/#{context.project.slug}/bundles/new")
+      |> visit_live("/projects/#{context.project.slug}/bundles/new")
       |> assert_has(css("h1", text: "Create Bundle"))
       |> assert_has(css("form"))
       |> assert_has(css("input[name='version']"))
@@ -120,7 +120,9 @@ defmodule ZentinelCpWeb.E2E.BundleLifecycleTest do
         })
 
       session
-      |> visit("/projects/#{context.project.slug}/bundles/diff?a=#{bundle1.id}&b=#{bundle2.id}")
+      |> visit_live(
+        "/projects/#{context.project.slug}/bundles/diff?a=#{bundle1.id}&b=#{bundle2.id}"
+      )
       |> assert_has(css("h1", text: "Compare Bundles"))
       |> assert_has(css("[data-testid='diff-from']", text: "v5.0.0"))
       |> assert_has(css("[data-testid='diff-to']", text: "v5.1.0"))
@@ -137,7 +139,7 @@ defmodule ZentinelCpWeb.E2E.BundleLifecycleTest do
       })
 
       session
-      |> visit("/projects/#{context.project.slug}/bundles")
+      |> visit_live("/projects/#{context.project.slug}/bundles")
       |> assert_has(css("td", text: "v6.0.0"))
     end
   end

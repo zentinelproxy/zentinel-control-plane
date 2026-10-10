@@ -28,6 +28,8 @@ if System.get_env("WALLABY_DRIVER") != "disabled" do
   # Check common chromedriver locations on macOS and Linux
   # Prefer homebrew/system installs which are more likely to match Chrome version
   chromedriver_paths = [
+    # Explicit override, for when an installed driver doesn't match Chrome's version
+    System.get_env("CHROMEDRIVER_PATH"),
     # Homebrew on Apple Silicon
     "/opt/homebrew/bin/chromedriver",
     # Homebrew on Intel Mac / Linux
@@ -40,7 +42,7 @@ if System.get_env("WALLABY_DRIVER") != "disabled" do
 
   chromedriver_found =
     Enum.find(chromedriver_paths, fn path ->
-      File.exists?(path) && File.regular?(path)
+      path && File.exists?(path) && File.regular?(path)
     end)
 
   case chromedriver_found do

@@ -24,7 +24,7 @@ defmodule ZentinelCpWeb.E2E.RolloutWorkflowTest do
       {session, context} = setup_full_context(session)
 
       session
-      |> visit("/projects/#{context.project.slug}/rollouts")
+      |> visit_live("/projects/#{context.project.slug}/rollouts")
       |> assert_has(css("h1", text: "Rollouts"))
     end
 
@@ -35,7 +35,7 @@ defmodule ZentinelCpWeb.E2E.RolloutWorkflowTest do
       ZentinelCp.RolloutsFixtures.rollout_fixture(%{project: context.project, bundle: bundle})
 
       session
-      |> visit("/projects/#{context.project.slug}/rollouts")
+      |> visit_live("/projects/#{context.project.slug}/rollouts")
       |> assert_has(css("table"))
       |> assert_has(css("[data-testid='rollout-state']"))
     end
@@ -66,7 +66,7 @@ defmodule ZentinelCpWeb.E2E.RolloutWorkflowTest do
         })
 
       session
-      |> visit("/projects/#{context.project.slug}/rollouts/#{rollout.id}")
+      |> visit_live("/projects/#{context.project.slug}/rollouts/#{rollout.id}")
       |> assert_has(css("h1"))
       |> assert_has(css("[data-testid='rollout-progress']"))
       |> assert_has(css("[data-testid='rollout-state']"))
@@ -88,7 +88,7 @@ defmodule ZentinelCpWeb.E2E.RolloutWorkflowTest do
         })
 
       session
-      |> visit("/projects/#{context.project.slug}/rollouts/#{rollout.id}")
+      |> visit_live("/projects/#{context.project.slug}/rollouts/#{rollout.id}")
       |> assert_has(css("[data-testid='rollout-steps']"))
     end
   end
@@ -109,7 +109,7 @@ defmodule ZentinelCpWeb.E2E.RolloutWorkflowTest do
       {:ok, _} = force_rollout_state(rollout, "running")
 
       session
-      |> visit("/projects/#{context.project.slug}/rollouts/#{rollout.id}")
+      |> visit_live("/projects/#{context.project.slug}/rollouts/#{rollout.id}")
       |> assert_has(css("button[phx-click='pause']"))
       |> click(css("button[phx-click='pause']"))
       |> assert_has(css("[data-testid='rollout-state']", text: "paused"))
@@ -130,7 +130,7 @@ defmodule ZentinelCpWeb.E2E.RolloutWorkflowTest do
       {:ok, _} = force_rollout_state(rollout, "paused")
 
       session
-      |> visit("/projects/#{context.project.slug}/rollouts/#{rollout.id}")
+      |> visit_live("/projects/#{context.project.slug}/rollouts/#{rollout.id}")
       |> assert_has(css("button[phx-click='resume']"))
       |> click(css("button[phx-click='resume']"))
       |> assert_has(css("[data-testid='rollout-state']", text: "running"))
@@ -151,7 +151,7 @@ defmodule ZentinelCpWeb.E2E.RolloutWorkflowTest do
       {:ok, _} = force_rollout_state(rollout, "running")
 
       session
-      |> visit("/projects/#{context.project.slug}/rollouts/#{rollout.id}")
+      |> visit_live("/projects/#{context.project.slug}/rollouts/#{rollout.id}")
       |> assert_has(css("button[phx-click='cancel']"))
       |> click(css("button[phx-click='cancel']"))
       |> assert_has(css("[data-testid='rollout-state']", text: "cancelled"))
@@ -180,7 +180,7 @@ defmodule ZentinelCpWeb.E2E.RolloutWorkflowTest do
       {:ok, _} = force_rollout_state(running, "running")
 
       session
-      |> visit("/projects/#{context.project.slug}/rollouts")
+      |> visit_live("/projects/#{context.project.slug}/rollouts")
       |> assert_has(css("[data-testid='rollout-row']", count: 2))
     end
   end

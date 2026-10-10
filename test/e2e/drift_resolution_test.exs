@@ -15,7 +15,7 @@ defmodule ZentinelCpWeb.E2E.DriftResolutionTest do
       {session, context} = setup_full_context(session)
 
       session
-      |> visit("/projects/#{context.project.slug}/drift")
+      |> visit_live("/projects/#{context.project.slug}/drift")
       |> assert_has(css("h1", text: "Drift Events"))
     end
 
@@ -35,7 +35,7 @@ defmodule ZentinelCpWeb.E2E.DriftResolutionTest do
       })
 
       session
-      |> visit("/projects/#{context.project.slug}/drift")
+      |> visit_live("/projects/#{context.project.slug}/drift")
       |> assert_has(css("table"))
       |> assert_has(css("td", text: "drifted-node"))
       |> assert_has(css("[data-testid='severity-badge']", text: "High"))
@@ -48,7 +48,7 @@ defmodule ZentinelCpWeb.E2E.DriftResolutionTest do
       ZentinelCp.NodesFixtures.drift_event_fixture(%{node: node, project: context.project})
 
       session
-      |> visit("/projects/#{context.project.slug}/drift")
+      |> visit_live("/projects/#{context.project.slug}/drift")
       |> assert_has(css("[data-testid='drift-stats']"))
     end
   end
@@ -70,7 +70,7 @@ defmodule ZentinelCpWeb.E2E.DriftResolutionTest do
         })
 
       session
-      |> visit("/projects/#{context.project.slug}/drift")
+      |> visit_live("/projects/#{context.project.slug}/drift")
       |> assert_has(css("td", text: "resolve-single-node"))
       |> click(css("button[phx-click='resolve'][phx-value-id='#{event.id}']"))
       |> assert_has(css(".badge", text: "Resolved"))
@@ -101,7 +101,7 @@ defmodule ZentinelCpWeb.E2E.DriftResolutionTest do
 
       session =
         session
-        |> visit("/projects/#{context.project.slug}/drift")
+        |> visit_live("/projects/#{context.project.slug}/drift")
         |> assert_has(css("[data-testid='drift-event-row']", count: 3))
 
       # Accept the confirmation dialog and click the button
@@ -134,7 +134,7 @@ defmodule ZentinelCpWeb.E2E.DriftResolutionTest do
         })
 
       session
-      |> visit("/projects/#{context.project.slug}/drift/#{event.id}")
+      |> visit_live("/projects/#{context.project.slug}/drift/#{event.id}")
       |> assert_has(css("h1", text: "Drift Event"))
       |> assert_has(css("[data-testid='node-name']", text: "detail-drift-node"))
       |> assert_has(css("[data-testid='severity']", text: "Critical"))
@@ -152,7 +152,7 @@ defmodule ZentinelCpWeb.E2E.DriftResolutionTest do
         })
 
       session
-      |> visit("/projects/#{context.project.slug}/drift/#{event.id}")
+      |> visit_live("/projects/#{context.project.slug}/drift/#{event.id}")
       |> click(css("button[phx-click='resolve']"))
       |> assert_has(css("[data-testid='resolved-status']"))
     end
@@ -177,7 +177,7 @@ defmodule ZentinelCpWeb.E2E.DriftResolutionTest do
       })
 
       session
-      |> visit("/projects/#{context.project.slug}/drift")
+      |> visit_live("/projects/#{context.project.slug}/drift")
       |> assert_has(css("[data-testid='drift-event-row']", count: 2))
     end
 
@@ -201,7 +201,7 @@ defmodule ZentinelCpWeb.E2E.DriftResolutionTest do
       {:ok, _} = ZentinelCp.Nodes.resolve_drift_event(resolved_event, "manual")
 
       session
-      |> visit("/projects/#{context.project.slug}/drift")
+      |> visit_live("/projects/#{context.project.slug}/drift")
       |> click(css("select[name='status'] option[value='active']"))
       |> assert_has(css("[data-testid='drift-event-row']", count: 1))
     end

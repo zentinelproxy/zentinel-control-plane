@@ -61,22 +61,63 @@ defmodule ZentinelCpWeb.FeatureCase do
   end
 
   @doc """
+  Visits a LiveView page and waits until its socket has joined.
+
+  The first response is a static render. Until the LiveView connects,
+  `phx-click`, `phx-change` and `phx-submit` do nothing, so a test that
+  interacts straight after `visit/2` loses the event whenever the join is
+  slower than the test (as on CI runners).
+  """
+  def visit_live(session, path) do
+    import Wallaby.Browser
+    import Wallaby.Query
+
+    session
+    |> visit(path)
+    |> assert_has(css("[data-phx-main].phx-connected"))
+  end
+
+  @doc """
   Logs in a user via the browser login form.
   Returns the session after successful login.
   """
   def log_in_via_browser(session, email, password) do
+    import Wallaby.Browser
     import Wallaby.Query
 
-    session =
-      session
-      |> Wallaby.Browser.visit("/login")
-      |> Wallaby.Browser.fill_in(text_field("Email"), with: email)
-      |> Wallaby.Browser.fill_in(text_field("Password"), with: password)
-      |> Wallaby.Browser.click(button("Sign in"))
-
-    # Wait for redirect to complete - page should no longer have the login form
-    Process.sleep(1000)
     session
+    |> visit_live("/login")
+    |> fill_in(text_field("Email"), with: email)
+    |> fill_in(text_field("Password"), with: password)
+    |> click(button("Sign in"))
+    |> wait_for_navigation_from("/login")
+  end
+
+  @doc """
+  Waits until the browser has navigated away from `path`.
+
+  Polls the URL rather than querying the old page: elements of a document that
+  is being replaced raise a non-retried "Node ... does not belong to the
+  document" error from ChromeDriver.
+  """
+  def wait_for_navigation_from(session, path) do
+    timeout = Application.get_env(:wallaby, :max_wait_time, 5_000)
+    deadline = System.monotonic_time(:millisecond) + timeout
+    do_wait_for_navigation_from(session, path, deadline)
+  end
+
+  defp do_wait_for_navigation_from(session, path, deadline) do
+    cond do
+      Wallaby.Browser.current_path(session) != path ->
+        session
+
+      System.monotonic_time(:millisecond) > deadline ->
+        raise "still on #{path} after waiting for navigation"
+
+      true ->
+        Process.sleep(50)
+        do_wait_for_navigation_from(session, path, deadline)
+    end
   end
 
   @doc """

@@ -15,7 +15,7 @@ defmodule ZentinelCpWeb.E2E.NodeManagementTest do
       {session, context} = setup_full_context(session)
 
       session
-      |> visit("/projects/#{context.project.slug}/nodes")
+      |> visit_live("/projects/#{context.project.slug}/nodes")
       |> assert_has(css("h1", text: "Nodes"))
       |> assert_has(css("[data-testid='empty-state']", text: "No nodes"))
     end
@@ -34,7 +34,7 @@ defmodule ZentinelCpWeb.E2E.NodeManagementTest do
       })
 
       session
-      |> visit("/projects/#{context.project.slug}/nodes")
+      |> visit_live("/projects/#{context.project.slug}/nodes")
       |> assert_has(css("h1", text: "Nodes"))
       |> assert_has(css("table"))
       |> assert_has(css("td", text: "web-proxy-1"))
@@ -48,7 +48,7 @@ defmodule ZentinelCpWeb.E2E.NodeManagementTest do
       ZentinelCp.Nodes.record_heartbeat(node, %{health: %{"status" => "healthy"}})
 
       session
-      |> visit("/projects/#{context.project.slug}/nodes")
+      |> visit_live("/projects/#{context.project.slug}/nodes")
       |> assert_has(css("[data-testid='stats-online']"))
       |> assert_has(css("[data-testid='stats-total']"))
     end
@@ -73,7 +73,7 @@ defmodule ZentinelCpWeb.E2E.NodeManagementTest do
       ZentinelCp.Nodes.record_heartbeat(online_node, %{health: %{"status" => "healthy"}})
 
       session
-      |> visit("/projects/#{context.project.slug}/nodes")
+      |> visit_live("/projects/#{context.project.slug}/nodes")
       |> assert_has(css("td", text: "online-proxy"))
       |> assert_has(css("td", text: "offline-proxy"))
       |> click(css("select[name='status'] option[value='online']"))
@@ -92,10 +92,10 @@ defmodule ZentinelCpWeb.E2E.NodeManagementTest do
         })
 
       session
-      |> visit("/projects/#{context.project.slug}/nodes")
+      |> visit_live("/projects/#{context.project.slug}/nodes")
       |> assert_has(css("td", text: "deletable-proxy"))
       |> click(css("button[phx-click='delete'][phx-value-id='#{node.id}']"))
-      |> refute_has(css("td", text: "deletable-proxy"))
+      |> assert_has(css("td", text: "deletable-proxy", count: 0))
     end
   end
 
@@ -111,7 +111,7 @@ defmodule ZentinelCpWeb.E2E.NodeManagementTest do
         })
 
       session
-      |> visit("/projects/#{context.project.slug}/nodes/#{node.id}")
+      |> visit_live("/projects/#{context.project.slug}/nodes/#{node.id}")
       |> assert_has(css("h1", text: "detail-proxy"))
       |> assert_has(css("[data-testid='node-labels']", text: "production"))
     end

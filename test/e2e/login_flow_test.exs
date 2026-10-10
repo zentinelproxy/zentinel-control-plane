@@ -19,18 +19,19 @@ defmodule ZentinelCpWeb.E2E.LoginFlowTest do
         })
 
       session
-      |> visit("/login")
+      |> visit_live("/login")
       |> assert_has(css("h1", text: "Sign in"))
       |> fill_in(text_field("Email"), with: user.email)
       |> fill_in(css("input[type='password']"), with: "SecurePassword123!")
       |> click(button("Sign in"))
       # After login, user is redirected away from login page
-      |> refute_has(css("h1", text: "Sign in"))
+      |> wait_for_navigation_from("/login")
+      |> assert_has(css("h1", text: "Sign in", count: 0))
     end
 
     feature "invalid email shows error", %{session: session} do
       session
-      |> visit("/login")
+      |> visit_live("/login")
       |> fill_in(text_field("Email"), with: "nonexistent@example.com")
       |> fill_in(css("input[type='password']"), with: "SomePassword123!")
       |> click(button("Sign in"))
@@ -42,7 +43,7 @@ defmodule ZentinelCpWeb.E2E.LoginFlowTest do
       user = ZentinelCp.AccountsFixtures.user_fixture()
 
       session
-      |> visit("/login")
+      |> visit_live("/login")
       |> fill_in(text_field("Email"), with: user.email)
       |> fill_in(css("input[type='password']"), with: "WrongPassword123!")
       |> click(button("Sign in"))
@@ -52,7 +53,7 @@ defmodule ZentinelCpWeb.E2E.LoginFlowTest do
     feature "form has required fields", %{session: session} do
       # This test verifies the form has email and password inputs with required attribute
       session
-      |> visit("/login")
+      |> visit_live("/login")
       |> assert_has(css("input[type='email'][required]"))
       |> assert_has(css("input[type='password'][required]"))
     end
@@ -63,13 +64,13 @@ defmodule ZentinelCpWeb.E2E.LoginFlowTest do
       org = ZentinelCp.OrgsFixtures.org_fixture()
 
       session
-      |> visit("/orgs/#{org.slug}/dashboard")
+      |> visit_live("/orgs/#{org.slug}/dashboard")
       |> assert_has(css("h1", text: "Sign in"))
     end
 
     feature "protected routes require authentication", %{session: session} do
       session
-      |> visit("/audit")
+      |> visit_live("/audit")
       |> assert_has(css("h1", text: "Sign in"))
     end
   end
