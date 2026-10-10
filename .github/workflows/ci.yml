@@ -42,7 +42,11 @@ jobs:
         run: mix compile --warnings-as-errors
 
       - name: Run unit tests
-        run: mix test.unit
+        # One test case at a time: on CI runners, concurrent sandboxed tests on
+        # the shared SQLite file still fail with "Database busy" despite
+        # immediate transactions and a 30s busy_timeout (not reproducible
+        # locally).
+        run: mix test.unit --max-cases 1
 
   # API integration tests
   integration-tests:
