@@ -1,126 +1,57 @@
-<div align="center">
-
-<h1 align="center">
-  Zentinel Control Plane
-</h1>
-
 <p align="center">
-  <em>Fleet management for Zentinel reverse proxies.</em><br>
-  <em>Declarative configuration distribution with safe rollouts.</em>
-</p>
-
-<p align="center">
-  <a href="https://elixir-lang.org/">
-    <img alt="Elixir" src="https://img.shields.io/badge/Elixir-1.17+-4B275F?logo=elixir&logoColor=white&style=for-the-badge">
-  </a>
-  <a href="https://www.phoenixframework.org/">
-    <img alt="Phoenix" src="https://img.shields.io/badge/Phoenix-1.8-f5a97f?style=for-the-badge">
-  </a>
-  <a href="LICENSE">
-    <img alt="License" src="https://img.shields.io/badge/License-Apache--2.0-c6a0f6?style=for-the-badge">
+  <a href="https://zentinelproxy.io">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/zentinelproxy/design/main/marks/lockup/zentinel-lockup-dark.svg">
+      <img alt="Zentinel" src="https://raw.githubusercontent.com/zentinelproxy/design/main/marks/lockup/zentinel-lockup-light.svg" height="52">
+    </picture>
   </a>
 </p>
 
+<h3 align="center">Zentinel control plane</h3>
+
+<p align="center">Fleet management for Zentinel proxies: compile KDL into signed bundles and roll them out to nodes in safe batches.</p>
+
 <p align="center">
-  <a href="https://github.com/zentinelproxy/zentinel">Zentinel Proxy</a> •
-  <a href="docs/index.md">Documentation</a> •
-  <a href="https://github.com/zentinelproxy/zentinel/discussions">Discussions</a>
+  <a href="https://github.com/zentinelproxy/zentinel-control-plane/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/zentinelproxy/zentinel-control-plane/actions/workflows/ci.yml/badge.svg"></a>
+  <img alt="Elixir" src="https://img.shields.io/badge/elixir-1.15%2B-f68d31?style=flat&labelColor=1f161e&logo=elixir&logoColor=white">
 </p>
 
-</div>
+<p align="center">
+  <a href="docs/GETTING-STARTED.md">Getting started</a> &middot;
+  <a href="https://docs.zentinelproxy.io">Docs</a> &middot;
+  <a href="https://github.com/zentinelproxy">All repositories</a>
+</p>
 
----
-
-Zentinel Control Plane is a fleet management system for [Zentinel](https://github.com/zentinelproxy/zentinel) reverse proxies. It handles configuration distribution, rolling deployments, and real-time node monitoring — built with Elixir/Phoenix and LiveView.
+The control plane manages a fleet of [Zentinel](https://github.com/zentinelproxy/zentinel)
+proxies from one place. It validates a KDL configuration, compiles it into an
+immutable, signed bundle, and rolls that bundle out to nodes selected by label,
+in batches with health gates, pause, resume and rollback. Every mutation is
+audit-logged. It is an Elixir/Phoenix application with a LiveView UI, a REST
+API and a GraphQL API.
 
 <p align="center">
-  <img src="priv/static/images/dashboard-screenshot.png" alt="Zentinel Control Plane Dashboard" width="800">
+  <img src="priv/static/images/dashboard-screenshot.png" alt="Zentinel control plane dashboard" width="800">
 </p>
 
 ## Status
 
-**Beta.** The core workflow (compile config → create bundle → roll out to nodes) works end-to-end. Multi-tenant support, audit logging, drift detection, approval workflows, and the full LiveView UI are implemented. Actively being hardened for production use.
+**Beta.** The core workflow (compile config, create bundle, roll out to nodes)
+works end to end. Multi-tenancy, audit logging, drift detection, approval
+workflows and the LiveView UI are implemented and being hardened.
 
-**One important caveat:** "end-to-end" means end-to-end *on the control-plane side*. The [zentinel proxy](https://github.com/zentinelproxy/zentinel) does not yet ship a built-in control-plane client — there are no `control_plane_url`, `node_id`, or `node_key` settings in its configuration, and a stock proxy will not register, heartbeat, or pull bundles on its own. Connecting real proxies today requires an external sidecar process that speaks the node API (the same API the built-in node simulator uses). See [PROXY-REGISTRATION.md](docs/PROXY-REGISTRATION.md) for what that involves.
+"End to end" means end to end *on the control-plane side*. The
+[zentinel proxy](https://github.com/zentinelproxy/zentinel) does not yet ship a
+control-plane client: there are no `control_plane_url`, `node_id` or `node_key`
+settings in its configuration, and a stock proxy will not register, send
+heartbeats or pull bundles on its own. Connecting real proxies today needs an
+external sidecar that speaks the node API (the same API the built-in node
+simulator uses). [PROXY-REGISTRATION.md](docs/PROXY-REGISTRATION.md) describes
+what that involves.
 
-## How It Works
+## Quick start
 
-```
-KDL Config → Compile & Sign → Immutable Bundle → Rollout → Nodes Pull & Activate
-```
-
-1. **Upload** a KDL configuration (validated via `zentinel validate`)
-2. **Compile** into an immutable, signed bundle (tar.zst with manifest, checksums, SBOM)
-3. **Create a rollout** targeting nodes by label selectors
-4. **Orchestrate** batched deployment with health gates, pause/resume/rollback
-5. **Nodes pull** the bundle, verify the signature, stage, and activate
-
-Every mutation is audit-logged with actor, action, and diff.
-
-## Features
-
-| Feature | Description |
-|---------|-------------|
-| **Bundle Management** | Immutable, content-addressed config artifacts with deterministic SHA256 hashing |
-| **Bundle Signing** | Ed25519 signatures with cryptographic verification on every node |
-| **SBOM Generation** | CycloneDX 1.5 for every bundle — supply chain visibility out of the box |
-| **Rolling Deployments** | Batched rollouts with configurable batch size, health gates, and progress deadlines |
-| **Scheduled Rollouts** | Schedule deployments for future execution with calendar view |
-| **Approval Workflows** | Require approval before rollouts execute with audit trail |
-| **Rollout Templates** | Reusable rollout configurations for consistent deployments |
-| **Drift Detection** | Automatic detection when node config diverges from expected state |
-| **Node Management** | Registration, heartbeat tracking, label-based targeting, stale detection |
-| **Node Groups** | Organize nodes with label-based groups for targeted operations |
-| **Environments** | Promotion pipeline (dev → staging → prod) with bundle tracking |
-| **Multi-Tenant** | Organizations, projects, and scoped API keys with RBAC |
-| **GitOps** | GitHub webhook integration — auto-compile bundles on push |
-| **Audit Logging** | Every mutation logged with who, what, when, and resource diff |
-| **SLO/SLI Monitoring** | Define SLOs with error budget tracking and burn rate alerts |
-| **Alerting** | Threshold, anomaly, and SLO burn rate alert rules with silencing |
-| **WAF** | ~60 OWASP CRS rules, policy system, anomaly detection, analytics |
-| **SSO** | OIDC (with PKCE) and SAML 2.0 with JIT provisioning and group mapping |
-| **TOTP MFA** | Time-based one-time passwords with recovery codes |
-| **Notifications** | Route events to Slack, PagerDuty, Teams, Email, or webhooks |
-| **Service Topology** | Visual graph of services, upstreams, middlewares, and policies |
-| **GraphQL API** | Absinthe-powered with real-time subscriptions |
-| **Developer Portal** | Auto-generated API docs from OpenAPI specs per project |
-| **Observability** | Prometheus metrics, OpenTelemetry tracing, structured JSON logging |
-| **LiveView UI** | K8s-style sidebar layout with real-time updates across all views |
-| **Node Simulator** | Built-in fleet simulator for testing rollout logic without real nodes |
-
-## UI Overview
-
-The control plane provides a comprehensive LiveView UI with real-time updates:
-
-| Page | Path | Description |
-|------|------|-------------|
-| **Dashboard** | `/orgs/:org/dashboard` | Fleet overview with node status, active rollouts, and drift alerts |
-| **Nodes** | `.../nodes` | Node list with status, labels, bundle versions, and health |
-| **Bundles** | `.../bundles` | Bundle management with diff viewer, SBOM inspector, and promotion pipeline |
-| **Rollouts** | `.../rollouts` | Rollout list with progress tracking, controls, and node-level status |
-| **Services** | `.../services` | Service routing configuration with upstream, middleware, and policy attachment |
-| **Topology** | `.../topology` | Visual service graph showing services, upstreams, and policies |
-| **Certificates** | `.../certificates` | TLS certificate management with ACME/Let's Encrypt support |
-| **Drift** | `.../drift` | Drift events with filtering and manual resolution |
-| **Node Groups** | `.../node-groups` | Label-based node organization |
-| **Environments** | `.../environments` | Promotion pipeline configuration |
-| **SLOs** | `.../slos` | SLO definitions with error budget tracking and burn rate |
-| **Alerts** | `.../alerts` | Alert rules with firing state, silencing, and acknowledgment |
-| **WAF** | `.../waf-policies` | WAF policy management with rule overrides and analytics |
-| **Notifications** | `.../notifications` | Notification channels and routing rules with delivery tracking |
-| **Secrets** | `.../secrets` | Encrypted secret management with rotation and environment scoping |
-| **Webhooks** | `.../webhooks` | GitHub integration configuration |
-| **Schedule** | `/schedule` | Calendar view of scheduled rollouts |
-| **Approvals** | `/approvals` | Pending rollout approval queue |
-| **API Keys** | `/api-keys` | Scoped API key management |
-| **Audit Log** | `/audit` | Searchable audit trail with export |
-| **Profile** | `/profile` | User settings and MFA configuration |
-
-## Quick Start
-
-### Docker Compose (Recommended)
-
-The fastest way to get running. Starts the control plane, PostgreSQL, and MinIO with a single command:
+Docker Compose starts the control plane, PostgreSQL and MinIO, and runs the
+database migrations on start:
 
 ```bash
 git clone https://github.com/zentinelproxy/zentinel-control-plane.git
@@ -128,103 +59,49 @@ cd zentinel-control-plane
 docker compose up
 ```
 
-This builds the image, runs database migrations automatically, and serves the control plane at [localhost:4000](http://localhost:4000). MinIO console is available at [localhost:9001](http://localhost:9001) (credentials: `minioadmin` / `minioadmin`).
+The UI is served at [localhost:4000](http://localhost:4000), the MinIO console
+at [localhost:9001](http://localhost:9001) (`minioadmin` / `minioadmin`).
+Default credentials and the first rollout are covered in
+[GETTING-STARTED.md](docs/GETTING-STARTED.md).
 
-### Local Development
-
-For development with hot-reloading and SQLite (no external databases needed):
-
-```bash
-git clone https://github.com/zentinelproxy/zentinel-control-plane.git
-cd zentinel-control-plane
-mise install
-mise run setup
-mise run dev
-```
-
-Visit [localhost:4000](http://localhost:4000).
-
-**Prerequisites:** [mise](https://mise.jdx.dev/) (manages Elixir/OTP), Docker (for MinIO), and optionally a [Zentinel](https://github.com/zentinelproxy/zentinel) binary for config validation.
-
-### Development Commands
+For local development with hot reloading and SQLite (no external database):
 
 ```bash
-mise run dev              # Start interactive dev server (iex -S mix phx.server)
-mise run test             # Run test suite
-mise run test:coverage    # Run tests with coverage report
-mise run check            # Run format check, credo, and tests
-mise run lint             # Run Credo static analysis
-mise run format           # Format all Elixir files
-mise run db:reset         # Drop, create, and migrate database
-mise run db:migrate       # Run pending migrations
-mise run routes           # List all routes
+mise install        # Erlang/OTP 28.3.1 and Elixir 1.19.5, pinned in mise.toml
+mise run setup      # deps, database, seeds, assets
+mise run dev        # iex -S mix phx.server
 ```
 
-## API
+Bundle compilation shells out to `zentinel validate --config <file>`, so a
+`zentinel` binary on `PATH` is needed to compile real bundles; MinIO for local
+development starts with `mise run dev:services` (Docker).
 
-**📚 Interactive API Documentation:** [/api/docs](http://localhost:4000/api/docs) — powered by [Scalar](https://github.com/scalar/scalar)
-
-### Node API
-
-Nodes authenticate with registration keys or JWT tokens.
+## How it works
 
 ```
-POST /api/v1/projects/:slug/nodes/register   # Register a node
-POST /api/v1/nodes/:id/heartbeat             # Send heartbeat
-GET  /api/v1/nodes/:id/bundles/latest        # Fetch latest bundle
-POST /api/v1/nodes/:id/token                 # Refresh JWT token
+KDL config → validate & compile → signed, immutable bundle → rollout → nodes pull & activate
 ```
 
-### Control Plane API
-
-Authenticated via scoped API keys (`nodes:read`, `bundles:write`, `rollouts:write`, etc).
-
-```
-# Bundles
-GET/POST       /api/v1/projects/:slug/bundles              # List / create bundles
-GET            /api/v1/projects/:slug/bundles/:id/download # Download bundle artifact
-GET            /api/v1/projects/:slug/bundles/:id/sbom     # Download SBOM (CycloneDX)
-POST           /api/v1/projects/:slug/bundles/:id/revoke   # Revoke a compromised bundle
-
-# Rollouts
-GET/POST       /api/v1/projects/:slug/rollouts             # List / create rollouts
-POST           /api/v1/projects/:slug/rollouts/:id/pause   # Pause rollout
-POST           /api/v1/projects/:slug/rollouts/:id/resume  # Resume rollout
-POST           /api/v1/projects/:slug/rollouts/:id/rollback # Rollback to previous bundle
-
-# Nodes
-GET            /api/v1/projects/:slug/nodes                # List nodes
-GET            /api/v1/projects/:slug/nodes/stats          # Fleet statistics
-
-# Drift Detection
-GET            /api/v1/projects/:slug/drift                # List drift events
-GET            /api/v1/projects/:slug/drift/stats          # Drift statistics
-POST           /api/v1/projects/:slug/drift/:id/resolve    # Resolve drift event
-
-# API Key Management (requires api_keys:admin scope)
-GET/POST       /api/v1/api-keys                            # List / create API keys
-POST           /api/v1/api-keys/:id/revoke                 # Revoke an API key
-```
-
-### Webhooks
-
-```
-POST /api/v1/webhooks/github    # Auto-compile on push (signature verified)
-```
-
-## Architecture
+1. **Upload** a KDL configuration; it is validated with `zentinel validate`.
+2. **Compile** it into an immutable bundle (tar.zst with manifest, checksums
+   and a CycloneDX SBOM), signed with Ed25519.
+3. **Create a rollout** that targets nodes by label selector.
+4. **Orchestrate** the batched deployment: health gates, progress deadlines,
+   pause, resume, rollback.
+5. **Nodes pull** the bundle, verify the signature, stage and activate it
+   (through the node API; see [Status](#status)).
 
 ```
 ┌─────────────────────────────────────────────────┐
-│              Control Plane (Phoenix)            │
+│              Control plane (Phoenix)            │
 │                                                 │
 │  ┌──────────┐  ┌──────────┐  ┌───────────────┐  │
-│  │ LiveView │  │ REST API │  │ GitHub Webhook│  │
-│  │    UI    │  │          │  │               │  │
+│  │ LiveView │  │ REST API │  │ GitHub webhook│  │
+│  │    UI    │  │ GraphQL  │  │               │  │
 │  └────┬─────┘  └─────┬────┘  └────────┬──────┘  │
 │       │              │                │         │
 │  ┌────┴──────────────┴────────────────┴───────┐ │
-│  │           Contexts (Business Logic)        │ │
+│  │           Contexts (business logic)        │ │
 │  │  Bundles · Nodes · Rollouts · Audit · Auth │ │
 │  └────┬──────────────┬────────────────────────┘ │
 │       │              │                          │
@@ -238,39 +115,142 @@ POST /api/v1/webhooks/github    # Auto-compile on push (signature verified)
          ▼                          │
 ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
 │  Zentinel   │  │  Zentinel   │  │  Zentinel   │
-│   Node A    │  │   Node B    │  │   Node C    │
+│   node A    │  │   node B    │  │   node C    │
 └─────────────┘  └─────────────┘  └─────────────┘
 ```
 
-## Tech Stack
+Background work (compilation, rollouts, monitoring, notifications) runs on
+Oban. State lives in PostgreSQL (SQLite in development), bundle artifacts in
+S3-compatible storage.
 
-- **Elixir / Phoenix 1.8** — Web framework with LiveView for real-time UI
-- **Oban** — Reliable background jobs for compilation, rollouts, monitoring, and notifications
-- **Absinthe** — GraphQL API with real-time subscriptions
-- **PostgreSQL** — Persistent state (SQLite for development)
-- **S3 / MinIO** — Bundle artifact storage
-- **Ed25519** — Bundle and JWT signing via JOSE
-- **PromEx** — Prometheus metrics integration
-- **OpenTelemetry** — Distributed tracing for API, Ecto, and Phoenix
+## Features
+
+| Feature | What it does |
+|---|---|
+| Bundles | Immutable, content-addressed config artifacts with deterministic SHA-256 hashes |
+| Bundle signing | Ed25519 signatures that nodes verify before activating |
+| SBOM | A CycloneDX 1.5 SBOM for every bundle |
+| Rolling deployments | Batched rollouts with batch size, health gates and progress deadlines |
+| Scheduled rollouts | Rollouts scheduled for later, with a calendar view |
+| Approvals | Rollouts that wait for approval, with an audit trail |
+| Rollout templates | Reusable rollout settings |
+| Drift detection | Flags nodes whose reported config differs from the expected bundle |
+| Nodes and node groups | Registration, heartbeats, label-based targeting and groups, stale detection |
+| Environments | A promotion pipeline (dev → staging → prod) with bundle tracking |
+| Multi-tenancy | Organizations, projects and scoped API keys with RBAC |
+| GitOps | GitHub webhook that compiles a bundle on push |
+| Audit log | Every mutation logged with actor, action and diff |
+| SLOs and alerting | SLOs with error budgets and burn-rate alerts; threshold and anomaly rules with silencing |
+| WAF policies | About 60 built-in OWASP CRS-derived rules, policies with overrides, analytics |
+| SSO and MFA | OIDC (with PKCE) and SAML 2.0 with JIT provisioning and group mapping; TOTP with recovery codes |
+| Notifications | Slack, PagerDuty, Teams, email and webhook channels with routing rules |
+| Service topology | A graph of services, upstreams, middlewares and policies |
+| GraphQL API | Absinthe, with subscriptions |
+| Developer portal | API docs generated from OpenAPI specs imported per project |
+| Observability | Prometheus metrics (PromEx), OpenTelemetry tracing, JSON logs |
+| Node simulator | A built-in fleet simulator for exercising rollout logic without real nodes |
+
+## API
+
+Interactive API documentation (Scalar) is served at
+[`/api/docs`](http://localhost:4000/api/docs). The full reference is
+[API.md](docs/API.md).
+
+Node API: nodes authenticate with registration keys or JWTs.
+
+```
+POST /api/v1/projects/:slug/nodes/register   # register a node
+POST /api/v1/nodes/:id/heartbeat             # send a heartbeat
+GET  /api/v1/nodes/:id/bundles/latest        # fetch the latest bundle
+POST /api/v1/nodes/:id/token                 # refresh the JWT
+```
+
+Control-plane API: scoped API keys (`nodes:read`, `bundles:write`,
+`rollouts:write`, ...).
+
+```
+# Bundles
+GET/POST  /api/v1/projects/:slug/bundles               # list / create
+GET       /api/v1/projects/:slug/bundles/:id/download  # download the artifact
+GET       /api/v1/projects/:slug/bundles/:id/sbom      # CycloneDX SBOM
+POST      /api/v1/projects/:slug/bundles/:id/revoke    # revoke a bundle
+
+# Rollouts
+GET/POST  /api/v1/projects/:slug/rollouts              # list / create
+POST      /api/v1/projects/:slug/rollouts/:id/pause
+POST      /api/v1/projects/:slug/rollouts/:id/resume
+POST      /api/v1/projects/:slug/rollouts/:id/rollback
+
+# Nodes and drift
+GET       /api/v1/projects/:slug/nodes
+GET       /api/v1/projects/:slug/nodes/stats
+GET       /api/v1/projects/:slug/drift
+GET       /api/v1/projects/:slug/drift/stats
+POST      /api/v1/projects/:slug/drift/:id/resolve
+
+# API keys (api_keys:admin scope)
+GET/POST  /api/v1/api-keys
+POST      /api/v1/api-keys/:id/revoke
+
+# Webhooks
+POST      /api/v1/webhooks/github                      # compile on push (signature verified)
+
+# GraphQL
+POST      /api/v1/graphql
+```
+
+## Development
+
+Toolchain: Erlang/OTP 28.3.1 and Elixir 1.19.5 (pinned in `mise.toml`, and the
+versions CI and the container image use); `mix.exs` requires Elixir `~> 1.15`.
+
+```bash
+mise run dev              # interactive dev server (iex -S mix phx.server)
+mise run dev:up           # start MinIO, then the dev server
+mise run test             # test suite
+mise run test:coverage    # tests with coverage
+mise run check            # format check, credo --strict, tests
+mise run lint             # credo --strict
+mise run format           # mix format
+mise run dialyzer         # Dialyzer
+mise run db:reset         # drop, create, migrate, seed
+mise run db:migrate       # pending migrations
+mise run routes           # list routes
+mise run docker:build     # build the image (zentinel-cp)
+```
+
+CI (`.github/workflows/ci.yml`) splits the suite with `mix test.unit`,
+`mix test.integration` and `mix test.e2e`, and runs `mix format
+--check-formatted`, `mix credo`, `mix deps.audit` and `mix hex.audit`.
+`publish.yml` builds and publishes the container image on pushes to `main`.
 
 ## Documentation
 
-Full documentation is available in the [`docs/`](docs/index.md) directory:
+The [`docs/`](docs/README.md) directory:
 
-- [Getting Started](docs/getting-started.md) — Install, first project, first rollout
-- [Architecture](docs/architecture.md) — System design and data flow
-- [Core Concepts](docs/core-concepts.md) — Orgs, projects, bundles, nodes, rollouts
-- [Configuration Management](docs/configuration-management.md) — Services, upstreams, certificates, secrets
-- [Deployment & Rollouts](docs/deployment-and-rollouts.md) — Strategies, health gates, approvals
-- [Security](docs/security.md) — WAF, auth policies, signing, SSO, MFA
-- [Observability](docs/observability.md) — SLOs, alerts, Prometheus, OpenTelemetry
-- [API Reference](docs/api-reference.md) — REST, Node, and GraphQL APIs
+- [GETTING-STARTED.md](docs/GETTING-STARTED.md): install, default credentials, first project, first rollout
+- [ARCHITECTURE.md](docs/ARCHITECTURE.md): components, data flow, background jobs
+- [API.md](docs/API.md): REST, node and GraphQL APIs, with curl examples
+- [AUTHENTICATION.md](docs/AUTHENTICATION.md): sessions, API keys, node auth, SSO, MFA, roles
+- [CONFIGURATION.md](docs/CONFIGURATION.md): services, upstreams, TLS, middlewares, environment variables
+- [DEPLOYMENT.md](docs/DEPLOYMENT.md): Docker, production setup, rollout strategies, health gates
+- [SECURITY.md](docs/SECURITY.md): WAF, auth policies, bundle signing, encryption at rest
+- [OBSERVABILITY.md](docs/OBSERVABILITY.md): Prometheus, SLOs, alerts, tracing, drift, notifications
+- [PROXY-REGISTRATION.md](docs/PROXY-REGISTRATION.md): connecting proxies through the node API
+- [DEVELOPMENT.md](docs/DEVELOPMENT.md): working on the control plane
 
 ## Related
 
-- [**Zentinel**](https://github.com/zentinelproxy/zentinel) — The reverse proxy this control plane manages
-- [**zentinelproxy.io**](https://zentinelproxy.io) — Documentation and marketing site
+- [Zentinel](https://github.com/zentinelproxy/zentinel): the proxy this control plane manages
+- [Zentinel docs](https://docs.zentinelproxy.io): proxy configuration reference
+- [zentinel-hub](https://github.com/zentinelproxy/zentinel-hub): the earlier Go control plane, superseded by this repository
 
 ## License
 
-Apache 2.0 — See [LICENSE](LICENSE).
+This repository has no `LICENSE` file yet.
+
+---
+
+<p align="center">
+  <sub>Part of <a href="https://zentinelproxy.io">Zentinel</a>, the security-first reverse proxy. The shisa guards the gate.</sub>
+</p>
