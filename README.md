@@ -13,6 +13,7 @@
 
 <p align="center">
   <a href="https://github.com/zentinelproxy/zentinel-control-plane/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/zentinelproxy/zentinel-control-plane/actions/workflows/ci.yml/badge.svg"></a>
+  <img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-9b4d8a?style=flat&labelColor=1f161e">
   <img alt="Elixir" src="https://img.shields.io/badge/elixir-1.15%2B-f68d31?style=flat&labelColor=1f161e&logo=elixir&logoColor=white">
 </p>
 
@@ -247,7 +248,7 @@ The [`docs/`](docs/README.md) directory:
 
 ## License
 
-This repository has no `LICENSE` file yet.
+Apache-2.0, see [`LICENSE`](LICENSE).
 
 ---
 
