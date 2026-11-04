@@ -91,7 +91,7 @@ defmodule ZentinelCp.Auth.NodeToken do
 
   # Build a JWK from a signing key (private key for signing)
   defp build_jwk(signing_key) do
-    secret = decrypt_private_key(signing_key.private_key_encrypted)
+    secret = signing_key.private_key_encrypted
     # JOSE expects {:Ed25519, <<secret_64_bytes>>} for signing
     JOSE.JWK.from_okp({:Ed25519, secret})
   end
@@ -121,8 +121,6 @@ defmodule ZentinelCp.Auth.NodeToken do
 
   # For now, private keys are stored as-is (encrypted at-rest by the DB layer).
   # In production, use envelope encryption with a KMS.
-  defp decrypt_private_key(encrypted), do: encrypted
-
   defp get_org_id(%{project: %{org_id: org_id}}) when is_binary(org_id), do: org_id
   defp get_org_id(_), do: nil
 end

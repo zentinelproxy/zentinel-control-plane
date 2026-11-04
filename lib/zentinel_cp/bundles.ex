@@ -185,6 +185,66 @@ defmodule ZentinelCp.Bundles do
   end
 
   @doc """
+  Deletes all but the newest `keep` bundles of each project, with their stored
+  artifacts, skipping any bundle still in use: assigned to a node, referenced by
+  a rollout or other record, or the parent of another bundle.
+
+  Returns the number of bundles deleted.
+  """
+  def collect_garbage(keep) when is_integer(keep) and keep > 0 do
+    in_use = bundles_in_use()
+
+    from(b in Bundle, select: b.project_id, distinct: true)
+    |> Repo.all()
+    |> Enum.flat_map(fn project_id ->
+      from(b in Bundle,
+        where: b.project_id == ^project_id,
+        order_by: [desc: b.inserted_at, desc: b.id],
+        # SQLite cannot use OFFSET without LIMIT.
+        limit: 10_000,
+        offset: ^keep
+      )
+      |> Repo.all()
+    end)
+    |> Enum.reject(&MapSet.member?(in_use, &1.id))
+    |> Enum.count(&remove_unused_bundle/1)
+  end
+
+  defp bundles_in_use do
+    node_refs =
+      from(n in ZentinelCp.Nodes.Node,
+        select: [n.active_bundle_id, n.staged_bundle_id, n.expected_bundle_id, n.pinned_bundle_id]
+      )
+      |> Repo.all()
+      |> List.flatten()
+
+    parent_refs = Repo.all(from(b in Bundle, select: b.parent_bundle_id))
+    rollout_refs = Repo.all(from(r in ZentinelCp.Rollouts.Rollout, select: r.bundle_id))
+
+    MapSet.new(node_refs ++ parent_refs ++ rollout_refs)
+  end
+
+  # Other tables reference bundles too, and their foreign keys are the final
+  # check: if one still refers to this bundle, the delete fails and it is kept.
+  defp remove_unused_bundle(%Bundle{} = bundle) do
+    case delete_bundle_row(bundle) do
+      :ok ->
+        if bundle.storage_key, do: ZentinelCp.Bundles.Storage.delete(bundle.storage_key)
+        true
+
+      :in_use ->
+        false
+    end
+  end
+
+  defp delete_bundle_row(bundle) do
+    Repo.transaction(fn -> Repo.delete!(bundle) end)
+    :ok
+  rescue
+    Ecto.ConstraintError -> :in_use
+  end
+
+  @doc """
   Gets a bundle by ID with its parent bundle preloaded.
   """
   def get_bundle_with_parent(id) do

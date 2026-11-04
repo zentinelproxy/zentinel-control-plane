@@ -95,22 +95,7 @@ Ed25519 cryptographic signing for bundle integrity and authenticity.
 
 ### Configuration
 
-```elixir
-config :zentinel_cp, :bundle_signing,
-  enabled: true,
-  private_key_path: "/secrets/signing-key.pem",
-  public_key_path: "/secrets/signing-key.pub",
-  key_id: "key-2024-01"
-```
-
-Or inline:
-```elixir
-config :zentinel_cp, :bundle_signing,
-  enabled: true,
-  private_key: "base64-encoded-ed25519-private-key",
-  public_key: "base64-encoded-ed25519-public-key",
-  key_id: "key-2024-01"
-```
+Set `BUNDLE_SIGNING_ENABLED=true`, `BUNDLE_SIGNING_PRIVATE_KEY_PATH` and `BUNDLE_SIGNING_PUBLIC_KEY_PATH`. See [CONFIGURATION.md](CONFIGURATION.md).
 
 ### Verification
 
@@ -121,17 +106,26 @@ curl http://localhost:4000/api/v1/projects/my-project/bundles/:id/verify \
 
 ## Encryption at Rest
 
-All sensitive data encrypted with AES-256-GCM:
+Sensitive data is encrypted with AES-256-GCM using `ENCRYPTION_KEY`: TLS and ACME private keys, the internal CA key, node signing keys, project secrets, Vault credentials, OIDC client secrets, TOTP secrets, notification channel settings, webhook signing secrets and federation storage keys.
 
-| Data | Key Derivation | AAD |
-|------|---------------|-----|
-| TLS private keys | `secret_key_base` → SHA256 | `"zentinel-cert-key"` |
-| Signing keys | `secret_key_base` → SHA256 | `"ZentinelCp.Auth.Encryption"` |
-| Secret values | `secret_key_base` → SHA256 | `"zentinel-secret"` |
-| ACME account keys | `secret_key_base` → SHA256 | `"zentinel-cert-key"` |
+Each value stores the ID of the key that encrypted it, a unique 12-byte IV and a 16-byte authentication tag. Recovery codes and API keys are stored as hashes.
 
-Each value: unique 12-byte IV + 16-byte authentication tag.
+See [DEPLOYMENT.md](DEPLOYMENT.md) to rotate the key.
 
 ## Rate Limiting
 
 Token-bucket rate limiting on API endpoints. See [AUTHENTICATION.md § Rate Limiting](AUTHENTICATION.md#rate-limiting).
+
+## Tenant Isolation
+
+- Every LiveView denies access by default. Org and project pages require membership of the org, and the `reader` role cannot make changes.
+- An API key can do no more than its owner. Its owner must be a member of the project's org, with at least `operator` for anything beyond `:read` scopes.
+- A global admin can reach every org, so grant that role sparingly. SSO cannot grant it.
+
+## Outbound Requests
+
+Webhook and notification URLs must resolve to public addresses. Health check URLs may use private networks but not loopback or link-local addresses, which blocks cloud metadata endpoints. `ALLOW_PRIVATE_OUTBOUND=true` disables these checks. The address is resolved again when the request is sent, so also restrict egress at the network.
+
+## Audit Log
+
+Entries form a hash chain. Verification recomputes each hash, which detects edits, and checks each link, which detects removals. Signed checkpoints detect removal of the newest entries, so create them regularly with `POST /api/v1/audit/checkpoints`.

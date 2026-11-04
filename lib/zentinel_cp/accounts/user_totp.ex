@@ -12,8 +12,10 @@ defmodule ZentinelCp.Accounts.UserTotp do
   @recovery_code_count 10
 
   schema "user_totps" do
-    field :secret, :binary
-    field :recovery_codes, {:array, :string}, default: []
+    field :secret, ZentinelCp.Encrypted.Binary, redact: true
+    # SHA-256 hashes. The codes themselves are only available when generated.
+    field :recovery_codes, {:array, :string}, default: [], redact: true
+    field :plain_recovery_codes, {:array, :string}, virtual: true, redact: true
     field :verified_at, :utc_datetime
     field :last_used_at, :utc_datetime
 
@@ -45,12 +47,12 @@ defmodule ZentinelCp.Accounts.UserTotp do
   end
 
   def use_recovery_code_changeset(totp, code) do
-    remaining = List.delete(totp.recovery_codes, code)
+    remaining = List.delete(totp.recovery_codes, hash_recovery_code(code))
     change(totp, %{recovery_codes: remaining})
   end
 
   def regenerate_recovery_codes_changeset(totp) do
-    change(totp, %{recovery_codes: generate_recovery_codes()})
+    totp |> change() |> put_recovery_codes()
   end
 
   def verified?(%__MODULE__{verified_at: nil}), do: false
@@ -65,12 +67,22 @@ defmodule ZentinelCp.Accounts.UserTotp do
   end
 
   defp put_recovery_codes(changeset) do
-    put_change(changeset, :recovery_codes, generate_recovery_codes())
+    codes = generate_recovery_codes()
+
+    changeset
+    |> put_change(:recovery_codes, Enum.map(codes, &hash_recovery_code/1))
+    |> put_change(:plain_recovery_codes, codes)
   end
 
+  @doc "Hashes a recovery code for storage and comparison."
+  def hash_recovery_code(code) do
+    :crypto.hash(:sha256, String.downcase(String.trim(code))) |> Base.encode16(case: :lower)
+  end
+
+  # 80 random bits each, so a fast hash is enough to protect them.
   defp generate_recovery_codes do
     Enum.map(1..@recovery_code_count, fn _ ->
-      :crypto.strong_rand_bytes(5) |> Base.encode32(padding: false) |> String.downcase()
+      :crypto.strong_rand_bytes(10) |> Base.encode32(padding: false) |> String.downcase()
     end)
   end
 

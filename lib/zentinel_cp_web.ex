@@ -52,7 +52,9 @@ defmodule ZentinelCpWeb do
     quote do
       use Phoenix.LiveView, layout: false
 
-      on_mount {ZentinelCpWeb.LiveHelpers, :fetch_current_user}
+      # Plugs do not run when a LiveView joins over the socket, so access is
+      # enforced here, for every LiveView, deny by default.
+      on_mount {ZentinelCpWeb.LiveHelpers, :enforce_access}
       on_mount {ZentinelCpWeb.LiveHelpers, :attach_uri_hook}
 
       unquote(html_helpers())

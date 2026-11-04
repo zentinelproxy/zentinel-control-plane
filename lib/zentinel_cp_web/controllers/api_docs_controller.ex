@@ -43,7 +43,16 @@ defmodule ZentinelCpWeb.ApiDocsController do
     </html>
     """
 
+    # This page alone loads its viewer from a CDN.
     conn
+    |> put_resp_header(
+      "content-security-policy",
+      "default-src 'self'; script-src https://cdn.jsdelivr.net; " <>
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " <>
+        "font-src 'self' data: https://fonts.scalar.com https://cdn.jsdelivr.net; " <>
+        "img-src 'self' data: https:; connect-src 'self'; frame-ancestors 'none'; " <>
+        "base-uri 'self'; object-src 'none'"
+    )
     |> put_resp_content_type("text/html")
     |> send_resp(200, html)
   end

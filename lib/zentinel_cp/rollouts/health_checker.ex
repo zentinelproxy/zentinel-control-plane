@@ -5,6 +5,7 @@ defmodule ZentinelCp.Rollouts.HealthChecker do
 
   require Logger
 
+  alias ZentinelCp.Net.UrlGuard
   alias ZentinelCp.Rollouts.HealthCheckEndpoint
 
   @doc """
@@ -32,7 +33,7 @@ defmodule ZentinelCp.Rollouts.HealthChecker do
   """
   def check(%HealthCheckEndpoint{} = endpoint) do
     url = endpoint.url
-    method = String.downcase(endpoint.method) |> String.to_atom()
+    method = request_method(endpoint.method)
     timeout = endpoint.timeout_ms
     expected_status = endpoint.expected_status
     expected_body = endpoint.expected_body_contains
@@ -40,12 +41,21 @@ defmodule ZentinelCp.Rollouts.HealthChecker do
 
     Logger.debug("Health check #{endpoint.name}: #{method} #{url}")
 
-    case do_request(method, url, headers, timeout) do
-      {:ok, status, body} ->
-        check_response(status, body, expected_status, expected_body)
+    with :ok <- UrlGuard.check(url, :no_local),
+         {:ok, status, body} <- do_request(method, url, headers, timeout) do
+      check_response(status, body, expected_status, expected_body)
+    else
+      {:error, :forbidden_address} ->
+        {:fail, "URL resolves to a forbidden address"}
+
+      {:error, :invalid_url} ->
+        {:fail, "invalid URL"}
+
+      {:error, :unresolvable_host} ->
+        {:fail, "could not resolve host"}
 
       {:error, reason} ->
-        {:fail, "Request failed: #{inspect(reason)}"}
+        {:fail, "request failed: #{inspect(reason)}"}
     end
   rescue
     e ->
@@ -72,6 +82,10 @@ defmodule ZentinelCp.Rollouts.HealthChecker do
 
   defp build_headers(_), do: []
 
+  defp request_method("POST"), do: :post
+  defp request_method("HEAD"), do: :head
+  defp request_method(_), do: :get
+
   defp do_request(method, url, headers, timeout) do
     url_charlist = String.to_charlist(url)
 
@@ -82,7 +96,8 @@ defmodule ZentinelCp.Rollouts.HealthChecker do
         :post -> {url_charlist, headers, ~c"application/json", ""}
       end
 
-    http_opts = [timeout: timeout, connect_timeout: min(timeout, 5000)]
+    # Following a redirect would skip the address check on the new location.
+    http_opts = [timeout: timeout, connect_timeout: min(timeout, 5000), autoredirect: false]
 
     case :httpc.request(method, request, http_opts, body_format: :binary) do
       {:ok, {{_, status, _}, _resp_headers, body}} ->

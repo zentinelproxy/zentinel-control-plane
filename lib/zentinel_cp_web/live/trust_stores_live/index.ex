@@ -26,7 +26,7 @@ defmodule ZentinelCpWeb.TrustStoresLive.Index do
 
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
-    ts = Services.get_trust_store!(id)
+    ts = Services.get_trust_store!(id) |> ZentinelCpWeb.LiveHelpers.in_project!(socket)
     project = socket.assigns.project
 
     case Services.delete_trust_store(ts) do

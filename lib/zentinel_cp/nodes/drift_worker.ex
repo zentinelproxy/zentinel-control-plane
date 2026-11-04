@@ -9,7 +9,7 @@ defmodule ZentinelCp.Nodes.DriftWorker do
   use Oban.Worker,
     queue: :maintenance,
     max_attempts: 1,
-    unique: [period: 30]
+    unique: [period: 30, states: [:available, :scheduled, :retryable]]
 
   require Logger
 

@@ -72,8 +72,9 @@ defmodule ZentinelCp.Rollouts.CanaryAnalysis do
         where: r.node_id in ^node_ids and r.timestamp >= ^since,
         select: %{
           total_requests: count(r.id),
-          total_errors: fragment("SUM(CASE WHEN ? >= 500 THEN 1 ELSE 0 END)", r.status),
-          avg_latency_p99: avg(r.latency_ms)
+          total_errors:
+            type(fragment("SUM(CASE WHEN ? >= 500 THEN 1 ELSE 0 END)", r.status), :integer),
+          avg_latency_p99: type(avg(r.latency_ms), :float)
         }
       )
 

@@ -7,7 +7,7 @@ defmodule ZentinelCpWeb.Plugs.RequireScopeTest do
 
   setup do
     project = ProjectsFixtures.project_fixture()
-    user = AccountsFixtures.user_fixture()
+    user = AccountsFixtures.admin_fixture()
     %{project: project, user: user}
   end
 

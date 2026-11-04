@@ -5,7 +5,7 @@ defmodule ZentinelCpWeb.Api.ApiKeyControllerTest do
   alias ZentinelCp.ProjectsFixtures
 
   setup %{conn: conn} do
-    user = AccountsFixtures.user_fixture()
+    user = AccountsFixtures.admin_fixture()
     project = ProjectsFixtures.project_fixture()
 
     {conn, api_key} =
@@ -18,7 +18,7 @@ defmodule ZentinelCpWeb.Api.ApiKeyControllerTest do
     test "creates a new API key and returns raw key", %{conn: conn, project: project} do
       params = %{
         "name" => "deploy-key",
-        "scopes" => ["bundles:write", "rollouts:write"],
+        "scopes" => ["api_keys:admin"],
         "project_id" => project.id
       }
 
@@ -28,12 +28,12 @@ defmodule ZentinelCpWeb.Api.ApiKeyControllerTest do
       assert response["name"] == "deploy-key"
       assert response["key"] != nil
       assert is_binary(response["key"])
-      assert response["scopes"] == ["bundles:write", "rollouts:write"]
+      assert response["scopes"] == ["api_keys:admin"]
       assert response["project_id"] == project.id
     end
 
     test "returns 422 with missing name", %{conn: conn} do
-      conn = post(conn, "/api/v1/api-keys", %{"scopes" => ["read"]})
+      conn = post(conn, "/api/v1/api-keys", %{"scopes" => ["api_keys:admin"]})
       assert json_response(conn, 422)["error"]
     end
   end
@@ -65,7 +65,7 @@ defmodule ZentinelCpWeb.Api.ApiKeyControllerTest do
     end
 
     test "returns 404 for another user's key", %{conn: conn} do
-      other_user = AccountsFixtures.user_fixture()
+      other_user = AccountsFixtures.admin_fixture()
       other_key = AccountsFixtures.api_key_fixture(user: other_user)
 
       conn = get(conn, "/api/v1/api-keys/#{other_key.id}")
@@ -84,7 +84,7 @@ defmodule ZentinelCpWeb.Api.ApiKeyControllerTest do
     end
 
     test "returns 404 for another user's key", %{conn: conn} do
-      other_user = AccountsFixtures.user_fixture()
+      other_user = AccountsFixtures.admin_fixture()
       other_key = AccountsFixtures.api_key_fixture(user: other_user)
 
       conn = post(conn, "/api/v1/api-keys/#{other_key.id}/revoke")
@@ -108,7 +108,7 @@ defmodule ZentinelCpWeb.Api.ApiKeyControllerTest do
 
   describe "scope enforcement" do
     test "returns 403 without api_keys:admin scope", %{conn: _conn} do
-      user = AccountsFixtures.user_fixture()
+      user = AccountsFixtures.admin_fixture()
       project = ProjectsFixtures.project_fixture()
 
       # Authenticate with a key that only has bundles:read

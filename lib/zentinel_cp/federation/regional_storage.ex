@@ -16,7 +16,7 @@ defmodule ZentinelCp.Federation.RegionalStorage do
     field :bucket, :string
     field :endpoint, :string
     field :access_key_id, :string
-    field :secret_access_key_encrypted, :binary
+    field :secret_access_key_encrypted, ZentinelCp.Encrypted.Binary, redact: true
     field :enabled, :boolean, default: true
 
     belongs_to :peer, ZentinelCp.Federation.Peer

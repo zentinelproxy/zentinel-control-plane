@@ -4,7 +4,7 @@ defmodule ZentinelCpWeb.ApiKeysLive.Index do
   """
   use ZentinelCpWeb, :live_view
 
-  alias ZentinelCp.{Accounts, Audit, Projects}
+  alias ZentinelCp.{Access, Accounts, Audit, Projects}
 
   @available_scopes [
     {"nodes:read", "Read node information"},
@@ -62,7 +62,11 @@ defmodule ZentinelCpWeb.ApiKeysLive.Index do
       expires_at: parse_expires_at(params["expires_at"])
     }
 
-    case Accounts.create_api_key(attrs) do
+    with :ok <- check_project_access(current_user, attrs.project_id),
+         result <- Accounts.create_api_key(attrs) do
+      result
+    end
+    |> case do
       {:ok, api_key} ->
         Audit.log_user_action(current_user, "create", "api_key", api_key.id,
           metadata: %{name: api_key.name, scopes: api_key.scopes}
@@ -81,6 +85,9 @@ defmodule ZentinelCpWeb.ApiKeysLive.Index do
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, put_flash(socket, :error, format_errors(changeset))}
+
+      {:error, message} ->
+        {:noreply, put_flash(socket, :error, message)}
     end
   end
 
@@ -181,7 +188,8 @@ defmodule ZentinelCpWeb.ApiKeysLive.Index do
               <button
                 type="button"
                 class="btn btn-sm btn-ghost"
-                onclick={"navigator.clipboard.writeText('#{@newly_created_key}')"}
+                data-copy={@newly_created_key}
+                phx-click={JS.dispatch("zcp:copy")}
               >
                 Copy
               </button>
@@ -397,5 +405,15 @@ defmodule ZentinelCpWeb.ApiKeysLive.Index do
   defp format_errors(changeset) do
     Ecto.Changeset.traverse_errors(changeset, fn {msg, _} -> msg end)
     |> Enum.map_join(", ", fn {k, v} -> "#{k}: #{Enum.join(v, ", ")}" end)
+  end
+
+  defp check_project_access(_user, nil), do: :ok
+
+  defp check_project_access(user, project_id) do
+    project = Projects.get_project(project_id)
+
+    if project && Access.user_can_manage_project?(user.id, project),
+      do: :ok,
+      else: {:error, "You do not have access to that project."}
   end
 end

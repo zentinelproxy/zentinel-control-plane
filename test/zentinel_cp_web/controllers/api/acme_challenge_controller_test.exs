@@ -3,11 +3,6 @@ defmodule ZentinelCpWeb.Api.AcmeChallengeControllerTest do
 
   alias ZentinelCp.Services.Acme.ChallengeStore
 
-  setup do
-    :ets.delete_all_objects(:acme_challenge_tokens)
-    :ok
-  end
-
   describe "GET /.well-known/acme-challenge/:token" do
     test "returns 200 with key authorization when token exists", %{conn: conn} do
       ChallengeStore.put("test-token-123", "key-auth-value.thumbprint")
@@ -26,7 +21,9 @@ defmodule ZentinelCpWeb.Api.AcmeChallengeControllerTest do
 
     test "returns 404 for expired token", %{conn: conn} do
       # Insert with already-expired timestamp
-      :ets.insert(:acme_challenge_tokens, {"expired-token", "value", 0})
+      ChallengeStore.put("expired-token", "value")
+      past = DateTime.utc_now() |> DateTime.add(-1) |> DateTime.truncate(:second)
+      ZentinelCp.Repo.update_all(ZentinelCp.Services.Acme.Challenge, set: [expires_at: past])
 
       conn = get(conn, "/.well-known/acme-challenge/expired-token")
 

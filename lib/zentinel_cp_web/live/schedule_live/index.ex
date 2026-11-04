@@ -12,7 +12,9 @@ defmodule ZentinelCpWeb.ScheduleLive.Index do
       :timer.send_interval(60_000, self(), :refresh)
     end
 
-    scheduled_rollouts = Rollouts.list_scheduled_rollouts()
+    scheduled_rollouts =
+      Rollouts.list_scheduled_rollouts() |> ZentinelCpWeb.LiveHelpers.visible_to_user(socket)
+
     grouped = group_by_date(scheduled_rollouts)
 
     {:ok,
@@ -25,7 +27,9 @@ defmodule ZentinelCpWeb.ScheduleLive.Index do
 
   @impl true
   def handle_info(:refresh, socket) do
-    scheduled_rollouts = Rollouts.list_scheduled_rollouts()
+    scheduled_rollouts =
+      Rollouts.list_scheduled_rollouts() |> ZentinelCpWeb.LiveHelpers.visible_to_user(socket)
+
     grouped = group_by_date(scheduled_rollouts)
     {:noreply, assign(socket, scheduled_rollouts: scheduled_rollouts, grouped_rollouts: grouped)}
   end

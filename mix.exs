@@ -88,7 +88,7 @@ defmodule ZentinelCp.MixProject do
       {:jose, "~> 1.11"},
       {:nimble_totp, "~> 1.0"},
       {:openid_connect, "~> 1.0"},
-      {:samly, "~> 1.4"},
+      {:esaml, "~> 4.6"},
 
       # Observability
       {:prom_ex, "~> 1.11"},
@@ -112,6 +112,8 @@ defmodule ZentinelCp.MixProject do
 
       # Dev/Test tools
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
+      {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:ex_machina, "~> 2.8", only: :test},
       {:mox, "~> 1.2", only: :test},

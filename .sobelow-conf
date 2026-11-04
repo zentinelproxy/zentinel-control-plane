@@ -1,0 +1,10 @@
+[
+  verbose: false,
+  private: false,
+  skip: true,
+  router: "lib/zentinel_cp_web/router.ex",
+  exit: "medium",
+  format: "txt",
+  ignore: [],
+  ignore_files: [""]
+]

@@ -60,7 +60,7 @@ defmodule ZentinelCpWeb.EnvironmentsLive.Index do
 
   @impl true
   def handle_event("edit", %{"id" => id}, socket) do
-    environment = Projects.get_environment!(id)
+    environment = Projects.get_environment!(id) |> ZentinelCpWeb.LiveHelpers.in_project!(socket)
 
     form_data = %{
       "name" => environment.name,
@@ -149,7 +149,7 @@ defmodule ZentinelCpWeb.EnvironmentsLive.Index do
 
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
-    environment = Projects.get_environment!(id)
+    environment = Projects.get_environment!(id) |> ZentinelCpWeb.LiveHelpers.in_project!(socket)
     node_count = Map.get(socket.assigns.env_stats, id, 0)
 
     if node_count > 0 do

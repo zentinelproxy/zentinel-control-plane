@@ -37,6 +37,7 @@ defmodule ZentinelCpWeb.NodesLive.Index do
          |> assign(:environment_filter, nil)
          |> assign(:show_form, false)
          |> assign(:created_node_key, nil)
+         |> assign(:registration_token, nil)
          |> assign(:page_title, "Nodes - #{project.name}")}
     end
   end
@@ -56,8 +57,28 @@ defmodule ZentinelCpWeb.NodesLive.Index do
     {:noreply, assign(socket, show_form: !socket.assigns.show_form, created_node_key: nil)}
   end
 
+  def handle_event("rotate_registration_token", _, socket) do
+    project = socket.assigns.project
+
+    case Projects.rotate_node_registration_token(project) do
+      {:ok, token, project} ->
+        Audit.log_user_action(
+          socket.assigns.current_user,
+          "rotate_node_registration_token",
+          "project",
+          project.id,
+          project_id: project.id
+        )
+
+        {:noreply, assign(socket, project: project, registration_token: token)}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Could not create a registration token.")}
+    end
+  end
+
   def handle_event("dismiss_key", _, socket) do
-    {:noreply, assign(socket, created_node_key: nil)}
+    {:noreply, assign(socket, created_node_key: nil, registration_token: nil)}
   end
 
   def handle_event("create_node", params, socket) do
@@ -176,7 +197,7 @@ defmodule ZentinelCpWeb.NodesLive.Index do
   end
 
   def handle_event("delete", %{"id" => node_id}, socket) do
-    node = Nodes.get_node!(node_id)
+    node = Nodes.get_node!(node_id) |> ZentinelCpWeb.LiveHelpers.in_project!(socket)
 
     case Nodes.delete_node(node) do
       {:ok, _} ->
@@ -281,6 +302,24 @@ defmodule ZentinelCpWeb.NodesLive.Index do
           <pre class="mt-2 bg-base-300 p-3 rounded font-mono text-sm select-all">{@created_node_key}</pre>
         </div>
         <button class="btn btn-ghost btn-sm" phx-click="dismiss_key">Dismiss</button>
+      </div>
+
+      <div :if={@registration_token} class="alert alert-warning">
+        <div class="flex-1">
+          <p class="font-semibold">
+            Save this registration token — it will not be shown again. Nodes send it in the
+            <code>X-Registration-Token</code>
+            header when they register.
+          </p>
+          <pre class="mt-2 bg-base-300 p-3 rounded font-mono text-sm select-all">{@registration_token}</pre>
+        </div>
+        <button class="btn btn-ghost btn-sm" phx-click="dismiss_key">Dismiss</button>
+      </div>
+
+      <div>
+        <button class="btn btn-ghost btn-sm" phx-click="rotate_registration_token">
+          {if @project.node_registration_token_hash, do: "Replace", else: "Create"} registration token
+        </button>
       </div>
 
       <.stat_strip>

@@ -1,5 +1,6 @@
 # The directory Mix will write compiled artifacts to.
 /_build/
+/_build_pg/
 
 # If you run "mix test --cover", coverage assets end up here.
 /cover/
@@ -42,3 +43,6 @@ npm-debug.log
 
 # Local bundle storage (dev)
 /priv/bundles/
+
+# Local secrets
+.env

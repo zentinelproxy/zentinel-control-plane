@@ -110,7 +110,8 @@ Using Oban for reliable job processing:
 - `CompileWorker`: Validates, assembles, signs, and uploads bundles
 - `RolloutTickWorker`: Advances rollout state (self-rescheduling every 5s)
 - `StalenessWorker`: Marks offline nodes (120s threshold)
-- `GCWorker`: Cleans old bundles
+- `GcWorker`: Cleans old, unused bundles
+- `HeartbeatPruneWorker`: Deletes old node heartbeats
 
 ## Development
 
@@ -118,7 +119,21 @@ Using Oban for reliable job processing:
 ```bash
 mise run test           # Full suite
 mise run test:coverage  # With coverage
+
+# Against PostgreSQL, the production database. Run this for anything touching queries.
+TEST_DATABASE_URL=ecto://postgres:postgres@localhost:5432/zentinel_cp_test \
+  MIX_BUILD_ROOT=_build_pg mix test
 ```
+
+Use `ZentinelCp.Repo.Dialect` for SQL that differs between PostgreSQL and SQLite. Cast
+`sum` and `avg` with `type/2`, as PostgreSQL returns `Decimal` for them.
+
+### Access Control
+- Every LiveView gets `LiveHelpers.on_mount(:enforce_access)`, which denies by default.
+- New read-only LiveView events must be added to `@read_only_events` or readers are blocked.
+- Check records loaded from a client-supplied ID with `LiveHelpers.in_project!/2`.
+- API keys are limited by their owner's org membership. See `ZentinelCp.Access`.
+- New GraphQL root fields must be added to `@root_fields` in `Middleware.AuthScope`.
 
 ### Code Quality
 ```bash
@@ -170,6 +185,7 @@ When implementing features:
 |----------|-------------|---------|
 | `DATABASE_URL` | PostgreSQL connection (prod) | Required in prod |
 | `SECRET_KEY_BASE` | Phoenix secret | Required in prod |
+| `ENCRYPTION_KEY` | Encrypts secrets in the database | Required in prod |
 | `PHX_HOST` | Public hostname | `localhost` |
 | `PORT` | HTTP port | `4000` |
 | `S3_BUCKET` | Bundle storage bucket | `zentinel-bundles` |

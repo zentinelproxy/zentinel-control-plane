@@ -20,6 +20,9 @@ defmodule ZentinelCpWeb.Endpoint do
     websocket: true,
     longpoll: false
 
+  plug ZentinelCpWeb.Plugs.ForceSsl
+  plug ZentinelCpWeb.Plugs.ClientIp
+
   # Serve at "/" the static files from "priv/static" directory.
   #
   # When code reloading is disabled (e.g., in production),
@@ -56,6 +59,12 @@ defmodule ZentinelCpWeb.Endpoint do
 
   plug Plug.MethodOverride
   plug Plug.Head
-  plug Plug.Session, @session_options
+  plug :session
   plug ZentinelCpWeb.Router
+
+  # The secure flag follows FORCE_SSL, which is only known at runtime.
+  defp session(conn, _opts) do
+    secure = Application.get_env(:zentinel_cp, :force_ssl, false)
+    Plug.Session.call(conn, Plug.Session.init(Keyword.put(@session_options, :secure, secure)))
+  end
 end

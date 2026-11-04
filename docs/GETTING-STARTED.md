@@ -18,6 +18,7 @@ Starts the control plane, PostgreSQL 17, and MinIO with one command:
 ```bash
 git clone https://github.com/zentinelproxy/zentinel-control-plane.git
 cd zentinel-control-plane
+cp .env.example .env   # Fill in the secrets and ADMIN_EMAIL / ADMIN_PASSWORD
 docker compose up
 ```
 
@@ -25,14 +26,14 @@ What happens:
 
 1. Multi-stage Dockerfile builds the Elixir release (base: `hexpm/elixir:1.19.5-erlang-28.3.1-debian-bookworm`)
 2. The `zentinel` binary is downloaded and verified during image build — bundle validation works out-of-the-box
-3. PostgreSQL 17 starts (port 5432, user: `zentinel`, password: `zentinel`)
-4. MinIO starts (port 9000 API, port 9001 console)
+3. PostgreSQL 17 starts (port 5432 on this host only, user: `zentinel`, password from `.env`)
+4. MinIO starts (ports 9000 API and 9001 console, on this host only)
 5. `minio-init` container creates the `zentinel-bundles` bucket
-6. App waits for PostgreSQL readiness (`pg_isready`), runs Ecto migrations
-7. Database seeded with default org and admin user
+6. App runs Ecto migrations, retrying until PostgreSQL is ready
+7. First admin and default org created from `ADMIN_EMAIL` and `ADMIN_PASSWORD`
 8. Control plane available at **http://localhost:4000**
 
-MinIO console: **http://localhost:9001** (credentials: `minioadmin` / `minioadmin`)
+MinIO console: **http://localhost:9001** (credentials from `.env`)
 
 Tear down (including volumes):
 
@@ -53,12 +54,13 @@ docker compose down -v
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `DATABASE_URL` | `ecto://zentinel:zentinel@postgres:5432/zentinel_cp` | PostgreSQL connection |
-| `SECRET_KEY_BASE` | Set in compose file | Phoenix secret key |
+| `DATABASE_URL` | Built from `POSTGRES_PASSWORD` in `.env` | PostgreSQL connection |
+| `SECRET_KEY_BASE` | Required in `.env` | Phoenix secret key |
+| `ENCRYPTION_KEY` | Required in `.env` | Encrypts stored secrets |
 | `S3_ENDPOINT` | `http://minio:9000` | MinIO endpoint |
 | `S3_BUCKET` | `zentinel-bundles` | Bundle storage bucket |
-| `S3_ACCESS_KEY_ID` | `minioadmin` | MinIO access key |
-| `S3_SECRET_ACCESS_KEY` | `minioadmin` | MinIO secret key |
+| `S3_ACCESS_KEY_ID` | `MINIO_ROOT_USER` from `.env` | MinIO access key |
+| `S3_SECRET_ACCESS_KEY` | `MINIO_ROOT_PASSWORD` from `.env` | MinIO secret key |
 | `S3_REGION` | `us-east-1` | S3 region |
 | `PORT` | `4000` | HTTP listen port |
 | `ZENTINEL_VERSION` | `26.02_13` | Zentinel binary version (Docker build arg) |
@@ -82,7 +84,7 @@ Control plane starts at **http://localhost:4000**.
 
 ## Default Credentials
 
-On first startup, the database is seeded with a default admin account:
+In development, `mix setup` runs `priv/repo/seeds.exs`, which creates this account:
 
 | Field | Value |
 |-------|-------|
@@ -90,7 +92,7 @@ On first startup, the database is seeded with a default admin account:
 | **Password** | `changeme123456` |
 | **Role** | `admin` |
 
-Created by `priv/repo/seeds.exs`. **Change these credentials immediately in any non-development environment.**
+This account exists in development only. In production there is no default account: set `ADMIN_EMAIL` and `ADMIN_PASSWORD` for the first boot. See [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ### Creating Your Own User
 
@@ -144,7 +146,7 @@ Roles are per-organization. A user can have different roles in different orgs.
 
 4. **Compile a Bundle** — Bundles > New Bundle. Enter KDL configuration or generate from services. Compilation runs in background.
 
-5. **Register a Node** — Register a Zentinel proxy instance via the API:
+5. **Register a Node** — Register a Zentinel proxy instance via the API. Production also needs an `X-Registration-Token` header; see [PROXY-REGISTRATION.md](PROXY-REGISTRATION.md):
    ```bash
    curl -X POST http://localhost:4000/api/v1/projects/my-project/nodes/register \
      -H "Content-Type: application/json" \

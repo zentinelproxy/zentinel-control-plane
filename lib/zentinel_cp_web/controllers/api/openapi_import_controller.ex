@@ -158,8 +158,8 @@ defmodule ZentinelCpWeb.Api.OpenApiImportController do
   Shows a single OpenAPI spec.
   """
   def show(conn, %{"project_slug" => project_slug, "id" => id}) do
-    with {:ok, _project} <- get_project(project_slug),
-         spec when not is_nil(spec) <- Services.get_openapi_spec(id) do
+    with {:ok, project} <- get_project(project_slug),
+         spec when not is_nil(spec) <- get_project_spec(id, project) do
       conn
       |> put_status(:ok)
       |> json(%{spec: spec_to_json(spec)})
@@ -178,7 +178,7 @@ defmodule ZentinelCpWeb.Api.OpenApiImportController do
   """
   def delete(conn, %{"project_slug" => project_slug, "id" => id}) do
     with {:ok, project} <- get_project(project_slug),
-         spec when not is_nil(spec) <- Services.get_openapi_spec(id),
+         spec when not is_nil(spec) <- get_project_spec(id, project),
          {:ok, _} <- Services.delete_openapi_spec(spec) do
       api_key = conn.assigns.current_api_key
 
@@ -259,5 +259,12 @@ defmodule ZentinelCpWeb.Api.OpenApiImportController do
         opts |> Keyword.get(String.to_existing_atom(key), key) |> to_string()
       end)
     end)
+  end
+
+  defp get_project_spec(id, project) do
+    case Services.get_openapi_spec(id) do
+      %{project_id: project_id} = spec when project_id == project.id -> spec
+      _ -> nil
+    end
   end
 end

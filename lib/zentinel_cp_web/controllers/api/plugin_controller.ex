@@ -199,6 +199,8 @@ defmodule ZentinelCpWeb.Api.PluginController do
   def attach(conn, %{"project_slug" => project_slug, "id" => service_id} = params) do
     with {:ok, project} <- get_project(project_slug),
          {:ok, service} <- get_service(service_id, project.id),
+         :ok <-
+           Plugins.check_attachable(params["plugin_id"], params["plugin_version_id"], project.id),
          attrs <- %{
            service_id: service.id,
            plugin_id: params["plugin_id"],
@@ -221,6 +223,9 @@ defmodule ZentinelCpWeb.Api.PluginController do
       |> put_status(:created)
       |> json(%{service_plugin: service_plugin_to_json(sp)})
     else
+      {:error, :plugin_not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Plugin not found"})
+
       {:error, :project_not_found} ->
         conn |> put_status(:not_found) |> json(%{error: "Project not found"})
 

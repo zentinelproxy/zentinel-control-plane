@@ -48,8 +48,6 @@ defmodule ZentinelCpWeb.Api.ConfigExportController do
     end
   end
 
-  defp resolve_project_id(%{"project_id" => project_id}), do: {:ok, project_id}
-
   defp resolve_project_id(%{"project_slug" => slug}) do
     case ZentinelCp.Projects.get_project_by_slug(slug) do
       nil -> {:error, :not_found}

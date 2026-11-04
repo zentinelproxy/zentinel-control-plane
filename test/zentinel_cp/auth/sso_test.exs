@@ -207,7 +207,8 @@ defmodule ZentinelCp.Auth.SsoTest do
 
       assert {:ok, user} = Sso.process_sso_login(:oidc, provider, user_info)
       assert user.email == "sso-user@example.com"
-      assert user.role == "operator"
+      assert user.role == "reader"
+      assert ZentinelCp.Orgs.get_user_role(provider.org_id, user.id) == "operator"
       assert user.sso_provider_type == "oidc"
       assert user.sso_provider_id == provider.id
       assert user.sso_subject == "okta-user-123"
@@ -248,11 +249,12 @@ defmodule ZentinelCp.Auth.SsoTest do
 
       admin_info = %{sub: "admin1", email: "admin@example.com", groups: ["zentinel-admins"]}
       {:ok, admin} = Sso.process_sso_login(:oidc, provider, admin_info)
-      assert admin.role == "admin"
+      refute admin.role == "admin"
+      assert ZentinelCp.Orgs.get_user_role(provider.org_id, admin.id) == "admin"
 
       ops_info = %{sub: "ops1", email: "ops@example.com", groups: ["zentinel-ops"]}
       {:ok, ops} = Sso.process_sso_login(:oidc, provider, ops_info)
-      assert ops.role == "operator"
+      assert ZentinelCp.Orgs.get_user_role(provider.org_id, ops.id) == "operator"
 
       reader_info = %{sub: "reader1", email: "reader@example.com", groups: ["other-group"]}
       {:ok, reader} = Sso.process_sso_login(:oidc, provider, reader_info)

@@ -90,6 +90,13 @@ defmodule ZentinelCp.Portal do
   Returns `{:ok, %{status, headers, body, duration_ms}}` or `{:error, reason}`.
   """
   def execute_request(method, url, headers \\ [], body \\ nil) do
+    case ZentinelCp.Net.UrlGuard.check(url) do
+      :ok -> do_execute_request(method, url, headers, body)
+      {:error, reason} -> {:error, "Request blocked: #{reason}"}
+    end
+  end
+
+  defp do_execute_request(method, url, headers, body) do
     start_time = System.monotonic_time(:millisecond)
 
     req_headers =
@@ -101,7 +108,8 @@ defmodule ZentinelCp.Portal do
       method: parse_method(method),
       url: url,
       headers: req_headers,
-      receive_timeout: 30_000
+      receive_timeout: 30_000,
+      redirect: false
     ]
 
     req_opts =

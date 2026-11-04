@@ -66,11 +66,11 @@ defmodule ZentinelCpWeb.ServicesLive.New do
 
   @impl true
   def handle_event("apply_template", %{"template_id" => template_id}, socket) do
-    case Services.get_template(template_id) do
-      nil ->
-        {:noreply, put_flash(socket, :error, "Template not found")}
+    project_id = socket.assigns.project.id
 
-      template ->
+    case Services.get_template(template_id) do
+      %{project_id: template_project_id} = template
+      when template_project_id in [nil, project_id] ->
         data = template.template_data || %{}
 
         route_type =
@@ -82,6 +82,9 @@ defmodule ZentinelCpWeb.ServicesLive.New do
           end
 
         {:noreply, assign(socket, applied_template: data, route_type: route_type)}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Template not found")}
     end
   end
 

@@ -27,7 +27,7 @@ defmodule ZentinelCpWeb.AuthPoliciesLive.Index do
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
     project = socket.assigns.project
-    policy = Services.get_auth_policy!(id)
+    policy = Services.get_auth_policy!(id) |> ZentinelCpWeb.LiveHelpers.in_project!(socket)
 
     case Services.delete_auth_policy(policy) do
       {:ok, _} ->

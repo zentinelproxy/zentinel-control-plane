@@ -27,7 +27,7 @@ defmodule ZentinelCpWeb.PluginsLive.Index do
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
     project = socket.assigns.project
-    plugin = Plugins.get_plugin!(id)
+    plugin = Plugins.get_plugin!(id) |> ZentinelCpWeb.LiveHelpers.in_project!(socket)
 
     if plugin.project_id != project.id do
       {:noreply, put_flash(socket, :error, "Plugin not found.")}

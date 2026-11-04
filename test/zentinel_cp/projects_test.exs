@@ -43,11 +43,17 @@ defmodule ZentinelCp.ProjectsTest do
       assert %{slug: ["has already been taken"]} = errors_on(changeset)
     end
 
-    test "allows same slug in different orgs" do
-      org1 = org_fixture()
-      org2 = org_fixture()
+    test "rejects the same slug in different orgs" do
+      org1 = ZentinelCp.OrgsFixtures.org_fixture()
+      org2 = ZentinelCp.OrgsFixtures.org_fixture()
+
       assert {:ok, _} = Projects.create_project(%{name: "Shared Name", org_id: org1.id})
-      assert {:ok, _} = Projects.create_project(%{name: "Shared Name", org_id: org2.id})
+
+      # Routes and node registration find projects by slug alone.
+      assert {:error, changeset} =
+               Projects.create_project(%{name: "Shared Name", org_id: org2.id})
+
+      assert "has already been taken" in errors_on(changeset).slug
     end
   end
 

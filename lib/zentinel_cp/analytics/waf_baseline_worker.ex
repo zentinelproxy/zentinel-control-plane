@@ -8,11 +8,12 @@ defmodule ZentinelCp.Analytics.WafBaselineWorker do
   use Oban.Worker,
     queue: :maintenance,
     max_attempts: 1,
-    unique: [period: 3600]
+    unique: [period: 3600, states: [:available, :scheduled, :retryable]]
 
   require Logger
 
   import Ecto.Query, warn: false
+  import ZentinelCp.Repo.Dialect
   alias ZentinelCp.Repo
   alias ZentinelCp.Analytics.{WafEvent, WafBaseline}
 
@@ -102,7 +103,7 @@ defmodule ZentinelCp.Analytics.WafBaselineWorker do
       where: e.project_id == ^project_id,
       where: e.action == ^action,
       where: e.timestamp >= ^cutoff,
-      group_by: fragment("strftime('%Y-%m-%d %H', ?)", e.timestamp),
+      group_by: hour_bucket(e.timestamp),
       select: count(e.id)
     )
     |> Repo.all()
@@ -114,7 +115,7 @@ defmodule ZentinelCp.Analytics.WafBaselineWorker do
       where: e.project_id == ^project_id,
       where: e.timestamp >= ^cutoff,
       where: not is_nil(e.client_ip),
-      group_by: fragment("strftime('%Y-%m-%d %H', ?)", e.timestamp),
+      group_by: hour_bucket(e.timestamp),
       select: count(e.client_ip, :distinct)
     )
     |> Repo.all()
@@ -127,7 +128,7 @@ defmodule ZentinelCp.Analytics.WafBaselineWorker do
       from(e in WafEvent,
         where: e.project_id == ^project_id,
         where: e.timestamp >= ^cutoff,
-        group_by: fragment("strftime('%Y-%m-%d %H', ?)", e.timestamp),
+        group_by: hour_bucket(e.timestamp),
         select: %{
           total: count(e.id),
           blocked: count(fragment("CASE WHEN ? = 'blocked' THEN 1 END", e.action))

@@ -61,7 +61,7 @@ defmodule ZentinelCpWeb.IntegrationCase do
   def setup_api_context(conn, opts \\ []) do
     # Create org with owner
     user_attrs = opts[:user_attrs] || %{}
-    user = ZentinelCp.AccountsFixtures.user_fixture(user_attrs)
+    user = ZentinelCp.AccountsFixtures.admin_fixture(user_attrs)
 
     org_attrs = opts[:org_attrs] || %{}
     org = ZentinelCp.OrgsFixtures.org_fixture(org_attrs)

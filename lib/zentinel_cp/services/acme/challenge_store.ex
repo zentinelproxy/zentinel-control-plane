@@ -1,13 +1,16 @@
 defmodule ZentinelCp.Services.Acme.ChallengeStore do
   @moduledoc """
-  ETS-backed GenServer for storing ephemeral ACME HTTP-01 challenge tokens.
-
-  Tokens are stored with a TTL and cleaned up periodically.
+  Stores ephemeral ACME HTTP-01 challenge tokens in the database, shared by all
+  instances. Tokens expire after a TTL and are cleaned up periodically.
   """
 
   use GenServer
 
-  @table :acme_challenge_tokens
+  import Ecto.Query
+
+  alias ZentinelCp.Repo
+  alias ZentinelCp.Services.Acme.Challenge
+
   @cleanup_interval :timer.minutes(5)
   @ttl_seconds 600
 
@@ -21,8 +24,14 @@ defmodule ZentinelCp.Services.Acme.ChallengeStore do
   Stores a challenge token and its key authorization.
   """
   def put(token, key_authorization) do
-    expires_at = System.system_time(:second) + @ttl_seconds
-    :ets.insert(@table, {token, key_authorization, expires_at})
+    expires_at = DateTime.utc_now() |> DateTime.add(@ttl_seconds) |> DateTime.truncate(:second)
+
+    Repo.insert!(
+      %Challenge{token: token, key_authorization: key_authorization, expires_at: expires_at},
+      on_conflict: {:replace, [:key_authorization, :expires_at]},
+      conflict_target: :token
+    )
+
     :ok
   end
 
@@ -30,17 +39,11 @@ defmodule ZentinelCp.Services.Acme.ChallengeStore do
   Retrieves the key authorization for a challenge token.
   """
   def get(token) do
-    case :ets.lookup(@table, token) do
-      [{^token, key_auth, expires_at}] ->
-        if System.system_time(:second) < expires_at do
-          {:ok, key_auth}
-        else
-          :ets.delete(@table, token)
-          :error
-        end
+    now = DateTime.utc_now()
 
-      [] ->
-        :error
+    case Repo.one(from(c in Challenge, where: c.token == ^token and c.expires_at > ^now)) do
+      %Challenge{key_authorization: key_authorization} -> {:ok, key_authorization}
+      nil -> :error
     end
   end
 
@@ -48,7 +51,7 @@ defmodule ZentinelCp.Services.Acme.ChallengeStore do
   Removes a challenge token.
   """
   def delete(token) do
-    :ets.delete(@table, token)
+    Repo.delete_all(from(c in Challenge, where: c.token == ^token))
     :ok
   end
 
@@ -56,25 +59,26 @@ defmodule ZentinelCp.Services.Acme.ChallengeStore do
 
   @impl true
   def init(_opts) do
-    table = :ets.new(@table, [:named_table, :public, :set, {:write_concurrency, true}])
     schedule_cleanup()
-    {:ok, %{table: table}}
+    {:ok, %{}}
   end
 
   @impl true
   def handle_info(:cleanup, state) do
-    cleanup_expired()
+    now = DateTime.utc_now()
+
+    # A failed cleanup is retried on the next interval; expired rows are ignored by get/1.
+    try do
+      Repo.delete_all(from(c in Challenge, where: c.expires_at <= ^now))
+    rescue
+      error in [DBConnection.ConnectionError, DBConnection.OwnershipError, Postgrex.Error] ->
+        require Logger
+        Logger.warning("ACME challenge cleanup failed: #{Exception.message(error)}")
+    end
+
     schedule_cleanup()
     {:noreply, state}
   end
 
-  defp schedule_cleanup do
-    Process.send_after(self(), :cleanup, @cleanup_interval)
-  end
-
-  defp cleanup_expired do
-    now = System.system_time(:second)
-    match_spec = [{{:_, :_, :"$1"}, [{:<, :"$1", now}], [true]}]
-    :ets.select_delete(@table, match_spec)
-  end
+  defp schedule_cleanup, do: Process.send_after(self(), :cleanup, @cleanup_interval)
 end

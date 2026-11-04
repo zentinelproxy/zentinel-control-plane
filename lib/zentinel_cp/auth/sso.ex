@@ -11,7 +11,7 @@ defmodule ZentinelCp.Auth.Sso do
 
   import Ecto.Query, warn: false
   alias ZentinelCp.Repo
-  alias ZentinelCp.Auth.{OidcProvider, SamlProvider}
+  alias ZentinelCp.Auth.{OidcProvider, SamlProvider, SamlValidator}
   alias ZentinelCp.Accounts.User
   alias ZentinelCp.Orgs
 
@@ -89,11 +89,12 @@ defmodule ZentinelCp.Auth.Sso do
 
   @doc """
   Generates the OIDC authorization URL with PKCE challenge.
-  Returns `{:ok, authorize_url, state, code_verifier}` or `{:error, reason}`.
+  Returns `{:ok, authorize_url, state, code_verifier, nonce}` or `{:error, reason}`.
   """
   def oidc_authorize_url(%OidcProvider{} = provider) do
     state = Base.url_encode64(:crypto.strong_rand_bytes(32), padding: false)
     code_verifier = Base.url_encode64(:crypto.strong_rand_bytes(32), padding: false)
+    nonce = Base.url_encode64(:crypto.strong_rand_bytes(32), padding: false)
 
     code_challenge =
       :crypto.hash(:sha256, code_verifier)
@@ -111,19 +112,21 @@ defmodule ZentinelCp.Auth.Sso do
         redirect_uri: redirect_uri,
         scope: Enum.join(provider.scopes, " "),
         state: state,
+        nonce: nonce,
         code_challenge: code_challenge,
         code_challenge_method: "S256"
       })
 
-    authorize_url = derive_authorize_endpoint(provider.discovery_url)
-    {:ok, "#{authorize_url}?#{params}", state, code_verifier}
+    with {:ok, discovery} <- fetch_discovery(provider) do
+      {:ok, "#{discovery["authorization_endpoint"]}?#{params}", state, code_verifier, nonce}
+    end
   end
 
   @doc """
   Exchanges an OIDC authorization code for tokens and extracts user info.
   Returns `{:ok, user_info}` or `{:error, reason}`.
   """
-  def oidc_callback(%OidcProvider{} = provider, code, code_verifier) do
+  def oidc_callback(%OidcProvider{} = provider, code, code_verifier, nonce \\ nil) do
     client_secret = OidcProvider.decrypt_client_secret(provider)
     redirect_uri = oidc_callback_url()
 
@@ -136,10 +139,9 @@ defmodule ZentinelCp.Auth.Sso do
       code_verifier: code_verifier
     }
 
-    token_url = derive_token_endpoint(provider.discovery_url)
-
-    with {:ok, token_response} <- exchange_token(token_url, token_params),
-         {:ok, user_info} <- extract_user_info(token_response, provider) do
+    with {:ok, discovery} <- fetch_discovery(provider),
+         {:ok, token_response} <- exchange_token(discovery["token_endpoint"], token_params),
+         {:ok, user_info} <- extract_user_info(token_response, provider, discovery, nonce) do
       {:ok, user_info}
     end
   end
@@ -191,7 +193,8 @@ defmodule ZentinelCp.Auth.Sso do
     </samlp:AuthnRequest>
     """
 
-    encoded = Base.encode64(authn_request)
+    # The HTTP-Redirect binding requires raw DEFLATE before Base64.
+    encoded = authn_request |> :zlib.zip() |> Base.encode64()
 
     params =
       URI.encode_query(%{
@@ -206,9 +209,15 @@ defmodule ZentinelCp.Auth.Sso do
   Processes a SAML assertion response.
   Returns `{:ok, user_info}` or `{:error, reason}`.
   """
-  def process_saml_response(saml_response, provider) do
-    with {:ok, decoded} <- Base.decode64(saml_response),
-         {:ok, assertion} <- parse_saml_assertion(decoded, provider) do
+  def process_saml_response(saml_response, provider, opts \\ []) do
+    validation = [
+      audience: saml_sp_entity_id(),
+      recipient: saml_acs_url(),
+      request_id: opts[:request_id]
+    ]
+
+    with {:ok, decoded} <- decode_saml_response(saml_response),
+         {:ok, assertion} <- SamlValidator.validate(decoded, provider, validation) do
       user_info = %{
         email: assertion[:name_id],
         sub: assertion[:name_id],
@@ -237,10 +246,12 @@ defmodule ZentinelCp.Auth.Sso do
     role = resolve_role(provider, user_info[:groups] || [])
     random_password = Base.url_encode64(:crypto.strong_rand_bytes(32))
 
+    # `role` applies to this org only. A global admin can reach every org, so an
+    # identity provider must not be able to grant it.
     user_attrs = %{
       email: user_info[:email],
       password: random_password,
-      role: role
+      role: "reader"
     }
 
     Ecto.Multi.new()
@@ -277,23 +288,37 @@ defmodule ZentinelCp.Auth.Sso do
     end
   end
 
-  defp derive_authorize_endpoint(discovery_url) do
-    # In production, fetch from .well-known/openid-configuration
-    # For now, derive common patterns
-    uri = URI.parse(discovery_url)
-    "#{uri.scheme}://#{uri.host}#{uri.path}/authorize"
+  defp fetch_discovery(%OidcProvider{} = provider) do
+    case http_get(provider.discovery_url) do
+      {:ok, %{"issuer" => issuer} = discovery} when issuer == provider.issuer ->
+        {:ok, discovery}
+
+      {:ok, %{"issuer" => _}} ->
+        {:error, :issuer_mismatch}
+
+      {:ok, _} ->
+        {:error, :invalid_discovery_document}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
 
-  defp derive_token_endpoint(discovery_url) do
-    uri = URI.parse(discovery_url)
-    "#{uri.scheme}://#{uri.host}#{uri.path}/token"
+  defp http_get(url) do
+    case Req.get(url, oidc_req_options()) do
+      {:ok, %{status: 200, body: body}} when is_map(body) -> {:ok, body}
+      {:ok, %{status: status}} -> {:error, {:http_status, status}}
+      {:error, reason} -> {:error, reason}
+    end
   end
+
+  defp oidc_req_options, do: Application.get_env(:zentinel_cp, :oidc_req_options, [])
 
   defp exchange_token(token_url, params) do
-    case Req.post(token_url,
-           form: Enum.map(params, fn {k, v} -> {to_string(k), v} end),
-           headers: [{"content-type", "application/x-www-form-urlencoded"}]
-         ) do
+    options =
+      [form: Enum.map(params, fn {k, v} -> {to_string(k), v} end)] ++ oidc_req_options()
+
+    case Req.post(token_url, options) do
       {:ok, %{status: 200, body: body}} ->
         {:ok, body}
 
@@ -305,50 +330,72 @@ defmodule ZentinelCp.Auth.Sso do
     end
   end
 
-  defp extract_user_info(%{"id_token" => id_token}, _provider) do
-    # Decode JWT without verification for user info extraction
-    # (token was just received from the IdP via backchannel)
-    case JOSE.JWT.peek_payload(id_token) do
-      %JOSE.JWT{fields: fields} ->
-        {:ok,
-         %{
-           sub: fields["sub"],
-           email: fields["email"],
-           name: fields["name"],
-           groups: fields["groups"] || []
-         }}
-
-      _ ->
-        {:error, :invalid_id_token}
+  defp extract_user_info(%{"id_token" => id_token}, provider, discovery, nonce) do
+    with {:ok, jwks} <- http_get(discovery["jwks_uri"]),
+         {:ok, fields} <- verify_id_token(id_token, jwks),
+         :ok <- validate_id_token_claims(fields, provider, nonce) do
+      {:ok,
+       %{
+         sub: fields["sub"],
+         email: fields["email"],
+         name: fields["name"],
+         groups: fields["groups"] || []
+       }}
     end
   end
 
-  defp extract_user_info(_, _), do: {:error, :no_id_token}
+  defp extract_user_info(_, _, _, _), do: {:error, :no_id_token}
 
-  defp parse_saml_assertion(xml, _provider) do
-    # Simplified SAML assertion parsing
-    # In production, use samly for full XML signature verification
-    with {:ok, name_id} <- extract_xml_value(xml, "NameID"),
-         attributes <- extract_saml_attributes(xml) do
-      {:ok, %{name_id: name_id, attributes: attributes}}
+  # Only asymmetric algorithms: the key comes from the provider's JWKS, so
+  # accepting HS* or "none" would let a forged token choose how it is checked.
+  @id_token_algorithms ["RS256", "RS384", "RS512", "ES256", "ES384", "ES512", "PS256", "EdDSA"]
+
+  defp verify_id_token(id_token, %{"keys" => keys}) when is_list(keys) do
+    kid = id_token_kid(id_token)
+
+    verified =
+      keys
+      |> Enum.filter(&(is_nil(kid) or &1["kid"] == kid))
+      |> Enum.find_value(fn key ->
+        case JOSE.JWT.verify_strict(JOSE.JWK.from_map(key), @id_token_algorithms, id_token) do
+          {true, %JOSE.JWT{fields: fields}, _jws} -> fields
+          _ -> nil
+        end
+      end)
+
+    if verified, do: {:ok, verified}, else: {:error, :invalid_id_token}
+  rescue
+    _ -> {:error, :invalid_id_token}
+  end
+
+  defp verify_id_token(_, _), do: {:error, :invalid_jwks}
+
+  defp id_token_kid(id_token) do
+    case JOSE.JWT.peek_protected(id_token) do
+      %JOSE.JWS{fields: %{"kid" => kid}} -> kid
+      _ -> nil
+    end
+  rescue
+    _ -> nil
+  end
+
+  defp validate_id_token_claims(fields, provider, nonce) do
+    now = System.system_time(:second)
+
+    cond do
+      fields["iss"] != provider.issuer -> {:error, :invalid_issuer}
+      provider.client_id not in List.wrap(fields["aud"]) -> {:error, :invalid_audience}
+      not is_integer(fields["exp"]) or fields["exp"] <= now -> {:error, :token_expired}
+      is_nil(nonce) or fields["nonce"] != nonce -> {:error, :invalid_nonce}
+      true -> :ok
     end
   end
 
-  defp extract_xml_value(xml, tag) do
-    case Regex.run(~r/<(?:saml:)?#{tag}[^>]*>([^<]+)</, xml) do
-      [_, value] -> {:ok, value}
-      _ -> {:error, :missing_element}
+  defp decode_saml_response(saml_response) do
+    case Base.decode64(saml_response, ignore: :whitespace) do
+      {:ok, decoded} -> {:ok, decoded}
+      :error -> {:error, :invalid_encoding}
     end
-  end
-
-  defp extract_saml_attributes(xml) do
-    Regex.scan(
-      ~r/<(?:saml:)?Attribute Name="([^"]+)"[^>]*>\s*<(?:saml:)?AttributeValue[^>]*>([^<]+)/,
-      xml
-    )
-    |> Enum.reduce(%{}, fn [_, name, value], acc ->
-      Map.update(acc, name, [value], &[value | &1])
-    end)
   end
 
   defp oidc_callback_url do

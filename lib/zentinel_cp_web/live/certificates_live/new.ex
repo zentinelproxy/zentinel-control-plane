@@ -49,7 +49,7 @@ defmodule ZentinelCpWeb.CertificatesLive.New do
 
     # We need cert_pem and key_pem for initial creation, so we trigger immediate issuance
     # First, create a minimal record, then trigger renewal
-    alias ZentinelCp.Services.Acme.Renewal
+    alias ZentinelCp.Services.Acme.IssueWorker
     alias ZentinelCp.Services.Acme.Crypto
 
     # Generate a temporary self-signed cert to bootstrap the record
@@ -68,7 +68,7 @@ defmodule ZentinelCpWeb.CertificatesLive.New do
             )
 
             # Trigger immediate ACME issuance in background
-            Task.start(fn -> Renewal.renew(cert) end)
+            %{certificate_id: cert.id} |> IssueWorker.new() |> Oban.insert()
 
             show_path = cert_show_path(socket.assigns.org, project, cert)
 

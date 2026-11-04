@@ -134,6 +134,7 @@ defmodule ZentinelCpWeb.Api.MiddlewareController do
   def attach(conn, %{"project_slug" => project_slug, "id" => service_id} = params) do
     with {:ok, project} <- get_project(project_slug),
          {:ok, service} <- get_service(service_id, project.id),
+         :ok <- Services.check_middleware_in_project(params["middleware_id"], project.id),
          attrs <- %{
            service_id: service.id,
            middleware_id: params["middleware_id"],
@@ -159,6 +160,9 @@ defmodule ZentinelCpWeb.Api.MiddlewareController do
       |> put_status(:created)
       |> json(%{service_middleware: service_middleware_to_json(sm)})
     else
+      {:error, :middleware_not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Middleware not found"})
+
       {:error, :project_not_found} ->
         conn |> put_status(:not_found) |> json(%{error: "Project not found"})
 

@@ -16,6 +16,7 @@ defmodule ZentinelCp.Projects.Project do
     field :github_repo, :string
     field :github_branch, :string, default: "main"
     field :config_path, :string, default: "zentinel.kdl"
+    field :node_registration_token_hash, :string, redact: true
 
     belongs_to :org, ZentinelCp.Orgs.Org
     has_many :nodes, ZentinelCp.Nodes.Node
@@ -42,7 +43,7 @@ defmodule ZentinelCp.Projects.Project do
     |> validate_length(:name, min: 1, max: 100)
     |> generate_slug()
     |> validate_slug()
-    |> unique_constraint([:org_id, :slug], error_key: :slug)
+    |> unique_constraint(:slug, name: :projects_slug_index)
     |> foreign_key_constraint(:org_id)
   end
 

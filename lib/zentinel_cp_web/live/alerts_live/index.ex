@@ -38,6 +38,11 @@ defmodule ZentinelCpWeb.AlertsLive.Index do
   @impl true
   def handle_event("acknowledge", %{"id" => id}, socket) do
     alert_state = Observability.get_alert_state!(id)
+
+    alert_state.alert_rule_id
+    |> Observability.get_alert_rule!()
+    |> ZentinelCpWeb.LiveHelpers.in_project!(socket)
+
     user_id = socket.assigns.current_user.id
     {:ok, _} = Observability.acknowledge_alert(alert_state, user_id)
     alerts = Observability.list_firing_alerts(socket.assigns.project.id)

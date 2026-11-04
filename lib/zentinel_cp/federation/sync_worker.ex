@@ -10,7 +10,7 @@ defmodule ZentinelCp.Federation.SyncWorker do
   use Oban.Worker,
     queue: :maintenance,
     max_attempts: 3,
-    unique: [period: 60]
+    unique: [period: 60, states: [:available, :scheduled, :retryable]]
 
   import Ecto.Query, warn: false
   alias ZentinelCp.Repo
@@ -98,7 +98,20 @@ defmodule ZentinelCp.Federation.SyncWorker do
   defp fetch_peer_state(peer, path) do
     url = "#{String.trim_trailing(peer.url, "/")}" <> path
 
-    case Req.get(url, headers: [{"authorization", "Bearer #{peer.api_key_hash}"}]) do
+    with :ok <- ZentinelCp.Net.UrlGuard.check(url),
+         {:ok, body} <- request_peer(url, peer) do
+      {:ok, body}
+    else
+      {:error, reason} when is_atom(reason) -> {:error, to_string(reason)}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp request_peer(url, peer) do
+    case Req.get(url,
+           redirect: false,
+           headers: [{"authorization", "Bearer #{peer.api_key_hash}"}]
+         ) do
       {:ok, %Req.Response{status: 200, body: body}} ->
         {:ok, body}
 

@@ -57,13 +57,13 @@ database migrations on start:
 ```bash
 git clone https://github.com/zentinelproxy/zentinel-control-plane.git
 cd zentinel-control-plane
+cp .env.example .env    # fill in the secrets, ADMIN_EMAIL and ADMIN_PASSWORD
 docker compose up
 ```
 
-The UI is served at [localhost:4000](http://localhost:4000), the MinIO console
-at [localhost:9001](http://localhost:9001) (`minioadmin` / `minioadmin`).
-Default credentials and the first rollout are covered in
-[GETTING-STARTED.md](docs/GETTING-STARTED.md).
+The UI is served at [localhost:4000](http://localhost:4000). Sign in with the
+`ADMIN_EMAIL` and `ADMIN_PASSWORD` from `.env`; there is no default account.
+The first rollout is covered in [GETTING-STARTED.md](docs/GETTING-STARTED.md).
 
 For local development with hot reloading and SQLite (no external database):
 
@@ -157,10 +157,10 @@ Interactive API documentation (Scalar) is served at
 [`/api/docs`](http://localhost:4000/api/docs). The full reference is
 [API.md](docs/API.md).
 
-Node API: nodes authenticate with registration keys or JWTs.
+Node API: nodes register with the project's registration token, then authenticate with their node key or a JWT.
 
 ```
-POST /api/v1/projects/:slug/nodes/register   # register a node
+POST /api/v1/projects/:slug/nodes/register   # register a node (X-Registration-Token)
 POST /api/v1/nodes/:id/heartbeat             # send a heartbeat
 GET  /api/v1/nodes/:id/bundles/latest        # fetch the latest bundle
 POST /api/v1/nodes/:id/token                 # refresh the JWT

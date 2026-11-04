@@ -101,3 +101,9 @@ config :zentinel_cp, ZentinelCp.Bundles.Compiler,
 # Use Let's Encrypt staging in development
 config :zentinel_cp, :acme,
   directory_url: "https://acme-staging-v02.api.letsencrypt.org/directory"
+
+# The simulator registers nodes without a token.
+config :zentinel_cp, :require_node_registration_token, false
+
+config :zentinel_cp, :metrics_open, true
+config :zentinel_cp, :allow_private_outbound, true

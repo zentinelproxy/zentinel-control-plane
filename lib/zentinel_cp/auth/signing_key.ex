@@ -11,7 +11,7 @@ defmodule ZentinelCp.Auth.SigningKey do
   schema "org_signing_keys" do
     field :key_id, :string
     field :public_key, :binary
-    field :private_key_encrypted, :binary, redact: true
+    field :private_key_encrypted, ZentinelCp.Encrypted.Binary, redact: true
     field :algorithm, :string, default: "Ed25519"
     field :active, :boolean, default: true
     field :expires_at, :utc_datetime

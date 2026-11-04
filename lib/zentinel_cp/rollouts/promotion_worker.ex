@@ -6,7 +6,7 @@ defmodule ZentinelCp.Rollouts.PromotionWorker do
   use Oban.Worker,
     queue: :maintenance,
     max_attempts: 1,
-    unique: [period: 60]
+    unique: [period: 60, states: [:available, :scheduled, :retryable]]
 
   import Ecto.Query
   alias ZentinelCp.Repo

@@ -11,23 +11,10 @@ defmodule ZentinelCp.Audit do
 
   @doc """
   Logs an audit event and broadcasts it via PubSub.
-  Includes tamper-evident HMAC chain linking.
+  Includes tamper-evident hash chain linking.
   """
   def log(attrs) do
-    previous_hash = ChainVerifier.get_latest_hash()
-    entry_hash = ChainVerifier.compute_entry_hash(attrs, previous_hash)
-
-    attrs =
-      attrs
-      |> Map.put(:previous_hash, previous_hash)
-      |> Map.put(:entry_hash, entry_hash)
-
-    result =
-      %AuditLog{}
-      |> AuditLog.changeset(attrs)
-      |> Repo.insert()
-
-    case result do
+    case ChainVerifier.append(attrs) do
       {:ok, log_entry} ->
         Phoenix.PubSub.broadcast(ZentinelCp.PubSub, @audit_topic, {:audit_log_created, log_entry})
         {:ok, log_entry}

@@ -16,8 +16,8 @@ defmodule ZentinelCpWeb.BundlesLive.Diff do
         bundle_a_id = params["a"]
         bundle_b_id = params["b"]
 
-        bundle_a = if bundle_a_id, do: Bundles.get_bundle(bundle_a_id)
-        bundle_b = if bundle_b_id, do: Bundles.get_bundle(bundle_b_id)
+        bundle_a = if bundle_a_id, do: project_bundle(bundle_a_id, project)
+        bundle_b = if bundle_b_id, do: project_bundle(bundle_b_id, project)
 
         {diff, stats, manifest_diff, semantic, paired} = compute_diff(bundle_a, bundle_b)
 
@@ -311,4 +311,11 @@ defmodule ZentinelCpWeb.BundlesLive.Diff do
 
   defp diff_path(nil, project, a_id, b_id),
     do: ~p"/projects/#{project.slug}/bundles/diff?a=#{a_id}&b=#{b_id}"
+
+  defp project_bundle(id, project) do
+    case Bundles.get_bundle(id) do
+      %{project_id: project_id} = bundle when project_id == project.id -> bundle
+      _ -> nil
+    end
+  end
 end

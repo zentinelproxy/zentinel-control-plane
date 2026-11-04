@@ -33,7 +33,13 @@ defmodule ZentinelCpWeb.GraphQL.Schema do
 
   def middleware(middleware, _field, %Absinthe.Type.Object{identifier: identifier})
       when identifier in [:query, :mutation] do
-    [ZentinelCpWeb.GraphQL.Middleware.AuthScope | middleware]
+    [{ZentinelCpWeb.GraphQL.Middleware.AuthScope, :root} | middleware]
+  end
+
+  # A project's parent field checks the project, so only the scope is left to
+  # check on its nested collections.
+  def middleware(middleware, _field, %Absinthe.Type.Object{identifier: :project}) do
+    [{ZentinelCpWeb.GraphQL.Middleware.AuthScope, :nested} | middleware]
   end
 
   def middleware(middleware, _field, _object), do: middleware

@@ -60,7 +60,7 @@ defmodule ZentinelCpWeb.ConnCase do
   Returns {conn, api_key}.
   """
   def authenticate_api(%Plug.Conn{} = conn, opts \\ []) do
-    user = opts[:user] || ZentinelCp.AccountsFixtures.user_fixture()
+    user = opts[:user] || ZentinelCp.AccountsFixtures.admin_fixture()
     project = opts[:project] || ZentinelCp.ProjectsFixtures.project_fixture()
 
     {:ok, api_key} =

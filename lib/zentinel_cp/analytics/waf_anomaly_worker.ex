@@ -9,7 +9,7 @@ defmodule ZentinelCp.Analytics.WafAnomalyWorker do
   use Oban.Worker,
     queue: :maintenance,
     max_attempts: 1,
-    unique: [period: 900]
+    unique: [period: 900, states: [:available, :scheduled, :retryable]]
 
   require Logger
 
