@@ -102,3 +102,121 @@ defmodule ZentinelCpWeb.Api.NodeControllerTest do
     end
   end
 end
+
+defmodule ZentinelCpWeb.Api.NodeBundleDownloadTest do
+  use ZentinelCpWeb.ConnCase, async: false
+
+  import ZentinelCp.NodesFixtures
+
+  import Ecto.Query
+
+  alias ZentinelCp.{Bundles, Repo}
+  alias ZentinelCp.Nodes.Node
+
+  setup do
+    {node, key} = node_with_key_fixture()
+    project = ZentinelCp.Projects.get_project(node.project_id)
+    bundle = ZentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: project})
+    storage_key = "test/#{bundle.id}.tar.zst"
+    :ok = Bundles.Storage.upload(storage_key, "archive-bytes")
+
+    checksum = :crypto.hash(:sha256, "archive-bytes") |> Base.encode16(case: :lower)
+
+    bundle =
+      bundle
+      |> Ecto.Changeset.change(storage_key: storage_key, checksum: checksum)
+      |> Repo.update!()
+
+    {:ok, node: node, key: key, bundle: bundle}
+  end
+
+  defp stage(node, bundle) do
+    node |> Ecto.Changeset.change(staged_bundle_id: bundle.id) |> Repo.update!()
+  end
+
+  defp node_get(conn, key, path),
+    do: conn |> put_req_header("x-zentinel-node-key", key) |> get(path)
+
+  test "latest points the node at the control plane download", ctx do
+    stage(ctx.node, ctx.bundle)
+
+    body =
+      ctx.conn
+      |> node_get(ctx.key, "/api/v1/nodes/#{ctx.node.id}/bundles/latest")
+      |> json_response(200)
+
+    assert body["bundle_id"] == ctx.bundle.id
+
+    assert body["download_path"] ==
+             "/api/v1/nodes/#{ctx.node.id}/bundles/#{ctx.bundle.id}/download"
+  end
+
+  test "a staged bundle downloads", ctx do
+    stage(ctx.node, ctx.bundle)
+    path = "/api/v1/nodes/#{ctx.node.id}/bundles/#{ctx.bundle.id}/download"
+    conn = node_get(ctx.conn, ctx.key, path)
+
+    assert response(conn, 200) == "archive-bytes"
+    assert get_resp_header(conn, "x-bundle-checksum") == [ctx.bundle.checksum]
+  end
+
+  test "a bundle not assigned to the node does not", ctx do
+    path = "/api/v1/nodes/#{ctx.node.id}/bundles/#{ctx.bundle.id}/download"
+    assert ctx.conn |> node_get(ctx.key, path) |> json_response(404)
+  end
+
+  test "another project's bundle does not, even if assigned", ctx do
+    other = ZentinelCp.RolloutsFixtures.compiled_bundle_fixture()
+
+    Repo.update_all(from(n in Node, where: n.id == ^ctx.node.id),
+      set: [staged_bundle_id: other.id]
+    )
+
+    path = "/api/v1/nodes/#{ctx.node.id}/bundles/#{other.id}/download"
+    assert ctx.conn |> node_get(ctx.key, path) |> json_response(404)
+  end
+
+  test "requires node authentication", ctx do
+    stage(ctx.node, ctx.bundle)
+    path = "/api/v1/nodes/#{ctx.node.id}/bundles/#{ctx.bundle.id}/download"
+    assert get(ctx.conn, path).status == 401
+  end
+end
+
+defmodule ZentinelCpWeb.Api.NodeActiveBundleTest do
+  use ZentinelCpWeb.ConnCase, async: false
+
+  import ZentinelCp.NodesFixtures
+
+  alias ZentinelCp.Nodes
+
+  defp heartbeat(conn, node, key, active_bundle_id) do
+    conn
+    |> put_req_header("x-zentinel-node-key", key)
+    |> post("/api/v1/nodes/#{node.id}/heartbeat", %{active_bundle_id: active_bundle_id})
+    |> json_response(200)
+  end
+
+  test "a heartbeat records the bundle the node is running", %{conn: conn} do
+    {node, key} = node_with_key_fixture()
+    project = ZentinelCp.Projects.get_project(node.project_id)
+    bundle = ZentinelCp.RolloutsFixtures.compiled_bundle_fixture(%{project: project})
+
+    heartbeat(conn, node, key, bundle.id)
+    assert Nodes.get_node!(node.id).active_bundle_id == bundle.id
+  end
+
+  test "a bundle from another project is ignored", %{conn: conn} do
+    {node, key} = node_with_key_fixture()
+    other = ZentinelCp.RolloutsFixtures.compiled_bundle_fixture()
+
+    heartbeat(conn, node, key, other.id)
+    assert Nodes.get_node!(node.id).active_bundle_id == nil
+  end
+
+  test "a malformed bundle ID is ignored", %{conn: conn} do
+    {node, key} = node_with_key_fixture()
+    heartbeat(conn, node, key, "not-a-uuid")
+    assert Nodes.get_node!(node.id).active_bundle_id == nil
+  end
+end

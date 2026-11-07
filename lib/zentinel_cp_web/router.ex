@@ -635,6 +635,7 @@ defmodule ZentinelCpWeb.Router do
 
     post "/:node_id/heartbeat", NodeController, :heartbeat
     get "/:node_id/bundles/latest", NodeController, :latest_bundle
+    get "/:node_id/bundles/:bundle_id/download", NodeController, :download_bundle
     post "/:node_id/token", NodeController, :token
     post "/:node_id/events", NodeController, :events
     post "/:node_id/config", NodeController, :config

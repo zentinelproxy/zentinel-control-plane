@@ -95,6 +95,7 @@ defmodule ZentinelCp.Nodes do
       {:ok, updated_node} =
         node
         |> Node.heartbeat_changeset(attrs)
+        |> put_reported_active_bundle(node, attrs)
         |> Repo.update()
 
       # Record heartbeat history
@@ -135,6 +136,25 @@ defmodule ZentinelCp.Nodes do
 
       updated_node
     end)
+  end
+
+  # The bundle a node reports as running is what rollouts wait for. Only a
+  # bundle of the node's own project is accepted.
+  defp put_reported_active_bundle(changeset, node, attrs) do
+    bundle_id = attrs[:active_bundle_id] || attrs["active_bundle_id"]
+
+    with true <- is_binary(bundle_id),
+         {:ok, bundle_id} <- Ecto.UUID.cast(bundle_id),
+         true <-
+           Repo.exists?(
+             from(b in ZentinelCp.Bundles.Bundle,
+               where: b.id == ^bundle_id and b.project_id == ^node.project_id
+             )
+           ) do
+      Ecto.Changeset.put_change(changeset, :active_bundle_id, bundle_id)
+    else
+      _ -> changeset
+    end
   end
 
   @doc """
