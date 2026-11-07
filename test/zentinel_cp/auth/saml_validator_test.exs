@@ -151,6 +151,25 @@ defmodule ZentinelCp.Auth.SamlValidatorTest do
              SamlValidator.validate(declared, provider(cert), options())
   end
 
+  test "rejects names that would create new atoms", %{cert: cert, key: key} do
+    name = "Zz#{System.unique_integer([:positive])}Unseen"
+    signed = assertion_xml() |> sign(key, cert)
+    xml = response(signed) |> String.replace("<samlp:Status>", "<#{name}/><samlp:Status>")
+
+    assert {:error, {:unexpected_xml_name, ^name}} =
+             SamlValidator.validate(xml, provider(cert), options())
+
+    assert_raise ArgumentError, fn -> String.to_existing_atom(name) end
+  end
+
+  test "rejects an unknown namespace URI", %{cert: cert} do
+    uri = "urn:example:#{System.unique_integer([:positive])}"
+    xml = ~s(<samlp:Response xmlns:samlp="#{uri}"/>)
+
+    assert {:error, {:unexpected_xml_name, ^uri}} =
+             SamlValidator.validate(xml, provider(cert), options())
+  end
+
   test "rejects malformed XML", %{cert: cert} do
     assert {:error, _} = SamlValidator.validate("<not-closed", provider(cert), options())
   end

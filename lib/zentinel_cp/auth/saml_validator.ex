@@ -23,6 +23,36 @@ defmodule ZentinelCp.Auth.SamlValidator do
 
   @max_response_bytes 512_000
 
+  # xmerl turns every element name, attribute name, namespace prefix and
+  # namespace URI into an atom, and atoms are never freed, so arbitrary names
+  # in unauthenticated input could exhaust the atom table (esaml advisories
+  # EEF-CVE-2026-105270 and EEF-CVE-2026-86696). Responses may only use names
+  # that already exist as atoms; this vocabulary makes sure SAML's do.
+  @known_names ~w(
+    Response Assertion Issuer Status StatusCode StatusMessage StatusDetail Subject NameID
+    SubjectConfirmation SubjectConfirmationData Conditions AudienceRestriction Audience
+    OneTimeUse ProxyRestriction AuthnStatement AuthnContext AuthnContextClassRef
+    AuthnContextDeclRef AuthenticatingAuthority SubjectLocality AttributeStatement Attribute
+    AttributeValue EncryptedAssertion EncryptedAttribute EncryptedID Advice Extensions
+    Signature SignedInfo CanonicalizationMethod SignatureMethod Reference Transforms Transform
+    DigestMethod DigestValue SignatureValue KeyInfo X509Data X509Certificate X509IssuerSerial
+    X509IssuerName X509SerialNumber X509SubjectName KeyName KeyValue RSAKeyValue Modulus Exponent
+    InclusiveNamespaces
+    ID Version IssueInstant Destination InResponseTo Consent Format NameQualifier
+    SPNameQualifier SPProvidedID Method NotBefore NotOnOrAfter Recipient Address DNSName Name
+    NameFormat FriendlyName Algorithm URI PrefixList Value AuthnInstant SessionIndex
+    SessionNotOnOrAfter Id type nil lang
+    xmlns xml xsi xs xsd saml saml2 samlp saml2p ds dsig ec md ns1 ns2 ns3 ns4 ns5 a b
+    urn:oasis:names:tc:SAML:2.0:assertion urn:oasis:names:tc:SAML:2.0:protocol
+    urn:oasis:names:tc:SAML:2.0:metadata http://www.w3.org/2000/09/xmldsig#
+    http://www.w3.org/2001/10/xml-exc-c14n# http://www.w3.org/2001/XMLSchema
+    http://www.w3.org/2001/XMLSchema-instance http://www.w3.org/2001/04/xmlenc#
+    http://www.w3.org/XML/1998/namespace
+  )a
+
+  @doc false
+  def known_names, do: @known_names
+
   @doc """
   Validates a decoded SAML response.
 
@@ -31,6 +61,7 @@ defmodule ZentinelCp.Auth.SamlValidator do
   """
   def validate(xml, provider, opts) when is_binary(xml) do
     with :ok <- check_shape(xml),
+         :ok <- check_names(xml),
          {:ok, fingerprint} <- certificate_fingerprint(provider.certificate),
          {:ok, document} <- parse(xml),
          {:ok, assertion} <- validate_assertion(document, fingerprint, opts),
@@ -59,6 +90,41 @@ defmodule ZentinelCp.Auth.SamlValidator do
       String.contains?(xml, "<!") -> {:error, :dtd_not_allowed}
       true -> :ok
     end
+  end
+
+  # Rejects names outside the existing atoms, so parsing cannot grow the atom
+  # table without bound. Fails closed: text the scan cannot read as a name is
+  # looked up as one and rejected.
+  defp check_names(xml) do
+    tags = Regex.scan(~r/<\/?([^\s\/>]+)([^>]*)>/, xml)
+
+    names =
+      Enum.flat_map(tags, fn [_tag, name, attributes] ->
+        attribute_names = Regex.scan(~r/([^\s=\/]+)\s*=\s*(["'])(.*?)\2/s, attributes)
+
+        namespace_uris =
+          for [_, attr, _, value] <- attribute_names,
+              attr == "xmlns" or String.starts_with?(attr, "xmlns:"),
+              do: value
+
+        # A qualified name is checked by its parts: with both from the fixed
+        # vocabulary, the qualified atoms xmerl makes form a bounded set.
+        [name | Enum.map(attribute_names, fn [_, attr, _, _] -> attr end)]
+        |> Enum.flat_map(&String.split(&1, ":", parts: 2))
+        |> Kernel.++(namespace_uris)
+      end)
+
+    case Enum.find(Enum.uniq(names), &(not existing_atom?(&1))) do
+      nil -> :ok
+      name -> {:error, {:unexpected_xml_name, String.slice(name, 0, 64)}}
+    end
+  end
+
+  defp existing_atom?(name) do
+    _ = String.to_existing_atom(name)
+    true
+  rescue
+    ArgumentError -> false
   end
 
   defp certificate_fingerprint(certificate) do

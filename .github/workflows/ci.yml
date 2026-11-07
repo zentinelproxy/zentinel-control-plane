@@ -151,7 +151,8 @@ jobs:
       # - hackney and tesla are test-only, through wallaby. They are not in the release.
       # - esaml has no patched version. SamlValidator rejects DTDs before parsing.
       - run: mix deps.audit --ignore-advisory-ids GHSA-28jh-g32x-v9v4,GHSA-4g2h-vm7x-747c,GHSA-9m9w-gxf7-rh8m,GHSA-gp9c-pm5m-5cxr,GHSA-h74c-q9j7-mpcm,GHSA-j9wq-vxxc-94wf,GHSA-mc85-72gr-vm9f,GHSA-mp55-p8c9-rfw2,GHSA-pj7v-xfvx-wmjq,GHSA-q7jx-v53g-848w
-      - run: mix hex.audit
+      # Acknowledged advisories, with reasons, are in mix.exs.
+      - run: mix hex.audit --check-unused-ignores
       - run: mix sobelow --config
 
   # Only publishes commits that passed everything above.
