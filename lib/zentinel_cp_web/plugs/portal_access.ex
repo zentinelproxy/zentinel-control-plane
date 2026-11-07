@@ -5,7 +5,10 @@ defmodule ZentinelCpWeb.Plugs.PortalAccess do
   Checks the project's `portal_access` setting:
   - `"disabled"` → 404
   - `"public"` → allow
-  - `"authenticated"` → check session for portal user or API key
+  - `"authenticated"` → requires a member of the project's org
+
+  LiveViews repeat these checks in `LiveHelpers.on_mount(:portal_access)`, since
+  plugs do not run when a LiveView joins over the socket.
   """
 
   import Plug.Conn
@@ -50,38 +53,20 @@ defmodule ZentinelCpWeb.Plugs.PortalAccess do
     end
   end
 
+  # "authenticated" portals are for members of the project's org.
   defp check_portal_auth(conn, project) do
-    portal_user = get_session(conn, :portal_user)
+    user = conn.assigns[:current_user]
 
-    if portal_user do
-      conn
-      |> assign(:portal_project, project)
-      |> assign(:portal_user, portal_user)
+    if user && (user.role == "admin" || ZentinelCp.Orgs.get_user_role(project.org_id, user.id)) do
+      assign(conn, :portal_project, project)
     else
-      # Check for API key in Authorization header
-      case get_req_header(conn, "authorization") do
-        ["Bearer " <> key] ->
-          case ZentinelCp.Accounts.get_api_key_by_key(key) do
-            nil ->
-              require_portal_login(conn)
-
-            api_key ->
-              conn
-              |> assign(:portal_project, project)
-              |> assign(:portal_api_key, api_key)
-          end
-
-        _ ->
-          require_portal_login(conn)
-      end
+      require_portal_login(conn)
     end
   end
 
   defp require_portal_login(conn) do
     conn
-    |> put_status(:unauthorized)
-    |> Phoenix.Controller.put_view(ZentinelCpWeb.ErrorHTML)
-    |> Phoenix.Controller.render("401.html")
+    |> Phoenix.Controller.redirect(to: "/login")
     |> halt()
   end
 end

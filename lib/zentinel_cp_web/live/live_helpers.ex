@@ -8,9 +8,13 @@ defmodule ZentinelCpWeb.LiveHelpers do
   alias ZentinelCp.{Accounts, Orgs, Projects}
   alias ZentinelCp.Accounts.Totp
 
-  # Views reachable without a user. The portal authenticates its own way.
+  # Views reachable without a user. The portal is checked by `:portal_access`.
   @public_views [ZentinelCpWeb.AuthLive.Login, ZentinelCpWeb.AuthLive.Mfa]
   @public_namespaces [ZentinelCpWeb.PortalLive]
+
+  # Portal pages that act for the viewer: the console sends requests from the
+  # server, and keys creates API keys. Both need a member of the project's org.
+  @portal_member_views [ZentinelCpWeb.PortalLive.Console, ZentinelCpWeb.PortalLive.Keys]
 
   # Events that only change what is on screen. Readers may send these and no
   # others, so a new event is write-protected until it is listed here.
@@ -55,6 +59,27 @@ defmodule ZentinelCpWeb.LiveHelpers do
 
   def on_mount(:fetch_current_user, _params, session, socket) do
     {:cont, assign_current_user(socket, session)}
+  end
+
+  def on_mount(:portal_access, %{"project_slug" => slug}, session, socket) do
+    socket = assign_current_user(socket, session)
+    project = Projects.get_project_by_slug(slug)
+    mode = project && ZentinelCp.Projects.Project.portal_access(project)
+    member? = project && org_role?(socket.assigns, project.org_id, "reader")
+
+    cond do
+      mode not in ["public", "authenticated"] ->
+        raise Ecto.NoResultsError, queryable: "portal"
+
+      member? ->
+        {:cont, assign(socket, portal_project: project, portal_member: true)}
+
+      mode == "authenticated" or socket.view in @portal_member_views ->
+        {:halt, redirect(socket, to: "/login")}
+
+      true ->
+        {:cont, assign(socket, portal_project: project, portal_member: false)}
+    end
   end
 
   def on_mount(:attach_uri_hook, _params, _session, socket) do
