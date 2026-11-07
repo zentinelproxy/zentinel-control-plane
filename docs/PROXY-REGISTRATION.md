@@ -19,11 +19,21 @@ End-to-end guide for connecting existing zentinel proxy instances to the control
 
 ## 1. Register the Proxy
 
-Register a node with the control plane via the REST API. No authentication is required for registration — only the project slug.
+Registering needs the project's registration token. Create one on the project's Nodes page, or through the API with a `nodes:write` key. It is shown once:
+
+```bash
+curl -X POST http://localhost:4000/api/v1/projects/my-project/nodes/registration-token \
+  -H "Authorization: Bearer $API_KEY"
+```
+
+Creating a new token replaces the old one. Nodes that have already registered keep working.
+
+Then register a node with the token. Development servers do not require it:
 
 ```bash
 curl -X POST http://localhost:4000/api/v1/projects/my-project/nodes/register \
   -H "Content-Type: application/json" \
+  -H "X-Registration-Token: $REGISTRATION_TOKEN" \
   -d '{
     "name": "proxy-us-east-1",
     "labels": {"env": "production", "region": "us-east-1"},

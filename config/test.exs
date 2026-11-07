@@ -5,17 +5,34 @@ import Config
 # The MIX_TEST_PARTITION environment variable can be used
 # to provide built-in test partitioning in CI environment.
 # Run `mix help test` for more information.
-config :zentinel_cp, ZentinelCp.Repo,
-  database: Path.expand("../zentinel_cp_test#{System.get_env("MIX_TEST_PARTITION")}.db", __DIR__),
-  pool: Ecto.Adapters.SQL.Sandbox,
-  pool_size: System.schedulers_online() * 2,
-  # Async tests share one SQLite file, and the sandbox wraps each test in a
-  # transaction. Deferred transactions that later upgrade to a write lock get
-  # SQLITE_BUSY immediately, without waiting (`Exqlite.Error: Database busy`).
-  # Immediate transactions take the write lock up front, so contended tests
-  # wait for it, up to busy_timeout.
-  default_transaction_mode: :immediate,
-  busy_timeout: 30_000
+#
+# Set TEST_DATABASE_URL to run the suite against PostgreSQL, the production
+# database. The adapter is compile-time, so use a separate build root:
+#
+#     TEST_DATABASE_URL=ecto://postgres:postgres@localhost:5432/zentinel_cp_test \\
+#       MIX_BUILD_ROOT=_build_pg mix test
+if test_database_url = System.get_env("TEST_DATABASE_URL") do
+  config :zentinel_cp, ecto_adapter: Ecto.Adapters.Postgres
+  config :zentinel_cp, Oban, engine: Oban.Engines.Basic
+
+  config :zentinel_cp, ZentinelCp.Repo,
+    url: test_database_url <> System.get_env("MIX_TEST_PARTITION", ""),
+    pool: Ecto.Adapters.SQL.Sandbox,
+    pool_size: System.schedulers_online() * 2
+else
+  config :zentinel_cp, ZentinelCp.Repo,
+    database:
+      Path.expand("../zentinel_cp_test#{System.get_env("MIX_TEST_PARTITION")}.db", __DIR__),
+    pool: Ecto.Adapters.SQL.Sandbox,
+    pool_size: System.schedulers_online() * 2,
+    # Async tests share one SQLite file, and the sandbox wraps each test in a
+    # transaction. Deferred transactions that later upgrade to a write lock get
+    # SQLITE_BUSY immediately, without waiting (`Exqlite.Error: Database busy`).
+    # Immediate transactions take the write lock up front, so contended tests
+    # wait for it, up to busy_timeout.
+    default_transaction_mode: :immediate,
+    busy_timeout: 30_000
+end
 
 # Enable server for E2E tests (Wallaby requires the server to be running)
 config :zentinel_cp, ZentinelCpWeb.Endpoint,
@@ -36,6 +53,23 @@ config :logger, level: :warning
 # Tests that need compiled bundles should use compiled_bundle_fixture/1.
 # Tests that need to run workers explicitly can use Oban.drain_queue/1.
 config :zentinel_cp, Oban, testing: :manual
+
+# The chain lock would serialize async tests for the whole of their sandbox
+# transaction, which only ends when the test does.
+config :zentinel_cp, :audit_chain_lock, false
+
+# Most tests register nodes directly; the token check has its own tests.
+config :zentinel_cp, :require_node_registration_token, false
+
+config :zentinel_cp, :metrics_open, true
+config :zentinel_cp, :allow_private_outbound, true
+
+config :zentinel_cp, :rate_limits, %{
+  "login" => 100_000,
+  "mfa" => 100_000,
+  "node_register" => 100_000,
+  "webhook" => 100_000
+}
 
 # Mark test environment (used to skip async notifications)
 config :zentinel_cp, :env, :test

@@ -37,7 +37,7 @@ defmodule ZentinelCpWeb.SlosLive.Index do
 
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
-    slo = Observability.get_slo!(id)
+    slo = Observability.get_slo!(id) |> ZentinelCpWeb.LiveHelpers.in_project!(socket)
     {:ok, _} = Observability.delete_slo(slo)
 
     {:noreply,

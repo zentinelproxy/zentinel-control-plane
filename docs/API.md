@@ -298,11 +298,13 @@ Endpoints used by Zentinel proxy instances.
 
 ```
 POST /api/v1/projects/:project_slug/nodes/register
-Auth: None (public endpoint)
+POST /api/v1/projects/:project_slug/nodes/registration-token   # requires nodes:write; returns the token once
+Auth: X-Registration-Token header
 ```
 
 ```bash
 curl -X POST http://localhost:4000/api/v1/projects/my-project/nodes/register \
+  -H "X-Registration-Token: $REGISTRATION_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "proxy-us-east-1",

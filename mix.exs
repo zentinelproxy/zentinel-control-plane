@@ -11,7 +11,44 @@ defmodule ZentinelCp.MixProject do
       aliases: aliases(),
       deps: deps(),
       compilers: [:phoenix_live_view] ++ Mix.compilers(),
-      listeners: [Phoenix.CodeReloader]
+      listeners: [Phoenix.CodeReloader],
+      hex: [ignore_advisories: ignored_advisories()]
+    ]
+  end
+
+  # Advisories that do not affect this application. No patched release exists
+  # for any of them. Review this list when updating dependencies.
+  defp ignored_advisories do
+    [
+      # esaml: XXE. SamlValidator rejects DTDs and non-UTF-8 input before parsing.
+      "EEF-CVE-2026-28809",
+      # esaml: atom exhaustion while parsing. SamlValidator rejects any name that
+      # is not already an atom before parsing.
+      "EEF-CVE-2026-105270",
+      # esaml: atom exhaustion from LogoutResponse status codes. Logout is unused.
+      "EEF-CVE-2026-86696",
+      # esaml: unbounded decompression. Responses use the POST binding, which is
+      # not compressed, and their size is capped.
+      "EEF-CVE-2026-93471",
+      # cowboy and cowlib are only present because esaml depends on them. HTTP is
+      # served by Bandit, so their HTTP parsers never see a request.
+      "EEF-CVE-2026-115701",
+      "EEF-CVE-2026-113431",
+      "EEF-CVE-2026-43966",
+      # ecto: query cache growth from interpolated JSON paths and splices. No
+      # query uses either.
+      "EEF-CVE-2026-118391",
+      # hackney and tesla are test-only dependencies of wallaby.
+      "EEF-CVE-2026-115693",
+      "EEF-CVE-2026-47069",
+      "EEF-CVE-2026-47071",
+      "EEF-CVE-2026-47075",
+      "EEF-CVE-2026-47076",
+      "EEF-CVE-2026-48594",
+      "EEF-CVE-2026-48595",
+      "EEF-CVE-2026-48596",
+      "EEF-CVE-2026-48597",
+      "EEF-CVE-2026-48598"
     ]
   end
 
@@ -88,7 +125,7 @@ defmodule ZentinelCp.MixProject do
       {:jose, "~> 1.11"},
       {:nimble_totp, "~> 1.0"},
       {:openid_connect, "~> 1.0"},
-      {:samly, "~> 1.4"},
+      {:esaml, "~> 4.6"},
 
       # Observability
       {:prom_ex, "~> 1.11"},
@@ -112,6 +149,8 @@ defmodule ZentinelCp.MixProject do
 
       # Dev/Test tools
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
+      {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:ex_machina, "~> 2.8", only: :test},
       {:mox, "~> 1.2", only: :test},

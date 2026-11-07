@@ -27,7 +27,7 @@ defmodule ZentinelCpWeb.WafPoliciesLive.Index do
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
     project = socket.assigns.project
-    policy = Waf.get_policy!(id)
+    policy = Waf.get_policy!(id) |> ZentinelCpWeb.LiveHelpers.in_project!(socket)
 
     case Waf.delete_policy(policy) do
       {:ok, _} ->

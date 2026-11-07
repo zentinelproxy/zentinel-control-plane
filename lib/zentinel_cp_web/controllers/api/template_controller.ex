@@ -23,7 +23,7 @@ defmodule ZentinelCpWeb.Api.TemplateController do
   end
 
   def show(conn, %{"id" => id}) do
-    case Services.get_template(id) do
+    case readable_template(conn, id) do
       nil ->
         conn |> put_status(:not_found) |> json(%{error: "Template not found"})
 
@@ -49,12 +49,12 @@ defmodule ZentinelCpWeb.Api.TemplateController do
   end
 
   def update(conn, %{"id" => id} = params) do
-    case Services.get_template(id) do
+    case writable_template(conn, id) do
       nil ->
         conn |> put_status(:not_found) |> json(%{error: "Template not found"})
 
       template ->
-        case Services.update_template(template, params) do
+        case Services.update_template(template, Map.drop(params, ["project_id", "is_builtin"])) do
           {:ok, updated} ->
             conn |> put_status(:ok) |> json(%{template: template_to_json(updated)})
 
@@ -65,7 +65,7 @@ defmodule ZentinelCpWeb.Api.TemplateController do
   end
 
   def delete(conn, %{"id" => id}) do
-    case Services.get_template(id) do
+    case writable_template(conn, id) do
       nil ->
         conn |> put_status(:not_found) |> json(%{error: "Template not found"})
 
@@ -111,5 +111,29 @@ defmodule ZentinelCpWeb.Api.TemplateController do
         opts |> Keyword.get(String.to_existing_atom(key), key) |> to_string()
       end)
     end)
+  end
+
+  # Built-in templates have no project and are visible to all, but are read-only.
+  defp readable_template(conn, id) do
+    case Services.get_template(id) do
+      %{project_id: nil} = template ->
+        template
+
+      %{project_id: project_id} = template when project_id == conn.assigns.current_project.id ->
+        template
+
+      _ ->
+        nil
+    end
+  end
+
+  defp writable_template(conn, id) do
+    case readable_template(conn, id) do
+      %{project_id: project_id, is_builtin: false} = template when not is_nil(project_id) ->
+        template
+
+      _ ->
+        nil
+    end
   end
 end

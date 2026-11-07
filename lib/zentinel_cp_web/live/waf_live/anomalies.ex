@@ -44,6 +44,8 @@ defmodule ZentinelCpWeb.WafLive.Anomalies do
   def handle_event("acknowledge", %{"id" => id}, socket) do
     user = socket.assigns.current_user
 
+    Analytics.get_waf_anomaly(id) |> ZentinelCpWeb.LiveHelpers.in_project!(socket)
+
     case Analytics.acknowledge_anomaly(id, user.id) do
       {:ok, _} ->
         {:noreply, socket |> put_flash(:info, "Anomaly acknowledged.") |> load_data()}
@@ -55,6 +57,8 @@ defmodule ZentinelCpWeb.WafLive.Anomalies do
 
   @impl true
   def handle_event("resolve", %{"id" => id}, socket) do
+    Analytics.get_waf_anomaly(id) |> ZentinelCpWeb.LiveHelpers.in_project!(socket)
+
     case Analytics.resolve_anomaly(id) do
       {:ok, _} ->
         {:noreply, socket |> put_flash(:info, "Anomaly resolved.") |> load_data()}
@@ -67,6 +71,8 @@ defmodule ZentinelCpWeb.WafLive.Anomalies do
   @impl true
   def handle_event("false_positive", %{"id" => id}, socket) do
     user = socket.assigns.current_user
+
+    Analytics.get_waf_anomaly(id) |> ZentinelCpWeb.LiveHelpers.in_project!(socket)
 
     case Analytics.mark_false_positive(id, user.id) do
       {:ok, _} ->

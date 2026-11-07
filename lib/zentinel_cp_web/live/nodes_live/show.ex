@@ -181,6 +181,7 @@ defmodule ZentinelCpWeb.NodesLive.Show do
 
   def handle_event("pin_to_bundle", %{"bundle_id" => bundle_id}, socket) do
     node = socket.assigns.node
+    ZentinelCp.Bundles.get_bundle!(bundle_id) |> ZentinelCpWeb.LiveHelpers.in_project!(socket)
 
     case Nodes.pin_node_to_bundle(node.id, bundle_id) do
       {:ok, updated_node} ->

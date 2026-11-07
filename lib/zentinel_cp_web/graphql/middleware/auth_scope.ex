@@ -1,52 +1,91 @@
 defmodule ZentinelCpWeb.GraphQL.Middleware.AuthScope do
   @moduledoc """
-  Absinthe middleware that enforces API key scope checks on GraphQL fields.
+  Enforces API key scope and project access on GraphQL fields.
+
+  Root fields are denied unless listed here, so a new field cannot be left open
+  by accident. Listing also tells this module how to find the field's project.
   """
   @behaviour Absinthe.Middleware
 
-  @scope_map %{
-    # Queries
-    project: "services:read",
-    projects: "services:read",
+  alias ZentinelCp.{Access, Rollouts}
+
+  # {required scope, where the project comes from}
+  @root_fields %{
+    project: {"services:read", :resolver},
+    projects: {"services:read", :resolver},
+    services: {"services:read", :project_arg},
+    alert_rules: {"services:read", :project_arg},
+    slos: {"services:read", :project_arg},
+    policies: {"services:read", :project_arg},
+    nodes: {"nodes:read", :project_arg},
+    bundles: {"bundles:read", :project_arg},
+    rollouts: {"rollouts:read", :project_arg},
+    create_bundle: {"bundles:write", :project_input},
+    create_rollout: {"rollouts:write", :project_input},
+    pause_rollout: {"rollouts:write", :rollout_arg},
+    resume_rollout: {"rollouts:write", :rollout_arg},
+    swap_blue_green_slot: {"rollouts:write", :rollout_arg},
+    advance_blue_green_traffic: {"rollouts:write", :rollout_arg}
+  }
+
+  @nested_fields %{
     services: "services:read",
-    alert_rules: "services:read",
-    slos: "services:read",
-    policies: "services:read",
     nodes: "nodes:read",
     bundles: "bundles:read",
-    rollouts: "rollouts:read",
-    # Mutations
-    create_bundle: "bundles:write",
-    create_rollout: "rollouts:write",
-    pause_rollout: "rollouts:write",
-    resume_rollout: "rollouts:write"
+    rollouts: "rollouts:read"
   }
 
   @impl true
-  def call(%{context: context} = resolution, _config) do
+  def call(%{context: context} = resolution, :root) do
     api_key = context[:current_api_key]
     field = resolution.definition.schema_node.identifier
 
-    required_scope = Map.get(@scope_map, field)
+    case Map.get(@root_fields, field) do
+      nil ->
+        deny(resolution, "Not authorized")
 
-    cond do
-      # No scope mapping means no restriction
-      is_nil(required_scope) ->
-        resolution
+      {scope, source} ->
+        cond do
+          is_nil(api_key) or not Access.scope_held?(api_key, scope) ->
+            deny(resolution, "Insufficient scope. Required: #{scope}")
 
-      # Legacy keys with empty scopes get full access
-      api_key && api_key.scopes == [] ->
-        resolution
+          source == :resolver ->
+            resolution
 
-      # Check if the key has the required scope
-      api_key && required_scope in api_key.scopes ->
-        resolution
+          Access.api_key_allowed?(api_key, project_id(source, resolution.arguments), scope) ->
+            resolution
 
-      true ->
-        Absinthe.Resolution.put_result(
-          resolution,
-          {:error, "Insufficient scope. Required: #{required_scope}"}
-        )
+          true ->
+            deny(resolution, "Not found")
+        end
     end
+  end
+
+  def call(%{context: context} = resolution, :nested) do
+    field = resolution.definition.schema_node.identifier
+
+    case Map.get(@nested_fields, field) do
+      nil ->
+        resolution
+
+      scope ->
+        if Access.api_key_allowed?(context[:current_api_key], resolution.source, scope),
+          do: resolution,
+          else: deny(resolution, "Insufficient scope. Required: #{scope}")
+    end
+  end
+
+  defp project_id(:project_arg, arguments), do: arguments[:project_id]
+  defp project_id(:project_input, arguments), do: get_in(arguments, [:input, :project_id])
+
+  defp project_id(:rollout_arg, arguments) do
+    case Rollouts.get_rollout(arguments[:id]) do
+      nil -> nil
+      rollout -> rollout.project_id
+    end
+  end
+
+  defp deny(resolution, message) do
+    Absinthe.Resolution.put_result(resolution, {:error, message})
   end
 end

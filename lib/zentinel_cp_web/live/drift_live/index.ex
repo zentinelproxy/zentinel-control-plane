@@ -34,7 +34,7 @@ defmodule ZentinelCpWeb.DriftLive.Index do
 
   @impl true
   def handle_event("resolve", %{"id" => id}, socket) do
-    event = Nodes.get_drift_event!(id)
+    event = Nodes.get_drift_event!(id) |> ZentinelCpWeb.LiveHelpers.in_project!(socket)
 
     case Nodes.resolve_drift_event(event, "manual") do
       {:ok, _} ->

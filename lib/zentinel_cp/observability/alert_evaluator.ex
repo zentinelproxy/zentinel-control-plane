@@ -7,7 +7,7 @@ defmodule ZentinelCp.Observability.AlertEvaluator do
   use Oban.Worker,
     queue: :maintenance,
     max_attempts: 1,
-    unique: [period: 30]
+    unique: [period: 30, states: [:available, :scheduled, :retryable]]
 
   import Ecto.Query, warn: false
   alias ZentinelCp.Repo
@@ -78,11 +78,11 @@ defmodule ZentinelCp.Observability.AlertEvaluator do
     metrics =
       from(q in query,
         select: %{
-          total_requests: sum(q.request_count),
-          total_errors: sum(q.error_count),
-          avg_p99: avg(q.latency_p99_ms),
-          avg_p95: avg(q.latency_p95_ms),
-          total_5xx: sum(q.status_5xx)
+          total_requests: type(sum(q.request_count), :integer),
+          total_errors: type(sum(q.error_count), :integer),
+          avg_p99: type(avg(q.latency_p99_ms), :float),
+          avg_p95: type(avg(q.latency_p95_ms), :float),
+          total_5xx: type(sum(q.status_5xx), :integer)
         }
       )
       |> Repo.one()

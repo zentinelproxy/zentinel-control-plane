@@ -1,0 +1,35 @@
+CI.System: Command Injection via `System` function,lib/zentinel_cp/bundles/compiler.ex:22,6F32D27
+Config.CSP: Missing Content-Security-Policy,lib/zentinel_cp_web/router.ex:17,17E374A
+Config.CSP: Missing Content-Security-Policy,lib/zentinel_cp_web/router.ex:29,15A28CE
+Config.CSRF: Missing CSRF Protections,lib/zentinel_cp_web/router.ex:25,57655B8
+Config.HTTPS: HTTPS Not Enabled,config/prod.exs:0,2B5C077
+Crypto.WeakHash: Weak or Inappropriate Hash,lib/zentinel_cp/services/ca_crypto.ex:277,7017D5D
+Crypto.WeakHash: Weak or Inappropriate Hash,lib/zentinel_cp/services/ca_crypto.ex:283,7656D1C
+DOS.BinToAtom: Unsafe atom interpolation,lib/zentinel_cp/observability/tracer.ex:19,63A5BE3
+SQL.Query: SQL injection,lib/zentinel_cp/cluster/backup.ex:104,7AA73F0
+Traversal.FileModule: Directory Traversal in `File.mkdir_p!`,lib/zentinel_cp/bundles/compiler.ex:45,6B3AF1D
+Traversal.FileModule: Directory Traversal in `File.mkdir_p!`,lib/zentinel_cp/bundles/compiler.ex:56,6A7A0D8
+Traversal.FileModule: Directory Traversal in `File.mkdir_p!`,lib/zentinel_cp/bundles/storage.ex:102,44F163E
+Traversal.FileModule: Directory Traversal in `File.read!`,lib/zentinel_cp/bundles/compiler.ex:145,7B418B7
+Traversal.FileModule: Directory Traversal in `File.read!`,lib/zentinel_cp/bundles/compiler.ex:150,751E46A
+Traversal.FileModule: Directory Traversal in `File.read!`,lib/zentinel_cp/bundles/compiler.ex:162,F36BE2
+Traversal.FileModule: Directory Traversal in `File.read!`,lib/zentinel_cp/bundles/signing.ex:79,7B87B35
+Traversal.FileModule: Directory Traversal in `File.read!`,lib/zentinel_cp/bundles/signing.ex:95,3473496
+Traversal.FileModule: Directory Traversal in `File.read!`,lib/zentinel_cp_web/live/bundles_live/new.ex:298,4BEF15F
+Traversal.FileModule: Directory Traversal in `File.read!`,lib/zentinel_cp_web/live/bundles_live/new.ex:313,77884DE
+Traversal.FileModule: Directory Traversal in `File.read!`,lib/zentinel_cp_web/live/openapi_live/import.ex:50,53E7B5E
+Traversal.FileModule: Directory Traversal in `File.read`,lib/zentinel_cp/bundles/storage.ex:110,240566C
+Traversal.FileModule: Directory Traversal in `File.rm!`,lib/zentinel_cp/bundles/compiler.ex:151,423E085
+Traversal.FileModule: Directory Traversal in `File.rm_rf`,lib/zentinel_cp/bundles/compiler.ex:105,317AE6D
+Traversal.FileModule: Directory Traversal in `File.rm`,lib/zentinel_cp/bundles/compiler.ex:32,64EF3AE
+Traversal.FileModule: Directory Traversal in `File.rm`,lib/zentinel_cp/bundles/compiler.ex:164,76BDBB7
+Traversal.FileModule: Directory Traversal in `File.rm`,lib/zentinel_cp/bundles/compiler.ex:165,6F3379B
+Traversal.FileModule: Directory Traversal in `File.rm`,lib/zentinel_cp/bundles/storage.ex:118,6A40DE3
+Traversal.FileModule: Directory Traversal in `File.write!`,lib/zentinel_cp/bundles/compiler.ex:50,1E997E3
+Traversal.FileModule: Directory Traversal in `File.write!`,lib/zentinel_cp/bundles/compiler.ex:57,1A5CFC8
+Traversal.FileModule: Directory Traversal in `File.write!`,lib/zentinel_cp/bundles/compiler.ex:84,6BBF1EB
+Traversal.FileModule: Directory Traversal in `File.write!`,lib/zentinel_cp/bundles/compiler.ex:160,2711007
+Traversal.FileModule: Directory Traversal in `File.write!`,lib/zentinel_cp/bundles/storage.ex:103,3517339
+Traversal.FileModule: Directory Traversal in `File.write`,lib/zentinel_cp/bundles/compiler.ex:121,42DDBD1
+XSS.ContentType: XSS in `put_resp_content_type`,lib/zentinel_cp_web/controllers/api/sbom_controller.ex:24,3B96931
+XSS.SendResp: XSS in `send_resp`,lib/zentinel_cp_web/controllers/api_docs_controller.ex:57,1067D69

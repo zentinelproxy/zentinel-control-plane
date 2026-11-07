@@ -56,7 +56,7 @@ defmodule ZentinelCpWeb.NodeGroupsLive.Index do
 
   @impl true
   def handle_event("edit", %{"id" => id}, socket) do
-    group = Nodes.get_node_group!(id)
+    group = Nodes.get_node_group!(id) |> ZentinelCpWeb.LiveHelpers.in_project!(socket)
 
     form_data = %{
       "name" => group.name,
@@ -145,7 +145,7 @@ defmodule ZentinelCpWeb.NodeGroupsLive.Index do
 
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
-    group = Nodes.get_node_group!(id)
+    group = Nodes.get_node_group!(id) |> ZentinelCpWeb.LiveHelpers.in_project!(socket)
 
     case Nodes.delete_node_group(group) do
       {:ok, _} ->
@@ -163,13 +163,14 @@ defmodule ZentinelCpWeb.NodeGroupsLive.Index do
 
   @impl true
   def handle_event("manage_members", %{"id" => id}, socket) do
-    group = Nodes.get_node_group!(id)
+    group = Nodes.get_node_group!(id) |> ZentinelCpWeb.LiveHelpers.in_project!(socket)
     {:noreply, assign(socket, managing_members: group)}
   end
 
   @impl true
   def handle_event("add_node", %{"node-id" => node_id}, socket) do
     group = socket.assigns.managing_members
+    Nodes.get_node!(node_id) |> ZentinelCpWeb.LiveHelpers.in_project!(socket)
 
     case Nodes.add_node_to_group(node_id, group.id) do
       {:ok, _} ->

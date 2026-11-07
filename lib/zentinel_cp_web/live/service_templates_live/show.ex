@@ -8,7 +8,9 @@ defmodule ZentinelCpWeb.ServiceTemplatesLive.Show do
     org = resolve_org(params)
 
     with project when not is_nil(project) <- Projects.get_project_by_slug(slug),
-         template when not is_nil(template) <- Services.get_template(template_id) do
+         %{project_id: template_project_id} = template
+         when template_project_id in [nil, project.id] <-
+           Services.get_template(template_id) do
       {:ok,
        assign(socket,
          page_title: "Template #{template.name} — #{project.name}",

@@ -16,13 +16,20 @@ defmodule ZentinelCpWeb.Auth.SsoController do
         |> redirect(to: "/login")
 
       provider ->
-        {:ok, url, state, code_verifier} = Sso.oidc_authorize_url(provider)
+        case Sso.oidc_authorize_url(provider) do
+          {:ok, url, state, code_verifier, nonce} ->
+            conn
+            |> put_session(:oidc_state, state)
+            |> put_session(:oidc_nonce, nonce)
+            |> put_session(:oidc_code_verifier, code_verifier)
+            |> put_session(:oidc_provider_id, provider_id)
+            |> redirect(external: url)
 
-        conn
-        |> put_session(:oidc_state, state)
-        |> put_session(:oidc_code_verifier, code_verifier)
-        |> put_session(:oidc_provider_id, provider_id)
-        |> redirect(external: url)
+          {:error, _reason} ->
+            conn
+            |> put_flash(:error, "Failed to initiate SSO login")
+            |> redirect(to: "/login")
+        end
     end
   end
 
@@ -33,16 +40,18 @@ defmodule ZentinelCpWeb.Auth.SsoController do
     saved_state = get_session(conn, :oidc_state)
     code_verifier = get_session(conn, :oidc_code_verifier)
     provider_id = get_session(conn, :oidc_provider_id)
+    nonce = get_session(conn, :oidc_nonce)
 
     conn =
       conn
       |> delete_session(:oidc_state)
+      |> delete_session(:oidc_nonce)
       |> delete_session(:oidc_code_verifier)
       |> delete_session(:oidc_provider_id)
 
     with true <- Plug.Crypto.secure_compare(state, saved_state || ""),
          provider when not is_nil(provider) <- Sso.get_oidc_provider(provider_id),
-         {:ok, user_info} <- Sso.oidc_callback(provider, code, code_verifier),
+         {:ok, user_info} <- Sso.oidc_callback(provider, code, code_verifier, nonce),
          {:ok, user} <- Sso.process_sso_login(:oidc, provider, user_info) do
       Audit.log_user_action(user, "session.sso_login", "user", user.id,
         metadata: %{
@@ -91,8 +100,7 @@ defmodule ZentinelCpWeb.Auth.SsoController do
         {:ok, url, request_id} = Sso.saml_authn_request_url(provider)
 
         conn
-        |> put_session(:saml_request_id, request_id)
-        |> put_session(:saml_provider_id, provider_id)
+        |> put_saml_cookie(request_id, provider_id)
         |> redirect(external: url)
     end
   end
@@ -101,15 +109,12 @@ defmodule ZentinelCpWeb.Auth.SsoController do
   Handles the SAML ACS (Assertion Consumer Service) callback.
   """
   def saml_acs(conn, %{"SAMLResponse" => saml_response}) do
-    provider_id = get_session(conn, :saml_provider_id)
+    {request_id, provider_id} = saml_cookie(conn)
+    conn = delete_saml_cookie(conn)
 
-    conn =
-      conn
-      |> delete_session(:saml_request_id)
-      |> delete_session(:saml_provider_id)
-
-    with provider when not is_nil(provider) <- Sso.get_saml_provider(provider_id),
-         {:ok, user_info} <- Sso.process_saml_response(saml_response, provider),
+    with provider when not is_nil(provider) <- saml_provider(provider_id),
+         {:ok, user_info} <-
+           Sso.process_saml_response(saml_response, provider, request_id: request_id),
          {:ok, user} <- Sso.process_sso_login(:saml, provider, user_info) do
       Audit.log_user_action(user, "session.sso_login", "user", user.id,
         metadata: %{
@@ -138,4 +143,34 @@ defmodule ZentinelCpWeb.Auth.SsoController do
     |> put_flash(:error, "Invalid SAML response")
     |> redirect(to: "/login")
   end
+
+  # The IdP posts back cross-site, so the Lax session cookie is not sent. This
+  # cookie ties the response to the browser that started the login.
+  @saml_cookie "_zentinel_saml"
+  @saml_cookie_options [sign: true, http_only: true, secure: true, same_site: "None"]
+
+  defp put_saml_cookie(conn, request_id, provider_id) do
+    put_resp_cookie(
+      conn,
+      @saml_cookie,
+      {request_id, provider_id},
+      @saml_cookie_options ++ [max_age: 600]
+    )
+  end
+
+  defp delete_saml_cookie(conn) do
+    delete_resp_cookie(conn, @saml_cookie, @saml_cookie_options)
+  end
+
+  defp saml_cookie(conn) do
+    conn = fetch_cookies(conn, signed: [@saml_cookie])
+
+    case conn.cookies[@saml_cookie] do
+      {request_id, provider_id} -> {request_id, provider_id}
+      _ -> {nil, nil}
+    end
+  end
+
+  defp saml_provider(nil), do: nil
+  defp saml_provider(provider_id), do: Sso.get_saml_provider(provider_id)
 end

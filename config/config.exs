@@ -59,6 +59,9 @@ config :tailwind,
     cd: Path.expand("..", __DIR__)
   ]
 
+# S3 requests use Req, already a dependency, rather than ExAws's default hackney.
+config :ex_aws, http_client: ExAws.Request.Req
+
 # Configure Elixir's Logger
 #
 # Metadata keys passed to Logger calls are dropped unless listed here. The same
@@ -104,6 +107,12 @@ config :phoenix, :json_library, Jason
 config :zentinel_cp, Oban,
   engine: Oban.Engines.Lite,
   repo: ZentinelCp.Repo,
+  plugins: [
+    {Oban.Plugins.Pruner, max_age: 7 * 24 * 60 * 60},
+    # Jobs on an instance that crashed stay "executing" until rescued. Otherwise a
+    # rollout tick lost that way would stop its rollout from advancing.
+    {Oban.Plugins.Lifeline, rescue_after: :timer.minutes(30)}
+  ],
   queues: [
     default: 10,
     rollouts: 5,

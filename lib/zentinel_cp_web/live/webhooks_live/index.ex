@@ -112,7 +112,8 @@ defmodule ZentinelCpWeb.WebhooksLive.Index do
                 <button
                   type="button"
                   class="btn btn-sm btn-ghost"
-                  onclick={"navigator.clipboard.writeText('#{@webhook_url}')"}
+                  data-copy={@webhook_url}
+                  phx-click={JS.dispatch("zcp:copy")}
                 >
                   Copy
                 </button>

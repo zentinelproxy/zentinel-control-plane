@@ -77,7 +77,10 @@ defmodule ZentinelCp.Rollouts.AdvancedDeploymentsTest do
 
     test "analyze returns :extend when no data" do
       rollout = %{canary_analysis_config: CanaryAnalysis.default_config()}
-      {decision, result} = CanaryAnalysis.analyze(rollout, ["fake-node-1"], ["fake-node-2"])
+
+      {decision, result} =
+        CanaryAnalysis.analyze(rollout, [Ecto.UUID.generate()], [Ecto.UUID.generate()])
+
       assert decision == :extend
       assert result.canary.total_requests == 0
     end

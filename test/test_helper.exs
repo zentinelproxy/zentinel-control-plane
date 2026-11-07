@@ -64,7 +64,13 @@ if System.get_env("WALLABY_DRIVER") != "disabled" do
 end
 
 # Exclude e2e and integration tests by default (run with --include e2e or --include integration)
-ExUnit.start(exclude: [:e2e, :integration])
+# SQLite allows one writer at a time, so async tests fail with "Database busy".
+max_cases =
+  if ZentinelCp.Repo.__adapter__() == Ecto.Adapters.SQLite3,
+    do: 1,
+    else: System.schedulers_online() * 2
+
+ExUnit.start(exclude: [:e2e, :integration], max_cases: max_cases)
 
 # For SQLite, the sandbox mode works but without async support
 # Check if the pool is configured as Sandbox, otherwise skip

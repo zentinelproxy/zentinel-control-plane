@@ -6,7 +6,7 @@ defmodule ZentinelCpWeb.Api.ApiKeyController do
   """
   use ZentinelCpWeb, :controller
 
-  alias ZentinelCp.{Accounts, Audit}
+  alias ZentinelCp.{Access, Accounts, Audit}
 
   @doc """
   POST /api/v1/api-keys
@@ -19,34 +19,56 @@ defmodule ZentinelCpWeb.Api.ApiKeyController do
       name: params["name"],
       scopes: params["scopes"] || [],
       user_id: current_api_key.user_id,
-      project_id: params["project_id"],
+      project_id: current_api_key.project_id || params["project_id"],
       expires_at: parse_expires_at(params["expires_at"])
     }
 
-    case Accounts.create_api_key(attrs) do
-      {:ok, api_key} ->
-        Audit.log_api_key_action(current_api_key, "api_key.created", "api_key", api_key.id,
-          changes: %{name: api_key.name, scopes: api_key.scopes, project_id: api_key.project_id}
-        )
-
-        conn
-        |> put_status(:created)
-        |> json(%{
-          id: api_key.id,
-          name: api_key.name,
-          key: api_key.key,
-          key_prefix: api_key.key_prefix,
-          scopes: api_key.scopes,
-          project_id: api_key.project_id,
-          expires_at: api_key.expires_at,
-          inserted_at: api_key.inserted_at
-        })
+    with :ok <- check_new_key_allowed(current_api_key, attrs),
+         {:ok, api_key} <- Accounts.create_api_key(attrs) do
+      create_response(conn, current_api_key, api_key)
+    else
+      {:error, :forbidden} ->
+        conn |> put_status(:forbidden) |> json(%{error: "Key exceeds the caller's access"})
 
       {:error, %Ecto.Changeset{} = changeset} ->
         conn
         |> put_status(:unprocessable_entity)
         |> json(%{error: format_errors(changeset)})
     end
+  end
+
+  # A key cannot create a key with more access than it has itself.
+  defp check_new_key_allowed(current_api_key, attrs) do
+    cond do
+      current_api_key.scopes != [] and
+          (attrs.scopes == [] or attrs.scopes -- current_api_key.scopes != []) ->
+        {:error, :forbidden}
+
+      attrs.project_id && not Access.api_key_allowed?(current_api_key, attrs.project_id) ->
+        {:error, :forbidden}
+
+      true ->
+        :ok
+    end
+  end
+
+  defp create_response(conn, current_api_key, api_key) do
+    Audit.log_api_key_action(current_api_key, "api_key.created", "api_key", api_key.id,
+      changes: %{name: api_key.name, scopes: api_key.scopes, project_id: api_key.project_id}
+    )
+
+    conn
+    |> put_status(:created)
+    |> json(%{
+      id: api_key.id,
+      name: api_key.name,
+      key: api_key.key,
+      key_prefix: api_key.key_prefix,
+      scopes: api_key.scopes,
+      project_id: api_key.project_id,
+      expires_at: api_key.expires_at,
+      inserted_at: api_key.inserted_at
+    })
   end
 
   @doc """

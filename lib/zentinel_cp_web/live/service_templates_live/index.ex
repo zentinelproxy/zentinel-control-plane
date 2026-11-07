@@ -26,7 +26,7 @@ defmodule ZentinelCpWeb.ServiceTemplatesLive.Index do
 
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
-    template = Services.get_template!(id)
+    template = Services.get_template!(id) |> ZentinelCpWeb.LiveHelpers.in_project!(socket)
 
     if template.is_builtin do
       {:noreply, put_flash(socket, :error, "Cannot delete built-in templates.")}

@@ -4,6 +4,7 @@ defmodule ZentinelCp.Analytics do
   """
 
   import Ecto.Query, warn: false
+  import ZentinelCp.Repo.Dialect
   alias ZentinelCp.Repo
   alias ZentinelCp.Analytics.{ServiceMetric, RequestLog, WafEvent, WafBaseline, WafAnomaly}
 
@@ -106,17 +107,17 @@ defmodule ZentinelCp.Analytics do
       where: m.period_start >= ^start_time,
       where: m.period_start <= ^end_time,
       select: %{
-        total_requests: sum(m.request_count),
-        total_errors: sum(m.error_count),
-        avg_latency_p50: avg(m.latency_p50_ms),
-        avg_latency_p95: avg(m.latency_p95_ms),
-        avg_latency_p99: avg(m.latency_p99_ms),
-        total_bandwidth_in: sum(m.bandwidth_in_bytes),
-        total_bandwidth_out: sum(m.bandwidth_out_bytes),
-        total_2xx: sum(m.status_2xx),
-        total_3xx: sum(m.status_3xx),
-        total_4xx: sum(m.status_4xx),
-        total_5xx: sum(m.status_5xx)
+        total_requests: type(sum(m.request_count), :integer),
+        total_errors: type(sum(m.error_count), :integer),
+        avg_latency_p50: type(avg(m.latency_p50_ms), :float),
+        avg_latency_p95: type(avg(m.latency_p95_ms), :float),
+        avg_latency_p99: type(avg(m.latency_p99_ms), :float),
+        total_bandwidth_in: type(sum(m.bandwidth_in_bytes), :integer),
+        total_bandwidth_out: type(sum(m.bandwidth_out_bytes), :integer),
+        total_2xx: type(sum(m.status_2xx), :integer),
+        total_3xx: type(sum(m.status_3xx), :integer),
+        total_4xx: type(sum(m.status_4xx), :integer),
+        total_5xx: type(sum(m.status_5xx), :integer)
       }
     )
     |> Repo.one()
@@ -136,13 +137,13 @@ defmodule ZentinelCp.Analytics do
       group_by: m.service_id,
       select: %{
         service_id: m.service_id,
-        total_requests: sum(m.request_count),
-        total_errors: sum(m.error_count),
-        avg_latency_p50: avg(m.latency_p50_ms),
-        avg_latency_p95: avg(m.latency_p95_ms),
-        avg_latency_p99: avg(m.latency_p99_ms),
-        total_bandwidth_in: sum(m.bandwidth_in_bytes),
-        total_bandwidth_out: sum(m.bandwidth_out_bytes)
+        total_requests: type(sum(m.request_count), :integer),
+        total_errors: type(sum(m.error_count), :integer),
+        avg_latency_p50: type(avg(m.latency_p50_ms), :float),
+        avg_latency_p95: type(avg(m.latency_p95_ms), :float),
+        avg_latency_p99: type(avg(m.latency_p99_ms), :float),
+        total_bandwidth_in: type(sum(m.bandwidth_in_bytes), :integer),
+        total_bandwidth_out: type(sum(m.bandwidth_out_bytes), :integer)
       },
       order_by: [desc: sum(m.request_count)]
     )
@@ -160,10 +161,10 @@ defmodule ZentinelCp.Analytics do
       where: m.period_start >= ^start_time,
       where: m.period_start <= ^end_time,
       select: %{
-        status_2xx: sum(m.status_2xx),
-        status_3xx: sum(m.status_3xx),
-        status_4xx: sum(m.status_4xx),
-        status_5xx: sum(m.status_5xx)
+        status_2xx: type(sum(m.status_2xx), :integer),
+        status_3xx: type(sum(m.status_3xx), :integer),
+        status_4xx: type(sum(m.status_4xx), :integer),
+        status_5xx: type(sum(m.status_5xx), :integer)
       }
     )
     |> Repo.one()
@@ -362,27 +363,20 @@ defmodule ZentinelCp.Analytics do
       where: e.project_id == ^project_id,
       where: e.timestamp >= ^start_time,
       where: e.timestamp <= ^end_time,
-      group_by: [
-        fragment("(strftime('%s', ?) / ? * ?)", e.timestamp, ^bucket_seconds, ^bucket_seconds),
-        e.rule_type
-      ],
+      group_by: [selected_as(:bucket), e.rule_type],
       select: %{
-        bucket:
-          fragment(
-            "datetime((strftime('%s', ?) / ? * ?), 'unixepoch')",
-            e.timestamp,
-            ^bucket_seconds,
-            ^bucket_seconds
-          ),
+        bucket: selected_as(epoch_bucket(e.timestamp, ^bucket_seconds), :bucket),
         rule_type: e.rule_type,
         count: count(e.id)
       },
-      order_by: [
-        asc:
-          fragment("(strftime('%s', ?) / ? * ?)", e.timestamp, ^bucket_seconds, ^bucket_seconds)
-      ]
+      order_by: [asc: selected_as(:bucket)]
     )
     |> Repo.all()
+    |> Enum.map(&Map.update!(&1, :bucket, fn unix -> format_waf_bucket(unix) end))
+  end
+
+  defp format_waf_bucket(unix) do
+    unix |> DateTime.from_unix!() |> Calendar.strftime("%Y-%m-%d %H:%M:%S")
   end
 
   @doc """
@@ -582,8 +576,8 @@ defmodule ZentinelCp.Analytics do
            ] ->
         {k, 0}
 
-      {k, %Decimal{} = v} ->
-        {k, Decimal.to_float(v) |> Float.round(1)}
+      {k, v} when is_float(v) ->
+        {k, Float.round(v, 1)}
 
       {k, v} ->
         {k, v}

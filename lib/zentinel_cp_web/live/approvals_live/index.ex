@@ -14,7 +14,9 @@ defmodule ZentinelCpWeb.ApprovalsLive.Index do
       Phoenix.PubSub.subscribe(ZentinelCp.PubSub, "rollouts:approvals")
     end
 
-    pending_rollouts = Rollouts.list_pending_approvals()
+    pending_rollouts =
+      Rollouts.list_pending_approvals() |> ZentinelCpWeb.LiveHelpers.visible_to_user(socket)
+
     current_user = socket.assigns.current_user
 
     # Enrich with approval info
@@ -127,7 +129,9 @@ defmodule ZentinelCpWeb.ApprovalsLive.Index do
 
   defp reload_pending(socket) do
     current_user = socket.assigns.current_user
-    pending_rollouts = Rollouts.list_pending_approvals()
+
+    pending_rollouts =
+      Rollouts.list_pending_approvals() |> ZentinelCpWeb.LiveHelpers.visible_to_user(socket)
 
     pending_rollouts =
       Enum.map(pending_rollouts, fn rollout ->

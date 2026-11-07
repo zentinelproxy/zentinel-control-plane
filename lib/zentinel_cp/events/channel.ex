@@ -14,9 +14,9 @@ defmodule ZentinelCp.Events.Channel do
   schema "notification_channels" do
     field :name, :string
     field :type, :string
-    field :config, :map, default: %{}
+    field :config, ZentinelCp.Encrypted.Map, default: %{}
     field :enabled, :boolean, default: true
-    field :signing_secret, :string
+    field :signing_secret, ZentinelCp.Encrypted.String, redact: true
 
     belongs_to :project, ZentinelCp.Projects.Project
 

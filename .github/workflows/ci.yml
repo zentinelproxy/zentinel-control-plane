@@ -3,130 +3,105 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
     branches: [main]
 
 env:
   MIX_ENV: test
-  ELIXIR_VERSION: '1.19.5'
-  OTP_VERSION: '28.3.1'
+  # Keep in step with mise.toml and the Dockerfile.
+  ELIXIR_VERSION: "1.19.5"
+  OTP_VERSION: "28.3.1"
 
 jobs:
-  # Fast unit tests - runs first
-  unit-tests:
-    name: Unit Tests
+  # Tests against PostgreSQL, the production database.
+  test-postgres:
+    name: Tests (PostgreSQL)
     runs-on: ubuntu-latest
-
+    env:
+      TEST_DATABASE_URL: ecto://postgres:postgres@localhost:5432/zentinel_cp_test
+      WALLABY_DRIVER: disabled
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Elixir
-        uses: erlef/setup-beam@v1
+      - uses: erlef/setup-beam@v1
         with:
           elixir-version: ${{ env.ELIXIR_VERSION }}
           otp-version: ${{ env.OTP_VERSION }}
-
-      - name: Restore dependencies cache
-        uses: actions/cache@v4
+      - uses: actions/cache@v4
         with:
           path: |
             deps
             _build
-          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
-          restore-keys: ${{ runner.os }}-mix-
-
-      - name: Install dependencies
-        run: mix deps.get
-
-      - name: Compile
-        run: mix compile --warnings-as-errors
-
-      - name: Run unit tests
-        # One test case at a time: on CI runners, concurrent sandboxed tests on
-        # the shared SQLite file still fail with "Database busy" despite
-        # immediate transactions and a 30s busy_timeout (not reproducible
-        # locally).
-        run: mix test.unit --max-cases 1
-
-  # API integration tests
-  integration-tests:
-    name: Integration Tests
-    runs-on: ubuntu-latest
-    needs: unit-tests
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Elixir
-        uses: erlef/setup-beam@v1
-        with:
-          elixir-version: ${{ env.ELIXIR_VERSION }}
-          otp-version: ${{ env.OTP_VERSION }}
-
-      - name: Restore dependencies cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            deps
-            _build
-          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
-          restore-keys: ${{ runner.os }}-mix-
-
-      - name: Install dependencies
-        run: mix deps.get
-
+          key: ${{ runner.os }}-pg-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-${{ hashFiles('**/mix.lock') }}
+      - run: mix deps.get
+      - run: mix compile --warnings-as-errors
+      - run: mix test
       - name: Run integration tests
         run: mix test.integration
 
-  # E2E browser tests with Chrome
-  e2e-tests:
-    name: E2E Tests
+  # Tests against SQLite, which development uses.
+  test-sqlite:
+    name: Tests (SQLite)
     runs-on: ubuntu-latest
-    needs: unit-tests
-
+    env:
+      WALLABY_DRIVER: disabled
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Elixir
-        uses: erlef/setup-beam@v1
+      - uses: erlef/setup-beam@v1
         with:
           elixir-version: ${{ env.ELIXIR_VERSION }}
           otp-version: ${{ env.OTP_VERSION }}
-
-      - name: Restore dependencies cache
-        uses: actions/cache@v4
+      - uses: actions/cache@v4
         with:
           path: |
             deps
             _build
-          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
-          restore-keys: ${{ runner.os }}-mix-
+          key: ${{ runner.os }}-sqlite-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-${{ hashFiles('**/mix.lock') }}
+      - run: mix deps.get
+      - run: mix compile --warnings-as-errors
+      - run: mix test
 
-      - name: Install dependencies
-        run: mix deps.get
-
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          elixir-version: ${{ env.ELIXIR_VERSION }}
+          otp-version: ${{ env.OTP_VERSION }}
+      - uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-e2e-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-${{ hashFiles('**/mix.lock') }}
+      - run: mix deps.get
       # priv/static/assets is not committed. Without this the pages load with
       # no JavaScript, the LiveView socket never connects, and every
       # phx-click / phx-change in the tests is a no-op.
       - name: Build assets
         run: mix assets.setup && mix assets.build
-        env:
-          MIX_ENV: test
-
-      - name: Set up Chrome
-        uses: browser-actions/setup-chrome@v1
+      - uses: browser-actions/setup-chrome@v1
         with:
           chrome-version: stable
-
-      - name: Set up ChromeDriver
-        uses: nanasess/setup-chromedriver@v2
-
+      - uses: nanasess/setup-chromedriver@v2
       - name: Run E2E tests
         run: mix test.e2e
         env:
-          # Run Chrome in headless mode for CI
           WALLABY_DRIVER: chrome
-
       - name: Upload screenshots on failure
         if: failure()
         uses: actions/upload-artifact@v4
@@ -135,74 +110,109 @@ jobs:
           path: tmp/screenshots/
           retention-days: 7
 
-  # Code quality checks
   quality:
     name: Code Quality
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Elixir
-        uses: erlef/setup-beam@v1
+      - uses: erlef/setup-beam@v1
         with:
           elixir-version: ${{ env.ELIXIR_VERSION }}
           otp-version: ${{ env.OTP_VERSION }}
-
-      - name: Restore dependencies cache
-        uses: actions/cache@v4
+      - uses: actions/cache@v4
         with:
           path: |
             deps
             _build
-          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
-          restore-keys: ${{ runner.os }}-mix-
+          key: ${{ runner.os }}-quality-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-${{ hashFiles('**/mix.lock') }}
+      - run: mix deps.get
+      - run: mix format --check-formatted
+      # Refactoring and style suggestions are advisory; warnings fail the build.
+      - run: mix credo --only warning
+      - run: mix credo --strict || true
 
-      - name: Install dependencies
-        run: mix deps.get
-
-      - name: Check formatting
-        run: mix format --check-formatted
-
-      - name: Run Credo (warnings)
-        run: mix credo --only warning
-
-      # The refactoring/readability backlog predates enforcement; report it
-      # without failing the build until it has been worked down.
-      - name: Run Credo (full report)
-        run: mix credo
-        continue-on-error: true
-
-  # Security audit
   security:
     name: Security Audit
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Elixir
-        uses: erlef/setup-beam@v1
+      - uses: erlef/setup-beam@v1
         with:
           elixir-version: ${{ env.ELIXIR_VERSION }}
           otp-version: ${{ env.OTP_VERSION }}
-
-      - name: Restore dependencies cache
-        uses: actions/cache@v4
+      - uses: actions/cache@v4
         with:
           path: |
             deps
             _build
-          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
-          restore-keys: ${{ runner.os }}-mix-
+          key: ${{ runner.os }}-security-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-${{ hashFiles('**/mix.lock') }}
+      - run: mix deps.get
+      # Ignored advisories, reviewed by hand:
+      # - hackney and tesla are test-only, through wallaby. They are not in the release.
+      # - esaml has no patched version. SamlValidator rejects DTDs before parsing.
+      - run: mix deps.audit --ignore-advisory-ids GHSA-28jh-g32x-v9v4,GHSA-4g2h-vm7x-747c,GHSA-9m9w-gxf7-rh8m,GHSA-gp9c-pm5m-5cxr,GHSA-h74c-q9j7-mpcm,GHSA-j9wq-vxxc-94wf,GHSA-mc85-72gr-vm9f,GHSA-mp55-p8c9-rfw2,GHSA-pj7v-xfvx-wmjq,GHSA-q7jx-v53g-848w
+      # Acknowledged advisories, with reasons, are in mix.exs.
+      - run: mix hex.audit --check-unused-ignores
+      - run: mix sobelow --config
 
-      - name: Install dependencies
-        run: mix deps.get
-
-      - name: Run security audit
-        run: mix deps.audit
-        continue-on-error: true
-
-      - name: Check for retired packages
-        run: mix hex.audit
-        continue-on-error: true
+  # Only publishes commits that passed everything above.
+  publish:
+    name: Build & Push to GHCR
+    if: github.event_name == 'push'
+    needs: [test-postgres, test-sqlite, e2e-tests, quality, security]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_NAME: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
+      - name: Build for scanning
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: zentinel-cp:scan
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Scan image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: zentinel-cp:scan
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+      - id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true

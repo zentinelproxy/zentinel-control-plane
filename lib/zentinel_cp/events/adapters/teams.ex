@@ -38,9 +38,16 @@ defmodule ZentinelCp.Events.Adapters.Teams do
   def deliver(webhook_url, payload) do
     body = Jason.encode!(payload)
 
-    case Req.post(webhook_url,
+    with :ok <- ZentinelCp.Net.UrlGuard.check(webhook_url) do
+      post(webhook_url, body, [{"content-type", "application/json"}])
+    end
+  end
+
+  defp post(url, body, headers) do
+    case Req.post(url,
            body: body,
-           headers: [{"content-type", "application/json"}],
+           redirect: false,
+           headers: headers,
            receive_timeout: 15_000,
            pool_timeout: 5_000
          ) do

@@ -143,9 +143,10 @@ defmodule ZentinelCpWeb.Api.UpstreamGroupController do
         %{"project_slug" => project_slug, "id" => group_id, "target_id" => target_id} = params
       ) do
     with {:ok, project} <- get_project(project_slug),
-         {:ok, _group} <- get_group(group_id, project.id),
-         target when not is_nil(target) <- Services.get_upstream_target(target_id),
-         {:ok, updated} <- Services.update_upstream_target(target, params) do
+         {:ok, group} <- get_group(group_id, project.id),
+         target when not is_nil(target) <- get_group_target(target_id, group),
+         {:ok, updated} <-
+           Services.update_upstream_target(target, Map.delete(params, "upstream_group_id")) do
       conn
       |> put_status(:ok)
       |> json(%{target: target_to_json(updated)})
@@ -170,8 +171,8 @@ defmodule ZentinelCpWeb.Api.UpstreamGroupController do
         "target_id" => target_id
       }) do
     with {:ok, project} <- get_project(project_slug),
-         {:ok, _group} <- get_group(group_id, project.id),
-         target when not is_nil(target) <- Services.get_upstream_target(target_id),
+         {:ok, group} <- get_group(group_id, project.id),
+         target when not is_nil(target) <- get_group_target(target_id, group),
          {:ok, _} <- Services.remove_upstream_target(target) do
       send_resp(conn, :no_content, "")
     else
@@ -380,5 +381,12 @@ defmodule ZentinelCpWeb.Api.UpstreamGroupController do
         opts |> Keyword.get(String.to_existing_atom(key), key) |> to_string()
       end)
     end)
+  end
+
+  defp get_group_target(target_id, group) do
+    case Services.get_upstream_target(target_id) do
+      %{upstream_group_id: group_id} = target when group_id == group.id -> target
+      _ -> nil
+    end
   end
 end

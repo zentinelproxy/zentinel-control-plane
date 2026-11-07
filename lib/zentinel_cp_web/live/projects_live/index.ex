@@ -65,7 +65,7 @@ defmodule ZentinelCpWeb.ProjectsLive.Index do
   end
 
   def handle_event("edit", %{"id" => id}, socket) do
-    project = Projects.get_project!(id)
+    project = Projects.get_project!(id) |> ZentinelCpWeb.LiveHelpers.in_org!(socket)
 
     {:noreply,
      assign(socket,
@@ -80,7 +80,10 @@ defmodule ZentinelCpWeb.ProjectsLive.Index do
   end
 
   def handle_event("update_project", %{"name" => name, "description" => description}, socket) do
-    project = Projects.get_project!(socket.assigns.editing_id)
+    project =
+      Projects.get_project!(socket.assigns.editing_id)
+      |> ZentinelCpWeb.LiveHelpers.in_org!(socket)
+
     org = socket.assigns.org
 
     case Projects.update_project(project, %{name: name, description: description}) do
@@ -104,7 +107,7 @@ defmodule ZentinelCpWeb.ProjectsLive.Index do
   end
 
   def handle_event("delete", %{"id" => id}, socket) do
-    project = Projects.get_project!(id)
+    project = Projects.get_project!(id) |> ZentinelCpWeb.LiveHelpers.in_org!(socket)
     org = socket.assigns.org
 
     case Projects.delete_project(project) do

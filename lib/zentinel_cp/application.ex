@@ -22,6 +22,7 @@ defmodule ZentinelCp.Application do
       ZentinelCp.RateLimit,
       # ACME challenge token store (ETS-backed)
       ZentinelCp.Services.Acme.ChallengeStore,
+      {Task.Supervisor, name: ZentinelCp.TaskSupervisor},
       # Background job processing
       {Oban, Application.fetch_env!(:zentinel_cp, Oban)},
       # Start to serve requests, typically the last entry
@@ -38,21 +39,47 @@ defmodule ZentinelCp.Application do
     # Start periodic workers (only if supervisor started successfully)
     case result do
       {:ok, _pid} ->
-        ZentinelCp.Rollouts.SchedulerWorker.ensure_started()
-        ZentinelCp.Nodes.DriftWorker.ensure_started()
-        ZentinelCp.Services.CertificateExpiryWorker.ensure_started()
-        ZentinelCp.Analytics.PruneWorker.ensure_started()
-        ZentinelCp.Services.DiscoverySyncWorker.ensure_started()
-        ZentinelCp.Services.CertificateRenewalWorker.ensure_started()
-        ZentinelCp.Analytics.WafEventPruneWorker.ensure_started()
-        ZentinelCp.Analytics.WafBaselineWorker.ensure_started()
-        ZentinelCp.Analytics.WafAnomalyWorker.ensure_started()
+        start_periodic_workers()
 
       _ ->
         :ok
     end
 
     result
+  end
+
+  # Each worker reschedules itself, and uniqueness stops several instances from
+  # running duplicates of the same job. Uniqueness must not include `:executing`:
+  # a running job would then count as a duplicate of its own next run, which would
+  # be dropped, ending the schedule.
+  @periodic_workers [
+    ZentinelCp.Rollouts.SchedulerWorker,
+    ZentinelCp.Rollouts.PromotionWorker,
+    ZentinelCp.Nodes.DriftWorker,
+    ZentinelCp.Nodes.StalenessWorker,
+    ZentinelCp.Nodes.HeartbeatPruneWorker,
+    ZentinelCp.Bundles.GcWorker,
+    ZentinelCp.Services.CertificateExpiryWorker,
+    ZentinelCp.Services.IssuedCertificateExpiryWorker,
+    ZentinelCp.Services.CertificateRenewalWorker,
+    ZentinelCp.Services.DiscoverySyncWorker,
+    ZentinelCp.Analytics.PruneWorker,
+    ZentinelCp.Analytics.RollupWorker,
+    ZentinelCp.Analytics.WafEventPruneWorker,
+    ZentinelCp.Analytics.WafBaselineWorker,
+    ZentinelCp.Analytics.WafAnomalyWorker,
+    ZentinelCp.Observability.SliWorker,
+    ZentinelCp.Observability.AlertEvaluator,
+    ZentinelCp.Federation.SyncWorker
+  ]
+
+  @doc false
+  def periodic_workers, do: @periodic_workers
+
+  defp start_periodic_workers do
+    unless Application.get_env(:zentinel_cp, Oban, [])[:testing] do
+      Enum.each(@periodic_workers, & &1.ensure_started())
+    end
   end
 
   # Tell Phoenix to update the endpoint configuration

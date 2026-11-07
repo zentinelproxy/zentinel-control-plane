@@ -21,9 +21,19 @@ defmodule ZentinelCp.Accounts.TotpTest do
     test "enforces one TOTP per user" do
       user = user_fixture()
 
-      assert {:ok, _} = Totp.create_user_totp(user.id)
+      {:ok, totp} = Totp.create_user_totp(user.id)
+      {:ok, _} = Totp.verify_totp_enrollment(totp, NimbleTOTP.verification_code(totp.secret))
       assert {:error, changeset} = Totp.create_user_totp(user.id)
       assert "has already been taken" in errors_on(changeset).user_id
+    end
+
+    test "replaces an abandoned enrollment" do
+      user = user_fixture()
+
+      {:ok, abandoned} = Totp.create_user_totp(user.id)
+      {:ok, replacement} = Totp.create_user_totp(user.id)
+
+      assert replacement.id != abandoned.id
     end
   end
 
@@ -51,6 +61,9 @@ defmodule ZentinelCp.Accounts.TotpTest do
       {:ok, totp} = Totp.create_user_totp(user.id)
       valid_code = NimbleTOTP.verification_code(totp.secret)
       {:ok, totp} = Totp.verify_totp_enrollment(totp, valid_code)
+
+      # Enrollment used this time step's code. Clear that so tests can use it again.
+      totp = totp |> Ecto.Changeset.change(last_used_at: nil) |> Repo.update!()
       %{totp: totp}
     end
 
@@ -59,18 +72,26 @@ defmodule ZentinelCp.Accounts.TotpTest do
       assert {:ok, _} = Totp.validate_totp(totp, code)
     end
 
+    test "rejects a code that was already used", %{totp: totp} do
+      code = NimbleTOTP.verification_code(totp.secret)
+      {:ok, _} = Totp.validate_totp(totp, code)
+      used = Totp.get_user_totp(totp.user_id)
+      assert {:error, :invalid_code} = Totp.validate_totp(used, code)
+    end
+
     test "rejects wrong TOTP code", %{totp: totp} do
       assert {:error, :invalid_code} = Totp.validate_totp(totp, "000000")
     end
 
     test "accepts recovery code and removes it", %{totp: totp} do
-      recovery_code = hd(totp.recovery_codes)
+      recovery_code = hd(totp.plain_recovery_codes)
+      refute recovery_code in totp.recovery_codes
       assert {:ok, _} = Totp.validate_totp(totp, recovery_code)
 
       # Recovery code should be consumed
       updated_totp = Totp.get_user_totp(totp.user_id)
-      refute recovery_code in updated_totp.recovery_codes
       assert length(updated_totp.recovery_codes) == 9
+      assert {:error, :invalid_code} = Totp.validate_totp(updated_totp, recovery_code)
     end
   end
 
@@ -120,7 +141,7 @@ defmodule ZentinelCp.Accounts.TotpTest do
   describe "check_mfa_requirement/2" do
     test "returns :ok when policy is optional" do
       user = user_fixture()
-      org = %{mfa_policy: "optional"}
+      org = %{settings: %{"mfa_policy" => "optional"}}
       assert Totp.check_mfa_requirement(user, org) == :ok
     end
 
@@ -141,8 +162,8 @@ defmodule ZentinelCp.Accounts.TotpTest do
 
     test "returns {:required, deadline} when MFA is required but not enabled" do
       user = user_fixture()
-      enforced_at = DateTime.utc_now()
-      org = %{mfa_policy: "required", mfa_enforced_at: enforced_at, mfa_grace_period_days: 14}
+      enforced_at = DateTime.to_iso8601(DateTime.utc_now())
+      org = %{settings: %{"mfa_policy" => "required", "mfa_enforced_at" => enforced_at}}
 
       assert {:required, deadline} = Totp.check_mfa_requirement(user, org)
       assert deadline != nil
@@ -153,9 +174,11 @@ defmodule ZentinelCp.Accounts.TotpTest do
       operator = user_fixture(%{role: "operator"})
 
       org = %{
-        mfa_policy: "required_for_admins",
-        mfa_enforced_at: DateTime.utc_now(),
-        mfa_grace_period_days: 14
+        settings: %{
+          "mfa_policy" => "required_for_admins",
+          "mfa_enforced_at" => DateTime.to_iso8601(DateTime.utc_now()),
+          "mfa_grace_period_days" => 14
+        }
       }
 
       assert {:required, _} = Totp.check_mfa_requirement(admin, org)

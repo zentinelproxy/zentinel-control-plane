@@ -10,7 +10,7 @@ defmodule ZentinelCpWeb.ScheduleLiveTest do
   alias ZentinelCp.Repo
 
   setup %{conn: conn} do
-    user = user_fixture()
+    user = admin_fixture()
     conn = log_in_user(conn, user)
     %{conn: conn, user: user}
   end

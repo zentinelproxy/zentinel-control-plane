@@ -28,6 +28,40 @@ defmodule ZentinelCp.Projects do
   def get_project(id), do: Repo.get(Project, id)
 
   @doc """
+  Creates or replaces the token nodes must present to register with the project.
+  Returns `{:ok, token, project}`. The token is not stored, only its hash, and
+  replacing it does not affect nodes that have already registered.
+  """
+  def rotate_node_registration_token(%Project{} = project) do
+    token = "zcp_nrt_" <> Base.url_encode64(:crypto.strong_rand_bytes(32), padding: false)
+
+    project
+    |> Ecto.Changeset.change(node_registration_token_hash: hash_registration_token(token))
+    |> Repo.update()
+    |> case do
+      {:ok, project} -> {:ok, token, project}
+      {:error, changeset} -> {:error, changeset}
+    end
+  end
+
+  @doc "Returns true if the token is the project's current registration token."
+  def valid_node_registration_token?(%Project{node_registration_token_hash: nil}, _token),
+    do: false
+
+  def valid_node_registration_token?(%Project{} = project, token) when is_binary(token) do
+    Plug.Crypto.secure_compare(
+      hash_registration_token(token),
+      project.node_registration_token_hash
+    )
+  end
+
+  def valid_node_registration_token?(%Project{}, _token), do: false
+
+  defp hash_registration_token(token) do
+    :crypto.hash(:sha256, token) |> Base.encode16(case: :lower)
+  end
+
+  @doc """
   Gets a single project by ID, raises if not found.
   """
   def get_project!(id), do: Repo.get!(Project, id)

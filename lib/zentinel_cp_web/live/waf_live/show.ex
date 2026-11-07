@@ -13,6 +13,12 @@ defmodule ZentinelCpWeb.WafLive.Show do
 
       project ->
         case Analytics.get_waf_event(id) do
+          %{project_id: event_project_id} when event_project_id != project.id ->
+            {:ok,
+             socket
+             |> put_flash(:error, "WAF event not found.")
+             |> push_navigate(to: waf_index_path(org, project))}
+
           nil ->
             {:ok,
              socket

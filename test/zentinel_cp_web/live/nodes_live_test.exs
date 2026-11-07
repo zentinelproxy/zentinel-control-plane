@@ -7,7 +7,7 @@ defmodule ZentinelCpWeb.NodesLiveTest do
   import ZentinelCp.NodesFixtures
 
   setup %{conn: conn} do
-    user = user_fixture()
+    user = admin_fixture()
     project = project_fixture()
     conn = log_in_user(conn, user)
     %{conn: conn, user: user, project: project}

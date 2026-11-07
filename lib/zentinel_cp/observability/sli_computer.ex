@@ -51,14 +51,14 @@ defmodule ZentinelCp.Observability.SliComputer do
       from(m in ServiceMetric,
         where: m.project_id == ^slo.project_id and m.period_start >= ^window_start,
         select: %{
-          total_requests: sum(m.request_count),
-          total_errors: sum(m.error_count),
-          avg_p95: avg(m.latency_p95_ms),
-          avg_p99: avg(m.latency_p99_ms),
-          total_5xx: sum(m.status_5xx),
-          total_2xx: sum(m.status_2xx),
-          total_3xx: sum(m.status_3xx),
-          total_4xx: sum(m.status_4xx)
+          total_requests: type(sum(m.request_count), :integer),
+          total_errors: type(sum(m.error_count), :integer),
+          avg_p95: type(avg(m.latency_p95_ms), :float),
+          avg_p99: type(avg(m.latency_p99_ms), :float),
+          total_5xx: type(sum(m.status_5xx), :integer),
+          total_2xx: type(sum(m.status_2xx), :integer),
+          total_3xx: type(sum(m.status_3xx), :integer),
+          total_4xx: type(sum(m.status_4xx), :integer)
         }
       )
 

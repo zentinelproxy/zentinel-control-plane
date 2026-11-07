@@ -1,14 +1,7 @@
 defmodule ZentinelCp.Services.Acme.ChallengeStoreTest do
-  use ExUnit.Case, async: false
+  use ZentinelCp.DataCase, async: false
 
   alias ZentinelCp.Services.Acme.ChallengeStore
-
-  # The ChallengeStore is started in the application supervisor,
-  # so we just need to clean up between tests
-  setup do
-    :ets.delete_all_objects(:acme_challenge_tokens)
-    :ok
-  end
 
   describe "put/2 and get/1" do
     test "stores and retrieves a challenge token" do
@@ -44,7 +37,9 @@ defmodule ZentinelCp.Services.Acme.ChallengeStoreTest do
   describe "TTL expiration" do
     test "expired tokens return :error" do
       # Insert with an already-expired timestamp
-      :ets.insert(:acme_challenge_tokens, {"expired-token", "value", 0})
+      ChallengeStore.put("expired-token", "value")
+      past = DateTime.utc_now() |> DateTime.add(-1) |> DateTime.truncate(:second)
+      ZentinelCp.Repo.update_all(ZentinelCp.Services.Acme.Challenge, set: [expires_at: past])
       assert :error = ChallengeStore.get("expired-token")
     end
   end

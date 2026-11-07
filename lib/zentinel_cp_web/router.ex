@@ -15,11 +15,43 @@ defmodule ZentinelCpWeb.Router do
     plug :put_root_layout, html: {ZentinelCpWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
+    plug ZentinelCpWeb.Plugs.ContentSecurityPolicy
     plug :fetch_current_user
+  end
+
+  # The IdP posts SAML responses cross-site, so there is no CSRF token and the
+  # Lax session cookie is absent. The response is authenticated by its XML
+  # signature and tied to the browser by a dedicated cookie.
+  pipeline :saml_acs do
+    plug :accepts, ["html"]
+    plug :fetch_session
+    plug :fetch_flash
+    plug :put_secure_browser_headers
   end
 
   pipeline :api do
     plug :accepts, ["json"]
+    plug ZentinelCpWeb.Plugs.ValidatePathIds
+  end
+
+  pipeline :login_rate_limit do
+    plug ZentinelCpWeb.Plugs.RateLimit, scope: "login"
+  end
+
+  pipeline :mfa_rate_limit do
+    plug ZentinelCpWeb.Plugs.RateLimit, scope: "mfa"
+  end
+
+  pipeline :node_register_rate_limit do
+    plug ZentinelCpWeb.Plugs.RateLimit, scope: "node_register"
+  end
+
+  pipeline :webhook_rate_limit do
+    plug ZentinelCpWeb.Plugs.RateLimit, scope: "webhook"
+  end
+
+  pipeline :metrics_auth do
+    plug ZentinelCpWeb.Plugs.MetricsAuth
   end
 
   pipeline :node_auth do
@@ -29,6 +61,10 @@ defmodule ZentinelCpWeb.Router do
   pipeline :api_auth do
     plug ZentinelCpWeb.Plugs.ApiAuth
     plug ZentinelCpWeb.Plugs.RateLimit, scope: "default"
+  end
+
+  pipeline :require_global_admin_key do
+    plug ZentinelCpWeb.Plugs.RequireGlobalAdminKey
   end
 
   pipeline :graphql do
@@ -96,7 +132,7 @@ defmodule ZentinelCpWeb.Router do
 
   # Prometheus metrics
   scope "/" do
-    pipe_through :api
+    pipe_through [:api, :metrics_auth]
 
     get "/metrics", ZentinelCpWeb.PromExPlug, prom_ex_module: ZentinelCp.PromEx
   end
@@ -106,13 +142,25 @@ defmodule ZentinelCpWeb.Router do
     pipe_through [:browser, :redirect_if_user_is_authenticated]
 
     live "/login", AuthLive.Login, :login
+    live "/login/mfa", AuthLive.Mfa, :mfa
   end
 
   # Session management
   scope "/", ZentinelCpWeb do
-    pipe_through [:browser]
+    pipe_through [:browser, :login_rate_limit]
 
     post "/session", SessionController, :create
+  end
+
+  scope "/", ZentinelCpWeb do
+    pipe_through [:browser, :mfa_rate_limit]
+
+    post "/session/mfa", SessionController, :verify_mfa
+  end
+
+  scope "/", ZentinelCpWeb do
+    pipe_through [:browser]
+
     delete "/session", SessionController, :delete
   end
 
@@ -123,6 +171,11 @@ defmodule ZentinelCpWeb.Router do
     get "/oidc/login/:provider_id", SsoController, :oidc_login
     get "/oidc/callback", SsoController, :oidc_callback
     get "/saml/login/:provider_id", SsoController, :saml_login
+  end
+
+  scope "/auth", ZentinelCpWeb.Auth do
+    pipe_through [:saml_acs]
+
     post "/saml/acs", SsoController, :saml_acs
   end
 
@@ -559,7 +612,7 @@ defmodule ZentinelCpWeb.Router do
 
   # Webhook endpoints (verified by signature, not API key)
   scope "/api/v1/webhooks", ZentinelCpWeb.Api do
-    pipe_through :api
+    pipe_through [:api, :webhook_rate_limit]
 
     post "/github", WebhookController, :github
     post "/gitlab", WebhookController, :gitlab
@@ -570,9 +623,9 @@ defmodule ZentinelCpWeb.Router do
 
   # Node-facing API (called by Zentinel nodes)
   scope "/api/v1", ZentinelCpWeb.Api do
-    pipe_through :api
+    pipe_through [:api, :node_register_rate_limit]
 
-    # Node registration (no auth required - returns node key)
+    # Node registration, authorized by the project's registration token
     post "/projects/:project_slug/nodes/register", NodeController, :register
   end
 
@@ -611,6 +664,7 @@ defmodule ZentinelCpWeb.Router do
     pipe_through [:api, :api_auth, :require_nodes_write]
 
     scope "/projects/:project_slug" do
+      post "/nodes/registration-token", ProjectNodesController, :rotate_registration_token
       delete "/nodes/:id", ProjectNodesController, :delete
 
       # Drift events (write)
@@ -690,7 +744,6 @@ defmodule ZentinelCpWeb.Router do
       get "/internal-ca/crl.pem", InternalCaController, :download_crl
       get "/internal-ca/certificates", InternalCaController, :list_certificates
       get "/internal-ca/certificates/:id", InternalCaController, :show_certificate
-      get "/internal-ca/certificates/:id/download", InternalCaController, :download_certificate
 
       get "/trust-stores", TrustStoreController, :index
       get "/trust-stores/:id", TrustStoreController, :show
@@ -747,6 +800,8 @@ defmodule ZentinelCpWeb.Router do
       put "/certificates/:id", CertificateController, :update
       delete "/certificates/:id", CertificateController, :delete
 
+      # Returns a private key, so read scope is not enough.
+      get "/internal-ca/certificates/:id/download", InternalCaController, :download_certificate
       post "/internal-ca", InternalCaController, :initialize
       delete "/internal-ca", InternalCaController, :destroy
       post "/internal-ca/certificates", InternalCaController, :issue_certificate
@@ -821,7 +876,7 @@ defmodule ZentinelCpWeb.Router do
 
   # Audit verification endpoint (API key auth required)
   scope "/api/v1", ZentinelCpWeb.Api do
-    pipe_through [:api, :api_auth]
+    pipe_through [:api, :api_auth, :require_api_keys_admin, :require_global_admin_key]
 
     get "/audit/verify", AuditVerificationController, :verify
     get "/audit/checkpoints", AuditVerificationController, :checkpoints
@@ -834,7 +889,9 @@ defmodule ZentinelCpWeb.Router do
 
     forward "/graphql", Absinthe.Plug,
       schema: ZentinelCpWeb.GraphQL.Schema,
-      json_codec: Jason
+      json_codec: Jason,
+      analyze_complexity: true,
+      max_complexity: 1000
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development

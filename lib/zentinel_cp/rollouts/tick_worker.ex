@@ -8,7 +8,7 @@ defmodule ZentinelCp.Rollouts.TickWorker do
   use Oban.Worker,
     queue: :rollouts,
     max_attempts: 3,
-    unique: [keys: [:rollout_id], period: 10]
+    unique: [keys: [:rollout_id], period: 10, states: [:available, :scheduled, :retryable]]
 
   require Logger
 

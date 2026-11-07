@@ -144,7 +144,9 @@ TOTP-based MFA via `nimble_totp` library. Schema: `ZentinelCp.Accounts.UserTotp`
 3. 10 single-use recovery codes generated
 4. Subsequent logins require TOTP code after password
 
-Managed at `/profile` in the web UI. Recovery codes can be regenerated at any time.
+Enrollment is at `/profile` in the web UI. Each code works once, and recovery codes are shown only when generated.
+
+Org admins can set a policy on the org page: optional, required for admins, or required for everyone. Members get 14 days from when the policy is set. After that, members without MFA are sent to `/profile` when they open that org's pages. SSO users are exempt, as their identity provider handles MFA.
 
 ## SSO Integration
 
@@ -199,7 +201,7 @@ On first SSO login:
 
 ## Rate Limiting
 
-Token-bucket rate limiting on API endpoints.
+Rate limiting on the API, login, MFA, node registration and webhooks. Limits are counted per instance.
 
 - **Key**: API key ID (if authenticated) or client IP
 - **Scope**: Different limits per endpoint category

@@ -66,8 +66,29 @@ if config_env() == :prod do
 
   maybe_ipv6 = if System.get_env("ECTO_IPV6") in ~w(true 1), do: [:inet6], else: []
 
+  # Set DATABASE_SSL=true for any database reached over a network you do not
+  # control. DATABASE_CA_CERT names the CA file; otherwise the OS trust store is used.
+  database_ssl =
+    if System.get_env("DATABASE_SSL") in ~w(true 1) do
+      ca =
+        case System.get_env("DATABASE_CA_CERT") do
+          nil -> [cacerts: :public_key.cacerts_get()]
+          path -> [cacertfile: path]
+        end
+
+      [
+        verify: :verify_peer,
+        server_name_indication: String.to_charlist(URI.parse(database_url).host),
+        customize_hostname_check: [
+          match_fun: :public_key.pkix_verify_hostname_match_fun(:https)
+        ]
+      ] ++ ca
+    else
+      false
+    end
+
   config :zentinel_cp, ZentinelCp.Repo,
-    # ssl: true,
+    ssl: database_ssl,
     url: database_url,
     pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
     # For machines with several cores, consider starting multiple pools of `pool_size`
@@ -86,16 +107,92 @@ if config_env() == :prod do
       You can generate one by calling: mix phx.gen.secret
       """
 
+  # Encrypts secrets stored in the database. Kept separate from SECRET_KEY_BASE
+  # so that rotating sessions cannot make stored secrets unreadable.
+  decode_encryption_key = fn encoded ->
+    case Base.decode64(encoded) do
+      {:ok, <<key::binary-32>>} -> key
+      _ -> raise "encryption keys must be 32 bytes, Base64 encoded (openssl rand -base64 32)"
+    end
+  end
+
+  encryption_key =
+    System.get_env("ENCRYPTION_KEY") ||
+      raise """
+      environment variable ENCRYPTION_KEY is missing.
+      You can generate one by calling: openssl rand -base64 32
+      """
+
+  old_encryption_keys =
+    "ENCRYPTION_KEYS_OLD"
+    |> System.get_env("")
+    |> String.split(",", trim: true)
+
+  config :zentinel_cp,
+         :encryption_keys,
+         Enum.map([encryption_key | old_encryption_keys], decode_encryption_key)
+
   host = System.get_env("PHX_HOST") || "localhost"
 
   config :zentinel_cp, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
   port = String.to_integer(System.get_env("PORT") || "4000")
 
-  {url_scheme, url_port} =
-    if System.get_env("FORCE_SSL") in ["true", "1"],
-      do: {"https", 443},
-      else: {"http", port}
+  force_ssl = System.get_env("FORCE_SSL") in ["true", "1"]
+  config :zentinel_cp, :force_ssl, force_ssl
+
+  {url_scheme, url_port} = if force_ssl, do: {"https", 443}, else: {"http", port}
+
+  # Number of your own proxies in front of the app, for reading X-Forwarded-For.
+  config :zentinel_cp,
+         :trusted_proxy_count,
+         String.to_integer(System.get_env("TRUSTED_PROXY_COUNT", "0"))
+
+  # Prometheus sends this as a bearer token. Without it /metrics stays closed.
+  config :zentinel_cp, :metrics_token, System.get_env("METRICS_TOKEN")
+
+  # Webhook and notification targets on private networks are blocked by default.
+  config :zentinel_cp,
+         :allow_private_outbound,
+         System.get_env("ALLOW_PRIVATE_OUTBOUND") in ~w(true 1)
+
+  # Bundle signing, which also signs audit checkpoints.
+  if System.get_env("BUNDLE_SIGNING_ENABLED") in ~w(true 1) do
+    config :zentinel_cp, :bundle_signing,
+      enabled: true,
+      key_id: System.get_env("BUNDLE_SIGNING_KEY_ID", "default"),
+      private_key_path:
+        System.get_env("BUNDLE_SIGNING_PRIVATE_KEY_PATH") ||
+          raise("BUNDLE_SIGNING_PRIVATE_KEY_PATH is required when signing is enabled"),
+      public_key_path:
+        System.get_env("BUNDLE_SIGNING_PUBLIC_KEY_PATH") ||
+          raise("BUNDLE_SIGNING_PUBLIC_KEY_PATH is required when signing is enabled")
+  end
+
+  # Email notifications. Without a provider, email channels report a delivery error.
+  case System.get_env("MAILER_ADAPTER") do
+    nil ->
+      config :zentinel_cp, ZentinelCp.Mailer, adapter: ZentinelCp.Mailer.NotConfigured
+
+    "postmark" ->
+      config :zentinel_cp, ZentinelCp.Mailer,
+        adapter: Swoosh.Adapters.Postmark,
+        api_key: System.fetch_env!("MAILER_API_KEY")
+
+    "sendgrid" ->
+      config :zentinel_cp, ZentinelCp.Mailer,
+        adapter: Swoosh.Adapters.Sendgrid,
+        api_key: System.fetch_env!("MAILER_API_KEY")
+
+    "mailgun" ->
+      config :zentinel_cp, ZentinelCp.Mailer,
+        adapter: Swoosh.Adapters.Mailgun,
+        api_key: System.fetch_env!("MAILER_API_KEY"),
+        domain: System.fetch_env!("MAILER_DOMAIN")
+
+    other ->
+      raise "unknown MAILER_ADAPTER #{inspect(other)}: use postmark, sendgrid or mailgun"
+  end
 
   config :zentinel_cp, ZentinelCpWeb.Endpoint,
     url: [host: host, port: url_port, scheme: url_scheme],
@@ -107,54 +204,4 @@ if config_env() == :prod do
       ip: {0, 0, 0, 0, 0, 0, 0, 0}
     ],
     secret_key_base: secret_key_base
-
-  # ## SSL Support
-  #
-  # To get SSL working, you will need to add the `https` key
-  # to your endpoint configuration:
-  #
-  #     config :zentinel_cp, ZentinelCpWeb.Endpoint,
-  #       https: [
-  #         ...,
-  #         port: 443,
-  #         cipher_suite: :strong,
-  #         keyfile: System.get_env("SOME_APP_SSL_KEY_PATH"),
-  #         certfile: System.get_env("SOME_APP_SSL_CERT_PATH")
-  #       ]
-  #
-  # The `cipher_suite` is set to `:strong` to support only the
-  # latest and more secure SSL ciphers. This means old browsers
-  # and clients may not be supported. You can set it to
-  # `:compatible` for wider support.
-  #
-  # `:keyfile` and `:certfile` expect an absolute path to the key
-  # and cert in disk or a relative path inside priv, for example
-  # "priv/ssl/server.key". For all supported SSL configuration
-  # options, see https://hexdocs.pm/plug/Plug.SSL.html#configure/1
-  #
-  # We also recommend setting `force_ssl` in your config/prod.exs,
-  # ensuring no data is ever sent via http, always redirecting to https:
-  #
-  #     config :zentinel_cp, ZentinelCpWeb.Endpoint,
-  #       force_ssl: [hsts: true]
-  #
-  # Check `Plug.SSL` for all available options in `force_ssl`.
-
-  # ## Configuring the mailer
-  #
-  # In production you need to configure the mailer to use a different adapter.
-  # Here is an example configuration for Mailgun:
-  #
-  #     config :zentinel_cp, ZentinelCp.Mailer,
-  #       adapter: Swoosh.Adapters.Mailgun,
-  #       api_key: System.get_env("MAILGUN_API_KEY"),
-  #       domain: System.get_env("MAILGUN_DOMAIN")
-  #
-  # Most non-SMTP adapters require an API client. Swoosh supports Req, Hackney,
-  # and Finch out-of-the-box. This configuration is typically done at
-  # compile-time in your config/prod.exs:
-  #
-  #     config :swoosh, :api_client, Swoosh.ApiClient.Req
-  #
-  # See https://hexdocs.pm/swoosh/Swoosh.html#module-installation for details.
 end

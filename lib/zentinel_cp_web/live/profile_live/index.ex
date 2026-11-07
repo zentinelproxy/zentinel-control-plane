@@ -4,7 +4,8 @@ defmodule ZentinelCpWeb.ProfileLive.Index do
   """
   use ZentinelCpWeb, :live_view
 
-  alias ZentinelCp.Accounts
+  alias ZentinelCp.{Accounts, Audit}
+  alias ZentinelCp.Accounts.{Totp, UserTotp}
 
   @impl true
   def mount(_params, _session, socket) do
@@ -12,8 +13,66 @@ defmodule ZentinelCpWeb.ProfileLive.Index do
      assign(socket,
        page_title: "Profile",
        show_password_form: false,
-       password_form: to_form(%{}, as: "password")
+       password_form: to_form(%{}, as: "password"),
+       mfa_enabled: Totp.mfa_enabled?(socket.assigns.current_user.id),
+       mfa_enrollment: nil,
+       recovery_codes: nil
      )}
+  end
+
+  @impl true
+  def handle_event("start_mfa", _, socket) do
+    user = socket.assigns.current_user
+
+    case Totp.get_user_totp(user.id) do
+      %UserTotp{verified_at: %DateTime{}} ->
+        {:noreply, socket}
+
+      _ ->
+        {:ok, totp} = Totp.create_user_totp(user.id)
+
+        {:noreply,
+         assign(socket,
+           mfa_enrollment: %{
+             uri: UserTotp.otpauth_uri(totp, user.email),
+             secret: Base.encode32(totp.secret, padding: false)
+           },
+           recovery_codes: totp.plain_recovery_codes
+         )}
+    end
+  end
+
+  def handle_event("confirm_mfa", %{"code" => code}, socket) do
+    user = socket.assigns.current_user
+
+    with %UserTotp{} = totp <- Totp.get_user_totp(user.id),
+         {:ok, _totp} <- Totp.verify_totp_enrollment(totp, code) do
+      Audit.log_user_action(user, "mfa.enabled", "user", user.id)
+
+      {:noreply,
+       socket
+       |> assign(mfa_enabled: true, mfa_enrollment: nil, recovery_codes: nil)
+       |> put_flash(:info, "Two-factor authentication enabled.")}
+    else
+      _ -> {:noreply, put_flash(socket, :error, "Invalid code. Please try again.")}
+    end
+  end
+
+  def handle_event("disable_mfa", %{"code" => code}, socket) do
+    user = socket.assigns.current_user
+
+    with %UserTotp{} = totp <- Totp.get_user_totp(user.id),
+         {:ok, totp} <- Totp.validate_totp(totp, code),
+         {:ok, _} <- Totp.delete_user_totp(totp) do
+      Audit.log_user_action(user, "mfa.disabled", "user", user.id)
+
+      {:noreply,
+       socket
+       |> assign(mfa_enabled: false)
+       |> put_flash(:info, "Two-factor authentication disabled.")}
+    else
+      _ -> {:noreply, put_flash(socket, :error, "Invalid code.")}
+    end
   end
 
   @impl true
@@ -52,6 +111,53 @@ defmodule ZentinelCpWeb.ProfileLive.Index do
     ~H"""
     <div class="space-y-4">
       <h1 class="text-xl font-bold">Profile</h1>
+
+      <.k8s_section title="Two-factor authentication">
+        <div :if={@mfa_enabled} class="space-y-3">
+          <p class="text-sm">Two-factor authentication is on.</p>
+          <form phx-submit="disable_mfa" class="flex gap-2">
+            <input
+              type="text"
+              name="code"
+              required
+              placeholder="Current code"
+              autocomplete="one-time-code"
+              class="input input-bordered input-sm"
+            />
+            <button type="submit" class="btn btn-sm btn-error">Disable</button>
+          </form>
+        </div>
+        <div :if={!@mfa_enabled && !@mfa_enrollment} class="space-y-3">
+          <p class="text-sm">Protect your account with an authenticator app.</p>
+          <button type="button" phx-click="start_mfa" class="btn btn-sm btn-primary">
+            Set up
+          </button>
+        </div>
+        <div :if={@mfa_enrollment} class="space-y-3">
+          <p class="text-sm">
+            Add this key to your authenticator app, or open the link on your phone.
+          </p>
+          <p class="font-mono text-sm break-all" id="mfa-secret">{@mfa_enrollment.secret}</p>
+          <p class="font-mono text-xs break-all">{@mfa_enrollment.uri}</p>
+          <p class="text-sm font-medium">
+            Save these recovery codes now. Each works once, and they won't be shown again.
+          </p>
+          <ul class="font-mono text-sm" id="mfa-recovery-codes">
+            <li :for={code <- @recovery_codes}>{code}</li>
+          </ul>
+          <form phx-submit="confirm_mfa" class="flex gap-2">
+            <input
+              type="text"
+              name="code"
+              required
+              placeholder="Code from your app"
+              autocomplete="one-time-code"
+              class="input input-bordered input-sm"
+            />
+            <button type="submit" class="btn btn-sm btn-primary">Confirm</button>
+          </form>
+        </div>
+      </.k8s_section>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <.k8s_section title="Account Information">

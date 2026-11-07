@@ -9,7 +9,7 @@ defmodule ZentinelCpWeb.Api.AuditVerificationController do
     chain_status =
       case status.chain do
         {:ok, count} -> %{valid: true, verified_entries: count}
-        {:error, :chain_break, entry_id} -> %{valid: false, break_at: entry_id}
+        {:error, reason, entry_id} -> %{valid: false, reason: reason, break_at: entry_id}
       end
 
     checkpoint_status =

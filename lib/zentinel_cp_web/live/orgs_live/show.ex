@@ -17,7 +17,9 @@ defmodule ZentinelCpWeb.OrgsLive.Show do
         user_role = Orgs.get_user_role(org.id, socket.assigns.current_user.id)
 
         {:ok,
-         assign(socket,
+         socket
+         |> attach_hook(:org_admin_only, :handle_event, &require_org_admin/3)
+         |> assign(
            page_title: org.name,
            org: org,
            members: members,
@@ -53,6 +55,29 @@ defmodule ZentinelCpWeb.OrgsLive.Show do
           |> Enum.map_join(", ", fn {k, v} -> "#{k}: #{Enum.join(v, ", ")}" end)
 
         {:noreply, put_flash(socket, :error, "Could not update organization: #{errors}")}
+    end
+  end
+
+  def handle_event("update_mfa_policy", %{"mfa_policy" => policy}, socket)
+      when policy in ~w(optional required_for_admins required) do
+    org = socket.assigns.org
+
+    settings =
+      (org.settings || %{})
+      |> Map.put("mfa_policy", policy)
+      |> Map.put("mfa_enforced_at", DateTime.to_iso8601(DateTime.utc_now()))
+
+    case Orgs.update_org(org, %{settings: settings}) do
+      {:ok, updated_org} ->
+        Audit.log_user_action(socket.assigns.current_user, "update_mfa_policy", "org", org.id,
+          org_id: org.id,
+          metadata: %{mfa_policy: policy}
+        )
+
+        {:noreply, socket |> assign(org: updated_org) |> put_flash(:info, "MFA policy updated.")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Could not update MFA policy.")}
     end
   end
 
@@ -138,6 +163,29 @@ defmodule ZentinelCpWeb.OrgsLive.Show do
           <button class="btn btn-ghost btn-sm" phx-click="toggle_edit">Edit</button>
         </:action>
       </.detail_header>
+
+      <.k8s_section
+        :if={ZentinelCpWeb.LiveHelpers.org_role?(assigns, @org.id, "admin")}
+        title="Two-factor authentication policy"
+      >
+        <form phx-change="update_mfa_policy">
+          <select name="mfa_policy" class="select select-bordered select-sm">
+            <option
+              :for={
+                {value, label} <- [
+                  {"optional", "Optional"},
+                  {"required_for_admins", "Required for admins"},
+                  {"required", "Required for everyone"}
+                ]
+              }
+              value={value}
+              selected={(@org.settings || %{})["mfa_policy"] == value}
+            >
+              {label}
+            </option>
+          </select>
+        </form>
+      </.k8s_section>
 
       <div :if={@show_edit}>
         <.k8s_section title="Edit Organization">
@@ -239,7 +287,6 @@ defmodule ZentinelCpWeb.OrgsLive.Show do
                       <select
                         name="role"
                         class="select select-bordered select-xs"
-                        onchange="this.form.dispatchEvent(new Event('change', {bubbles: true}))"
                       >
                         <option value="reader" selected={membership.role == "reader"}>reader</option>
                         <option value="operator" selected={membership.role == "operator"}>
@@ -270,4 +317,15 @@ defmodule ZentinelCpWeb.OrgsLive.Show do
     </div>
     """
   end
+
+  defp require_org_admin(event, _params, socket)
+       when event in ~w(update_org update_mfa_policy add_member update_role remove_member) do
+    if ZentinelCpWeb.LiveHelpers.org_role?(socket, socket.assigns.org.id, "admin") do
+      {:cont, socket}
+    else
+      {:halt, put_flash(socket, :error, "Only org admins can do that.")}
+    end
+  end
+
+  defp require_org_admin(_event, _params, socket), do: {:cont, socket}
 end

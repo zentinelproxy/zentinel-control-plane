@@ -45,7 +45,7 @@ defmodule ZentinelCpWeb.Plugs.RateLimit do
   defp rate_limit_key(conn) do
     cond do
       # Prefer API key ID if authenticated
-      api_key = conn.assigns[:api_key] ->
+      api_key = conn.assigns[:current_api_key] ->
         "api_key:#{api_key.id}"
 
       # Fall back to IP address

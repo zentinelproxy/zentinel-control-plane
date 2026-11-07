@@ -6,7 +6,7 @@ defmodule ZentinelCpWeb.OrgsLiveTest do
   import ZentinelCp.OrgsFixtures
 
   setup %{conn: conn} do
-    user = user_fixture()
+    user = admin_fixture()
     conn = log_in_user(conn, user)
     %{conn: conn, user: user}
   end

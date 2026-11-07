@@ -189,7 +189,10 @@ Supported providers: GitHub, GitLab, Bitbucket, Gitea, generic (HMAC-verified).
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `DATABASE_URL` | Prod | — | PostgreSQL connection string |
-| `SECRET_KEY_BASE` | Prod | — | Phoenix secret (generate: `mix phx.gen.secret`) |
+| `SECRET_KEY_BASE` | Prod | — | Phoenix secret (generate: `mix phx.gen.secret`). Must be the same on all instances |
+| `ENCRYPTION_KEY` | Prod | — | Encrypts secrets in the database. 32 bytes, Base64 (`openssl rand -base64 32`) |
+| `ENCRYPTION_KEYS_OLD` | No | — | Comma-separated retired keys, still used to decrypt during rotation |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | First boot | — | Creates the first admin if no users exist. There is no default account |
 | `PHX_HOST` | Prod | `localhost` | Public hostname |
 | `PORT` | No | `4000` | HTTP port |
 | `S3_BUCKET` | Yes | `zentinel-bundles` | Bundle storage bucket |
@@ -202,7 +205,19 @@ Supported providers: GitHub, GitLab, Bitbucket, Gitea, generic (HMAC-verified).
 | `GITHUB_WEBHOOK_SECRET` | No | — | GitHub webhook HMAC secret |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | No | — | OpenTelemetry endpoint |
 | `FORCE_SSL` | No | `false` | Redirect HTTP → HTTPS |
-| `POOL_SIZE` | No | `10` | DB connection pool size |
+| `POOL_SIZE` | No | `10` | DB connection pool size. Allow for the 17 concurrent background jobs |
+| `TRUSTED_PROXY_COUNT` | Behind a proxy | `0` | Your proxies in front of the app. Needed for correct client addresses and per-address rate limits |
+| `METRICS_TOKEN` | For metrics | — | Bearer token for `/metrics`. Without it, the endpoint is closed |
+| `DATABASE_SSL` | Recommended | `false` | `true` to connect to PostgreSQL over verified TLS |
+| `DATABASE_CA_CERT` | No | OS trust store | CA file for `DATABASE_SSL` |
+| `ALLOW_PRIVATE_OUTBOUND` | No | `false` | `true` to allow webhooks and health checks to reach private and local addresses |
+| `BUNDLE_SIGNING_ENABLED` | Recommended | `false` | `true` to sign bundles and audit checkpoints |
+| `BUNDLE_SIGNING_KEY_ID` | No | `default` | Key ID recorded with signatures |
+| `BUNDLE_SIGNING_PRIVATE_KEY_PATH` | With signing | — | File with a Base64 Ed25519 private key |
+| `BUNDLE_SIGNING_PUBLIC_KEY_PATH` | With signing | — | File with a Base64 Ed25519 public key |
+| `MAILER_ADAPTER` | For email | — | `postmark`, `sendgrid` or `mailgun`. Without it, email channels report a delivery error |
+| `MAILER_API_KEY` | With mailer | — | Provider API key |
+| `MAILER_DOMAIN` | With Mailgun | — | Sending domain |
 
 ### Config Files
 
@@ -223,10 +238,5 @@ config :zentinel_cp, Oban,
 
 ### Bundle Signing
 
-```elixir
-config :zentinel_cp, :bundle_signing,
-  enabled: true,
-  private_key_path: "/secrets/signing-key.pem",
-  public_key_path: "/secrets/signing-key.pub",
-  key_id: "key-2024-01"
-```
+Set `BUNDLE_SIGNING_ENABLED=true` and the key path variables above. Keys are raw
+Ed25519 keys, Base64 encoded, one per file. The same key signs audit checkpoints.

@@ -24,6 +24,8 @@ defmodule ZentinelCp.Audit.AuditLog do
     # Tamper-evident chain fields
     field :previous_hash, :string
     field :entry_hash, :string
+    field :chain_sequence, :integer
+    field :hash_version, :integer
 
     timestamps(type: :utc_datetime, updated_at: false)
   end

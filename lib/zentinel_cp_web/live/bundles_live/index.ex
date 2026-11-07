@@ -70,7 +70,7 @@ defmodule ZentinelCpWeb.BundlesLive.Index do
 
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
-    bundle = Bundles.get_bundle!(id)
+    bundle = Bundles.get_bundle!(id) |> ZentinelCpWeb.LiveHelpers.in_project!(socket)
     project = socket.assigns.project
 
     case Bundles.delete_bundle(bundle) do

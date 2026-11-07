@@ -10,7 +10,7 @@ defmodule ZentinelCp.Analytics.RollupWorker do
   use Oban.Worker,
     queue: :maintenance,
     max_attempts: 1,
-    unique: [period: 3600]
+    unique: [period: 3600, states: [:available, :scheduled, :retryable]]
 
   import Ecto.Query, warn: false
   alias ZentinelCp.Repo
@@ -100,17 +100,17 @@ defmodule ZentinelCp.Analytics.RollupWorker do
         select: %{
           service_id: m.service_id,
           project_id: m.project_id,
-          request_count: sum(m.request_count),
-          error_count: sum(m.error_count),
+          request_count: type(sum(m.request_count), :integer),
+          error_count: type(sum(m.error_count), :integer),
           latency_p50_ms: fragment("CAST(AVG(?) AS INTEGER)", m.latency_p50_ms),
           latency_p95_ms: fragment("CAST(AVG(?) AS INTEGER)", m.latency_p95_ms),
           latency_p99_ms: fragment("CAST(AVG(?) AS INTEGER)", m.latency_p99_ms),
-          bandwidth_in_bytes: sum(m.bandwidth_in_bytes),
-          bandwidth_out_bytes: sum(m.bandwidth_out_bytes),
-          status_2xx: sum(m.status_2xx),
-          status_3xx: sum(m.status_3xx),
-          status_4xx: sum(m.status_4xx),
-          status_5xx: sum(m.status_5xx)
+          bandwidth_in_bytes: type(sum(m.bandwidth_in_bytes), :integer),
+          bandwidth_out_bytes: type(sum(m.bandwidth_out_bytes), :integer),
+          status_2xx: type(sum(m.status_2xx), :integer),
+          status_3xx: type(sum(m.status_3xx), :integer),
+          status_4xx: type(sum(m.status_4xx), :integer),
+          status_5xx: type(sum(m.status_5xx), :integer)
         }
       )
       |> Repo.all()

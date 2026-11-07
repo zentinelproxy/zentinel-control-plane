@@ -5,7 +5,7 @@ defmodule ZentinelCpWeb.Api.NodeController do
   """
   use ZentinelCpWeb, :controller
 
-  alias ZentinelCp.{Analytics, Audit, Auth, Nodes, Projects, Rollouts}
+  alias ZentinelCp.{Analytics, Audit, Auth, Nodes, Projects, Rollouts, Services}
   alias ZentinelCp.Observability.Tracer
 
   @doc """
@@ -16,6 +16,7 @@ defmodule ZentinelCpWeb.Api.NodeController do
   """
   def register(conn, %{"project_slug" => project_slug} = params) do
     with {:ok, project} <- get_project(project_slug),
+         :ok <- check_registration_token(conn, project),
          attrs <- build_registration_attrs(params, project, conn),
          {:ok, node} <- Nodes.register_node(attrs) do
       Audit.log_system_action("node.registered", "node", node.id,
@@ -34,8 +35,22 @@ defmodule ZentinelCpWeb.Api.NodeController do
       {:error, :project_not_found} ->
         conn |> put_status(:not_found) |> json(%{error: "Project not found"})
 
+      {:error, :invalid_registration_token} ->
+        conn |> put_status(:unauthorized) |> json(%{error: "Invalid registration token"})
+
       {:error, %Ecto.Changeset{} = changeset} ->
         conn |> put_status(:unprocessable_entity) |> json(%{error: format_errors(changeset)})
+    end
+  end
+
+  defp check_registration_token(conn, project) do
+    required = Application.get_env(:zentinel_cp, :require_node_registration_token, true)
+    token = conn |> get_req_header("x-registration-token") |> List.first()
+
+    if not required or Projects.valid_node_registration_token?(project, token) do
+      :ok
+    else
+      {:error, :invalid_registration_token}
     end
   end
 
@@ -252,12 +267,18 @@ defmodule ZentinelCpWeb.Api.NodeController do
   """
   def metrics(conn, params) do
     node = conn.assigns.current_node
-    metrics_list = params["metrics"] || []
-    logs_list = params["request_logs"] || []
+    service_ids = Services.project_service_ids(node.project_id)
 
-    # Inject node_id into each log entry
+    # A node reports for its own project only, whatever the payload says.
+    metrics_list =
+      for metric <- params["metrics"] || [], metric["service_id"] in service_ids do
+        Map.put(metric, "project_id", node.project_id)
+      end
+
     logs_with_node =
-      Enum.map(logs_list, fn log -> Map.put(log, "node_id", node.id) end)
+      for log <- params["request_logs"] || [], log["service_id"] in service_ids do
+        log |> Map.put("node_id", node.id) |> Map.put("project_id", node.project_id)
+      end
 
     metrics_result =
       if metrics_list != [] do
@@ -295,11 +316,14 @@ defmodule ZentinelCpWeb.Api.NodeController do
   def waf_events(conn, %{"events" => events_list}) when is_list(events_list) do
     node = conn.assigns.current_node
 
+    service_ids = Services.project_service_ids(node.project_id)
+
     events_with_node =
       Enum.map(events_list, fn event ->
         event
         |> Map.put("node_id", node.id)
         |> Map.put("project_id", node.project_id)
+        |> Map.update("service_id", nil, &if(&1 in service_ids, do: &1))
       end)
 
     {:ok, count} = Analytics.ingest_waf_events(events_with_node)
@@ -353,12 +377,7 @@ defmodule ZentinelCpWeb.Api.NodeController do
     }
   end
 
-  defp get_client_ip(conn) do
-    case get_req_header(conn, "x-forwarded-for") do
-      [forwarded | _] -> forwarded |> String.split(",") |> List.first() |> String.trim()
-      [] -> conn.remote_ip |> :inet.ntoa() |> to_string()
-    end
-  end
+  defp get_client_ip(conn), do: conn.remote_ip |> :inet.ntoa() |> to_string()
 
   defp format_errors(changeset) do
     Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->

@@ -45,7 +45,7 @@ defmodule ZentinelCpWeb.ValidationRulesLive.Index do
 
   @impl true
   def handle_event("edit", %{"id" => id}, socket) do
-    rule = Bundles.get_validation_rule!(id)
+    rule = Bundles.get_validation_rule!(id) |> ZentinelCpWeb.LiveHelpers.in_project!(socket)
 
     form_data = %{
       "name" => rule.name,

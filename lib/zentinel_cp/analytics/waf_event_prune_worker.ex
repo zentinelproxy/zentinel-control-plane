@@ -7,7 +7,7 @@ defmodule ZentinelCp.Analytics.WafEventPruneWorker do
   use Oban.Worker,
     queue: :maintenance,
     max_attempts: 1,
-    unique: [period: 86_400]
+    unique: [period: 86_400, states: [:available, :scheduled, :retryable]]
 
   require Logger
 

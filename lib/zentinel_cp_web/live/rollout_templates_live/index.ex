@@ -39,7 +39,7 @@ defmodule ZentinelCpWeb.RolloutTemplatesLive.Index do
 
   @impl true
   def handle_event("edit", %{"id" => id}, socket) do
-    template = Rollouts.get_template!(id)
+    template = Rollouts.get_template!(id) |> ZentinelCpWeb.LiveHelpers.in_project!(socket)
 
     form_data = %{
       "name" => template.name,
@@ -133,7 +133,7 @@ defmodule ZentinelCpWeb.RolloutTemplatesLive.Index do
 
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
-    template = Rollouts.get_template!(id)
+    template = Rollouts.get_template!(id) |> ZentinelCpWeb.LiveHelpers.in_project!(socket)
 
     case Rollouts.delete_template(template) do
       {:ok, _} ->
@@ -151,7 +151,7 @@ defmodule ZentinelCpWeb.RolloutTemplatesLive.Index do
 
   @impl true
   def handle_event("set_default", %{"id" => id}, socket) do
-    template = Rollouts.get_template!(id)
+    template = Rollouts.get_template!(id) |> ZentinelCpWeb.LiveHelpers.in_project!(socket)
 
     case Rollouts.set_default_template(template) do
       {:ok, _} ->
@@ -169,7 +169,7 @@ defmodule ZentinelCpWeb.RolloutTemplatesLive.Index do
 
   @impl true
   def handle_event("clear_default", %{"id" => id}, socket) do
-    template = Rollouts.get_template!(id)
+    template = Rollouts.get_template!(id) |> ZentinelCpWeb.LiveHelpers.in_project!(socket)
 
     if template.is_default do
       Rollouts.clear_default_template(socket.assigns.project.id)

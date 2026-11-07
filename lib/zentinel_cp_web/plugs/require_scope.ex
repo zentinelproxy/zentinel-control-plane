@@ -19,7 +19,7 @@ defmodule ZentinelCpWeb.Plugs.RequireScope do
   """
   import Plug.Conn
 
-  alias ZentinelCp.Projects
+  alias ZentinelCp.{Access, Projects}
 
   def init(opts) do
     scope = Keyword.fetch!(opts, :scope)
@@ -30,7 +30,7 @@ defmodule ZentinelCpWeb.Plugs.RequireScope do
     api_key = conn.assigns[:current_api_key]
 
     with :ok <- check_scope(api_key, required_scope),
-         {:ok, conn} <- check_project(conn, api_key) do
+         {:ok, conn} <- check_project(conn, api_key, required_scope) do
       conn
     else
       {:error, :forbidden} ->
@@ -57,47 +57,28 @@ defmodule ZentinelCpWeb.Plugs.RequireScope do
   end
 
   defp check_scope(api_key, required_scope) do
-    if api_key.scopes == [] or required_scope in api_key.scopes do
-      :ok
-    else
-      {:error, :forbidden}
+    if Access.scope_held?(api_key, required_scope), do: :ok, else: {:error, :forbidden}
+  end
+
+  defp check_project(conn, api_key, required_scope) do
+    case conn.params["project_slug"] do
+      nil -> {:ok, conn}
+      project_slug -> authorize_project(conn, api_key, project_slug, required_scope)
     end
   end
 
-  defp check_project(conn, api_key) do
-    project_slug = conn.params["project_slug"]
+  # A project the key cannot reach looks the same as one that does not exist.
+  defp authorize_project(conn, api_key, project_slug, required_scope) do
+    project = Projects.get_project_by_slug(project_slug)
 
     cond do
-      is_nil(api_key.project_id) and is_nil(project_slug) ->
-        {:ok, conn}
-
-      is_nil(api_key.project_id) ->
-        resolve_and_assign_project(conn, project_slug)
-
-      not is_nil(project_slug) ->
-        validate_project_match(conn, api_key.project_id, project_slug)
-
-      true ->
-        {:ok, conn}
-    end
-  end
-
-  defp resolve_and_assign_project(conn, project_slug) do
-    case Projects.get_project_by_slug(project_slug) do
-      nil -> {:error, :project_not_found}
-      project -> {:ok, assign(conn, :current_project, project)}
-    end
-  end
-
-  defp validate_project_match(conn, key_project_id, project_slug) do
-    case Projects.get_project_by_slug(project_slug) do
-      nil ->
+      is_nil(project) ->
         {:error, :project_not_found}
 
-      %{id: ^key_project_id} = project ->
+      Access.api_key_allowed?(api_key, project, required_scope) ->
         {:ok, assign(conn, :current_project, project)}
 
-      _other ->
+      true ->
         {:error, :project_mismatch}
     end
   end

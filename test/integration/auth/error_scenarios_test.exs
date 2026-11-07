@@ -45,7 +45,7 @@ defmodule ZentinelCpWeb.Integration.Auth.ErrorScenariosTest do
     end
 
     test "expired API key", %{conn: conn} do
-      user = ZentinelCp.AccountsFixtures.user_fixture()
+      user = ZentinelCp.AccountsFixtures.admin_fixture()
       project = ZentinelCp.ProjectsFixtures.project_fixture()
 
       # Create an expired key
@@ -69,7 +69,7 @@ defmodule ZentinelCpWeb.Integration.Auth.ErrorScenariosTest do
     end
 
     test "revoked API key", %{conn: conn} do
-      user = ZentinelCp.AccountsFixtures.user_fixture()
+      user = ZentinelCp.AccountsFixtures.admin_fixture()
       project = ZentinelCp.ProjectsFixtures.project_fixture()
 
       {:ok, api_key} =

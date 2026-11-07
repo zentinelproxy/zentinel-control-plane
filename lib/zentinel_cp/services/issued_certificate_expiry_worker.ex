@@ -7,7 +7,7 @@ defmodule ZentinelCp.Services.IssuedCertificateExpiryWorker do
   use Oban.Worker,
     queue: :maintenance,
     max_attempts: 1,
-    unique: [period: 3600]
+    unique: [period: 3600, states: [:available, :scheduled, :retryable]]
 
   require Logger
 

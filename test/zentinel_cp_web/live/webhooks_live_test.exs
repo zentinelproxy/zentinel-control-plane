@@ -7,7 +7,7 @@ defmodule ZentinelCpWeb.WebhooksLiveTest do
   import ZentinelCp.OrgsFixtures
 
   setup %{conn: conn} do
-    user = user_fixture()
+    user = admin_fixture()
     org = org_fixture()
     project = project_fixture(%{org: org, name: "Webhook Test Project"})
     conn = log_in_user(conn, user)

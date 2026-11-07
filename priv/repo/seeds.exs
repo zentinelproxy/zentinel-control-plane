@@ -10,6 +10,9 @@
 # We recommend using the bang functions (`insert!`, `update!`
 # and so on) as they will fail if something goes wrong.
 
+# Development data with a well-known password. Production uses
+# ZentinelCp.Release.bootstrap_admin/0, which never runs this file.
+
 # Dev admin user
 case ZentinelCp.Accounts.register_user(%{
        email: "admin@localhost",

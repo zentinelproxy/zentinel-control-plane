@@ -44,7 +44,8 @@ defmodule ZentinelCpWeb.HealthChecksLive.Index do
 
   @impl true
   def handle_event("edit", %{"id" => id}, socket) do
-    endpoint = Rollouts.get_health_check_endpoint!(id)
+    endpoint =
+      Rollouts.get_health_check_endpoint!(id) |> ZentinelCpWeb.LiveHelpers.in_project!(socket)
 
     form_data = %{
       "name" => endpoint.name,
@@ -127,7 +128,8 @@ defmodule ZentinelCpWeb.HealthChecksLive.Index do
 
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
-    endpoint = Rollouts.get_health_check_endpoint!(id)
+    endpoint =
+      Rollouts.get_health_check_endpoint!(id) |> ZentinelCpWeb.LiveHelpers.in_project!(socket)
 
     case Rollouts.delete_health_check_endpoint(endpoint) do
       {:ok, _} ->
@@ -145,7 +147,8 @@ defmodule ZentinelCpWeb.HealthChecksLive.Index do
 
   @impl true
   def handle_event("toggle_enabled", %{"id" => id}, socket) do
-    endpoint = Rollouts.get_health_check_endpoint!(id)
+    endpoint =
+      Rollouts.get_health_check_endpoint!(id) |> ZentinelCpWeb.LiveHelpers.in_project!(socket)
 
     case Rollouts.update_health_check_endpoint(endpoint, %{enabled: !endpoint.enabled}) do
       {:ok, _} ->
@@ -166,7 +169,8 @@ defmodule ZentinelCpWeb.HealthChecksLive.Index do
 
   @impl true
   def handle_event("test", %{"id" => id}, socket) do
-    endpoint = Rollouts.get_health_check_endpoint!(id)
+    endpoint =
+      Rollouts.get_health_check_endpoint!(id) |> ZentinelCpWeb.LiveHelpers.in_project!(socket)
 
     # Run the test in a task to avoid blocking
     test_results = Map.put(socket.assigns.test_results, id, :testing)

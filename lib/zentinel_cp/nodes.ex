@@ -4,6 +4,8 @@ defmodule ZentinelCp.Nodes do
   """
 
   import Ecto.Query, warn: false
+  import ZentinelCp.Repo.Dialect, only: [json_text: 2]
+  alias ZentinelCp.Repo.Dialect
   alias ZentinelCp.Repo
   alias ZentinelCp.Nodes.{DriftEvent, Node, NodeEvent, NodeHeartbeat, NodeRuntimeConfig}
 
@@ -44,8 +46,7 @@ defmodule ZentinelCp.Nodes do
 
   defp filter_by_labels(query, labels) when is_map(labels) do
     Enum.reduce(labels, query, fn {key, value}, q ->
-      # JSON containment check - works for both SQLite and Postgres
-      where(q, [n], fragment("json_extract(?, ?) = ?", n.labels, ^"$.#{key}", ^value))
+      where(q, [n], json_text(n.labels, ^Dialect.json_key(key)) == ^to_string(value))
     end)
   end
 
@@ -145,6 +146,13 @@ defmodule ZentinelCp.Nodes do
       nil -> {:error, :invalid_key}
       node -> {:ok, node}
     end
+  end
+
+  @doc "Deletes heartbeats older than the given number of days. Returns the count."
+  def prune_heartbeats(retention_days) do
+    cutoff = DateTime.utc_now() |> DateTime.add(-retention_days * 86_400, :second)
+    {count, _} = Repo.delete_all(from(h in NodeHeartbeat, where: h.inserted_at < ^cutoff))
+    count
   end
 
   @doc """
@@ -458,7 +466,7 @@ defmodule ZentinelCp.Nodes do
         broadcast_drift_event(event, :detected)
 
         # Async: send webhook and check auto-remediation
-        Task.start(fn -> handle_drift_detected(event) end)
+        run_async(fn -> handle_drift_detected(event) end)
 
         result
 
@@ -482,12 +490,19 @@ defmodule ZentinelCp.Nodes do
         broadcast_drift_event(updated_event, :resolved)
 
         # Async: send webhook notification
-        Task.start(fn -> handle_drift_resolved(updated_event) end)
+        run_async(fn -> handle_drift_resolved(updated_event) end)
 
         result
 
       _ ->
         result
+    end
+  end
+
+  # Test processes own their database connection, which a background task cannot use.
+  defp run_async(fun) do
+    unless Application.get_env(:zentinel_cp, :env) == :test do
+      Task.Supervisor.start_child(ZentinelCp.TaskSupervisor, fun)
     end
   end
 

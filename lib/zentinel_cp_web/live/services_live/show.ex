@@ -70,11 +70,16 @@ defmodule ZentinelCpWeb.ServicesLive.Show do
     chain = socket.assigns.middleware_chain
     next_position = if chain == [], do: 0, else: Enum.max_by(chain, & &1.position).position + 1
 
-    case Services.attach_middleware(%{
-           service_id: service.id,
-           middleware_id: mw_id,
-           position: next_position
-         }) do
+    with_middleware =
+      with :ok <- Services.check_middleware_in_project(mw_id, project.id) do
+        Services.attach_middleware(%{
+          service_id: service.id,
+          middleware_id: mw_id,
+          position: next_position
+        })
+      end
+
+    case with_middleware do
       {:ok, _} ->
         Audit.log_user_action(
           socket.assigns.current_user,

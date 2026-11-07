@@ -122,7 +122,10 @@ defmodule ZentinelCp.Policies.Evaluator do
   end
 
   defp get_context_value(context, field) do
-    Map.get(context, field) || Map.get(context, String.to_atom(field))
+    Map.get(context, field) ||
+      Enum.find_value(context, fn {key, value} ->
+        if is_atom(key) and Atom.to_string(key) == field, do: value
+      end)
   end
 
   defp parse_value("true"), do: true

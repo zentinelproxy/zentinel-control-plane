@@ -29,7 +29,7 @@ defmodule ZentinelCpWeb.AlertsLive.Rules do
 
   @impl true
   def handle_event("toggle_enabled", %{"id" => id}, socket) do
-    rule = Observability.get_alert_rule!(id)
+    rule = Observability.get_alert_rule!(id) |> ZentinelCpWeb.LiveHelpers.in_project!(socket)
     {:ok, _} = Observability.update_alert_rule(rule, %{enabled: !rule.enabled})
     rules = Observability.list_alert_rules(socket.assigns.project.id)
 
@@ -38,7 +38,7 @@ defmodule ZentinelCpWeb.AlertsLive.Rules do
 
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
-    rule = Observability.get_alert_rule!(id)
+    rule = Observability.get_alert_rule!(id) |> ZentinelCpWeb.LiveHelpers.in_project!(socket)
     {:ok, _} = Observability.delete_alert_rule(rule)
     rules = Observability.list_alert_rules(socket.assigns.project.id)
 

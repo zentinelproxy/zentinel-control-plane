@@ -2,7 +2,7 @@
 
 ## Prometheus Metrics
 
-Exposed at `GET /metrics` (no auth). Powered by PromEx.
+Exposed at `GET /metrics`, which requires `Authorization: Bearer <METRICS_TOKEN>` in production and stays closed if the token is not set. Powered by PromEx.
 
 ### Metric Categories
 
@@ -22,6 +22,8 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:4000']
     metrics_path: /metrics
+    authorization:
+      credentials: <METRICS_TOKEN>
     scrape_interval: 15s
 ```
 

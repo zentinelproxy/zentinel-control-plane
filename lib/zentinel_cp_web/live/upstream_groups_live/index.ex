@@ -26,7 +26,7 @@ defmodule ZentinelCpWeb.UpstreamGroupsLive.Index do
 
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
-    group = Services.get_upstream_group!(id)
+    group = Services.get_upstream_group!(id) |> ZentinelCpWeb.LiveHelpers.in_project!(socket)
     project = socket.assigns.project
 
     case Services.delete_upstream_group(group) do

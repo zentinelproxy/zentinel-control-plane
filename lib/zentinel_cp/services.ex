@@ -934,6 +934,21 @@ defmodule ZentinelCp.Services do
   """
   def get_middleware(id), do: Repo.get(Middleware, id)
 
+  @doc "Returns the IDs of a project's services."
+  def project_service_ids(project_id) do
+    Repo.all(from(s in Service, where: s.project_id == ^project_id, select: s.id))
+  end
+
+  @doc "Returns `:ok` if the middleware belongs to the project."
+  def check_middleware_in_project(id, project_id) do
+    with {:ok, uuid} <- Ecto.UUID.cast(id || ""),
+         %Middleware{project_id: ^project_id} <- get_middleware(uuid) do
+      :ok
+    else
+      _ -> {:error, :middleware_not_found}
+    end
+  end
+
   @doc """
   Gets a single middleware by ID, raises if not found.
   """

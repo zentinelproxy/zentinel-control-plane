@@ -23,7 +23,12 @@ defmodule ZentinelCp.RateLimit do
     "services:read" => 500,
     "services:write" => 200,
     "api_keys:admin" => 50,
-    "default" => 300
+    "default" => 300,
+    # Unauthenticated endpoints, limited per client address
+    "login" => 10,
+    "mfa" => 5,
+    "node_register" => 30,
+    "webhook" => 120
   }
 
   # Cost multipliers for expensive operations

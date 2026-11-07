@@ -109,7 +109,7 @@ defmodule ZentinelCpWeb.UpstreamGroupsLive.Show do
   def handle_event("remove_target", %{"id" => target_id}, socket) do
     target = Services.get_upstream_target(target_id)
 
-    if target do
+    if target && target.upstream_group_id == socket.assigns.group.id do
       Services.remove_upstream_target(target)
       group = Services.get_upstream_group!(socket.assigns.group.id)
       {:noreply, assign(socket, group: group) |> put_flash(:info, "Target removed.")}

@@ -7,6 +7,8 @@ defmodule ZentinelCp.Rollouts do
   """
 
   import Ecto.Query, warn: false
+  import ZentinelCp.Repo.Dialect, only: [json_text: 2]
+  alias ZentinelCp.Repo.Dialect
   alias ZentinelCp.Repo
 
   alias ZentinelCp.Rollouts.{
@@ -980,7 +982,7 @@ defmodule ZentinelCp.Rollouts do
 
     query =
       Enum.reduce(labels, query, fn {key, value}, q ->
-        where(q, [n], fragment("json_extract(?, ?) = ?", n.labels, ^"$.#{key}", ^value))
+        where(q, [n], json_text(n.labels, ^Dialect.json_key(key)) == ^to_string(value))
       end)
 
     Repo.all(query)
@@ -990,8 +992,11 @@ defmodule ZentinelCp.Rollouts do
     node_ids
   end
 
-  def resolve_target_nodes(_project_id, %{"type" => "groups", "group_ids" => group_ids}) do
-    Nodes.get_nodes_by_groups(group_ids) |> Enum.map(& &1.id)
+  def resolve_target_nodes(project_id, %{"type" => "groups", "group_ids" => group_ids}) do
+    group_ids
+    |> Nodes.get_nodes_by_groups()
+    |> Enum.filter(&(&1.project_id == project_id))
+    |> Enum.map(& &1.id)
   end
 
   def resolve_target_nodes(_project_id, _selector), do: []
@@ -1718,10 +1723,20 @@ defmodule ZentinelCp.Rollouts do
     bundle_id = Ecto.Changeset.get_field(changeset, :bundle_id)
 
     if bundle_id do
+      project_id = Ecto.Changeset.get_field(changeset, :project_id)
+
       case Bundles.get_bundle(bundle_id) do
-        %{status: "compiled"} -> {:ok, changeset}
-        %{} -> {:error, :bundle_not_compiled}
-        nil -> {:error, :bundle_not_found}
+        %{project_id: bundle_project_id} when bundle_project_id != project_id ->
+          {:error, :bundle_not_found}
+
+        %{status: "compiled"} ->
+          {:ok, changeset}
+
+        %{} ->
+          {:error, :bundle_not_compiled}
+
+        nil ->
+          {:error, :bundle_not_found}
       end
     else
       {:ok, changeset}
@@ -1813,7 +1828,7 @@ defmodule ZentinelCp.Rollouts do
   defp maybe_send_notification(fun) do
     # Skip notifications in test mode to avoid sandbox issues
     unless Application.get_env(:zentinel_cp, :env) == :test do
-      Task.start(fun)
+      Task.Supervisor.start_child(ZentinelCp.TaskSupervisor, fun)
     end
   end
 end

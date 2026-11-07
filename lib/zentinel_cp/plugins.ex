@@ -22,6 +22,29 @@ defmodule ZentinelCp.Plugins do
     |> Repo.all()
   end
 
+  @doc "Returns `:ok` if the plugin is public or belongs to the project, and the version is its own."
+  def check_attachable(plugin_id, version_id, project_id) do
+    with {:ok, uuid} <- Ecto.UUID.cast(plugin_id || ""),
+         %Plugin{} = plugin <- Repo.get(Plugin, uuid),
+         true <- plugin.public or plugin.project_id == project_id,
+         :ok <- check_version_of_plugin(version_id, plugin.id) do
+      :ok
+    else
+      _ -> {:error, :plugin_not_found}
+    end
+  end
+
+  defp check_version_of_plugin(nil, _plugin_id), do: :ok
+
+  defp check_version_of_plugin(version_id, plugin_id) do
+    with {:ok, uuid} <- Ecto.UUID.cast(version_id),
+         %PluginVersion{plugin_id: ^plugin_id} <- Repo.get(PluginVersion, uuid) do
+      :ok
+    else
+      _ -> :error
+    end
+  end
+
   @doc """
   Gets a single plugin by ID, preloading latest version.
   """

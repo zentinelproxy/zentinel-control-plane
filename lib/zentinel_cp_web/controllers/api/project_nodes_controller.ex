@@ -147,4 +147,30 @@ defmodule ZentinelCpWeb.Api.ProjectNodesController do
       inserted_at: node.inserted_at
     }
   end
+
+  @doc """
+  POST /api/v1/projects/:project_slug/nodes/registration-token
+  Creates or replaces the project's node registration token. The token is only
+  returned in this response.
+  """
+  def rotate_registration_token(conn, _params) do
+    project = conn.assigns.current_project
+    api_key = conn.assigns.current_api_key
+
+    case ZentinelCp.Projects.rotate_node_registration_token(project) do
+      {:ok, token, _project} ->
+        ZentinelCp.Audit.log_api_key_action(
+          api_key,
+          "node_registration_token.rotated",
+          "project",
+          project.id,
+          project_id: project.id
+        )
+
+        conn |> put_status(:created) |> json(%{registration_token: token})
+
+      {:error, _changeset} ->
+        conn |> put_status(:unprocessable_entity) |> json(%{error: "Could not create token"})
+    end
+  end
 end
