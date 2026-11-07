@@ -8,8 +8,8 @@
 |---------|-------|-------|---------|
 | `app` | Built from Dockerfile | 4000 | Control plane |
 | `postgres` | `postgres:17` | 5432 | Database |
-| `minio` | `minio/minio` | 9000 (API), 9001 (console) | Bundle storage |
-| `minio-init` | `minio/mc` | — | Creates `zentinel-bundles` bucket |
+| `storage` | `rustfs/rustfs` | — | S3-compatible bundle storage |
+| `storage-init` | `amazon/aws-cli` | — | Creates `zentinel-bundles` bucket |
 
 ### Dockerfile
 
@@ -35,7 +35,7 @@ Multi-stage build:
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | First boot | — | Creates the first admin if no users exist. There is no default account |
 | `PHX_HOST` | Prod | `localhost` | Public hostname for URL generation |
 | `PORT` | No | `4000` | HTTP listen port |
-| `S3_ENDPOINT` | Yes | `http://localhost:9000` | S3/MinIO endpoint |
+| `S3_ENDPOINT` | Yes | `http://localhost:9000` | S3 endpoint |
 | `S3_BUCKET` | Yes | `zentinel-bundles` | Storage bucket name |
 | `S3_ACCESS_KEY_ID` | Yes | — | S3 access key |
 | `S3_SECRET_ACCESS_KEY` | Yes | — | S3 secret key |
@@ -134,7 +134,7 @@ Test this regularly. A backup that has never been restored is not known to work.
 docker compose up
   │
   ├─ PostgreSQL initializes (user: zentinel, db: zentinel_cp)
-  ├─ MinIO starts, minio-init creates bucket
+  ├─ Storage starts, storage-init creates the bucket
   ├─ App runs ZentinelCp.Release.migrate(), retrying until the database is ready
   ├─ First admin and default org created from ADMIN_EMAIL and ADMIN_PASSWORD, if no users exist
   └─ Phoenix server starts on :4000
@@ -147,7 +147,7 @@ For users who already have PostgreSQL and S3-compatible storage and just need to
 ### Prerequisites
 
 - PostgreSQL 15+ (managed or self-hosted)
-- S3-compatible storage (AWS S3, MinIO, DigitalOcean Spaces, etc.)
+- S3-compatible storage (AWS S3, RustFS, DigitalOcean Spaces, etc.)
 - Docker
 
 ### Pull or Build the Image

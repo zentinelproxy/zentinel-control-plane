@@ -308,6 +308,13 @@ func (f *fakeCP) handler(t *testing.T) http.Handler {
 	mux.HandleFunc("POST /api/v1/nodes/node-1/events", auth(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]any
 		json.NewDecoder(r.Body).Decode(&body)
+		// The control plane accepts only these types.
+		switch body["event_type"] {
+		case "config_reload", "bundle_switch", "error", "startup", "shutdown", "warning", "info":
+		default:
+			w.WriteHeader(422)
+			return
+		}
 		f.mu.Lock()
 		f.events = append(f.events, body["event_type"].(string))
 		f.mu.Unlock()
@@ -352,7 +359,7 @@ func TestSyncRegistersInstallsAndReports(t *testing.T) {
 	if len(cp.active) == 0 || cp.active[len(cp.active)-1] != "bundle-1" {
 		t.Errorf("active bundle not reported: %v", cp.active)
 	}
-	if len(cp.events) != 1 || cp.events[0] != "bundle_applied" {
+	if len(cp.events) != 1 || cp.events[0] != "bundle_switch" {
 		t.Errorf("events: %v", cp.events)
 	}
 
@@ -394,7 +401,7 @@ func TestSyncReportsABadBundle(t *testing.T) {
 	if err := agent.sync(); err == nil {
 		t.Fatal("bad bundle installed")
 	}
-	if len(cp.events) != 1 || cp.events[0] != "bundle_apply_failed" {
+	if len(cp.events) != 1 || cp.events[0] != "error" {
 		t.Errorf("events: %v", cp.events)
 	}
 	if agent.state.ActiveBundleID != "" {
@@ -412,7 +419,7 @@ func TestFindProcesses(t *testing.T) {
 	if err != nil || len(pids) != 2 {
 		t.Fatalf("got %v %v", pids, err)
 	}
-	if _, err := findProcesses(proc, "nginx"); err == nil {
-		t.Error("no error when the process is missing")
+	if pids, err := findProcesses(proc, "nginx"); err != nil || len(pids) != 0 {
+		t.Errorf("missing process: got %v %v", pids, err)
 	}
 }

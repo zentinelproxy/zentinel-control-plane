@@ -2,7 +2,7 @@ defmodule ZentinelCp.Bundles.Compiler do
   @moduledoc """
   Compiler service for Zentinel configuration bundles.
 
-  Validates KDL config via `zentinel validate`, assembles tar.zst archives,
+  Validates KDL config via `zentinel test`, assembles tar.zst archives,
   and computes checksums.
   """
 
@@ -19,7 +19,9 @@ defmodule ZentinelCp.Bundles.Compiler do
     else
       with {:ok, tmpfile} <- write_temp_config(config_source) do
         try do
-          case System.cmd(zentinel_binary(), ["validate", "--config", tmpfile],
+          # `test` checks the config offline. `validate` also tests connectivity,
+          # which is meaningless from the control plane's network.
+          case System.cmd(zentinel_binary(), ["test", "--config", tmpfile],
                  stderr_to_stdout: true
                ) do
             {output, 0} -> {:ok, output}

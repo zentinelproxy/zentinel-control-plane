@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Elixir 1.16+ / Erlang OTP 26+ (managed via [mise](https://mise.jdx.dev/))
-- Docker — for MinIO (bundle storage)
+- Docker, optional, for S3-compatible bundle storage
 - `zentinel` CLI binary — for configuration validation during bundle compilation (Docker deployment includes this automatically)
 
 ## Setup
@@ -17,7 +17,7 @@ mise run setup        # Fetch deps, create DB, migrate, seed
 mise run dev          # Start dev server (localhost:4000)
 ```
 
-Uses SQLite for database (zero config) and MinIO via `docker-compose.dev.yml` for bundle storage.
+Uses SQLite and stores bundles on the local filesystem. `docker-compose.dev.yml` provides S3-compatible storage for working on the S3 code path.
 
 ## Commands
 

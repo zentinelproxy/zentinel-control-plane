@@ -143,6 +143,8 @@ defmodule ZentinelCpWeb.Api.ProjectNodesController do
       ip: node.ip,
       hostname: node.hostname,
       last_seen_at: node.last_seen_at,
+      active_bundle_id: node.active_bundle_id,
+      staged_bundle_id: node.staged_bundle_id,
       registered_at: node.registered_at,
       inserted_at: node.inserted_at
     }

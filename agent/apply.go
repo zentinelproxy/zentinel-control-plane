@@ -150,6 +150,8 @@ func reload(method string) error {
 	case method == "none":
 		return nil
 	case strings.HasPrefix(method, "process:"):
+		// No running proxy is not an error: the first config is installed
+		// before the proxy starts, and a proxy that starts later reads it.
 		pids, err := findProcesses("/proc", strings.TrimPrefix(method, "process:"))
 		if err != nil {
 			return err
@@ -214,9 +216,6 @@ func findProcesses(procDir, name string) ([]int, error) {
 		if err == nil && strings.TrimSpace(string(comm)) == name {
 			pids = append(pids, pid)
 		}
-	}
-	if len(pids) == 0 {
-		return nil, fmt.Errorf("no running process named %q", name)
 	}
 	return pids, nil
 }

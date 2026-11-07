@@ -125,15 +125,22 @@ func (a *Agent) sync() error {
 
 	if err := a.install(latest); err != nil {
 		a.log.Error("bundle not installed", "bundle_id", latest.BundleID, "error", err)
-		_ = a.client.event(a.state.NodeID, "bundle_apply_failed", "error", err.Error(),
-			map[string]any{"bundle_id": latest.BundleID, "version": latest.Version})
+		a.report("error", "error", "Bundle "+latest.Version+" not installed: "+err.Error(), latest)
 		return err
 	}
 
 	a.log.Info("bundle installed", "bundle_id", latest.BundleID, "version", latest.Version)
-	_ = a.client.event(a.state.NodeID, "bundle_applied", "info", "Bundle "+latest.Version+" installed",
-		map[string]any{"bundle_id": latest.BundleID, "version": latest.Version})
+	a.report("bundle_switch", "info", "Bundle "+latest.Version+" installed", latest)
 	return a.heartbeat()
+}
+
+// report records a node event. A failure to report is logged, not returned:
+// the bundle has already been installed or refused.
+func (a *Agent) report(eventType, severity, message string, latest *LatestResponse) {
+	metadata := map[string]any{"bundle_id": latest.BundleID, "version": latest.Version}
+	if err := a.client.event(a.state.NodeID, eventType, severity, message, metadata); err != nil {
+		a.log.Warn("could not report event", "event_type", eventType, "error", err)
+	}
 }
 
 func (a *Agent) ensureRegistered() error {

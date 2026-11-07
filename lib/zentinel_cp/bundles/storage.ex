@@ -44,7 +44,8 @@ defmodule ZentinelCp.Bundles.Storage do
     if local_storage?() do
       {:ok, "/local-storage/#{key}"}
     else
-      config = ex_aws_config()
+      # Unlike ExAws.request/2, presigned_url/5 takes a built config, not overrides.
+      config = ExAws.Config.new(:s3, ex_aws_config())
       ExAws.S3.presigned_url(config, :get, bucket(), key, expires_in: expires_in)
     end
   end

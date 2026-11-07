@@ -1,0 +1,14 @@
+# Builds the control plane and agent from this checkout and exposes the proxy.
+# Paths are relative to the repository root, the Compose project directory.
+services:
+  app:
+    image: zentinel-cp:stack-test
+    build: .
+  agent:
+    image: zentinel-cp-agent:stack-test
+    build: agent
+    environment:
+      ZCP_INTERVAL: 3s
+  proxy:
+    ports: !override
+      - "127.0.0.1:18080:8080"

@@ -10,7 +10,7 @@ so the agent runs next to it and:
    file manifest, and validates the config with `zentinel test`,
 4. installs the files atomically and reloads the proxy,
 5. puts the previous config back if installing or reloading fails, and reports
-   the result as a node event.
+   the result as a node event: `bundle_switch` on success, `error` on failure.
 
 Rollouts advance when the heartbeat reports the new bundle as active.
 

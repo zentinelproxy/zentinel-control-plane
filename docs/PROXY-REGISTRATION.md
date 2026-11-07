@@ -2,13 +2,9 @@
 
 End-to-end guide for connecting existing zentinel proxy instances to the control plane.
 
-> **Integration status — read this first**
+> **Use the agent.** The [zentinel proxy](https://github.com/zentinelproxy/zentinel) has no built-in control-plane client. [`zentinel-cp-agent`](../agent/README.md) runs next to a stock proxy and does everything in this guide for it: registration, heartbeats, installing bundles with validation and rollback, reloading the proxy, and reporting events. [`agent/docker-compose.example.yml`](../agent/docker-compose.example.yml) runs the two together, and `test/stack/run.sh` tests that setup end to end.
 >
-> The control-plane side of everything in this guide (registration, heartbeats, bundle distribution, JWT auth, events/metrics ingestion) is implemented and working. The [zentinel proxy](https://github.com/zentinelproxy/zentinel) itself, however, does **not yet ship a built-in control-plane client**: there are no `control_plane_url`, `node_id`, or `node_key` settings in the proxy configuration, and a stock proxy binary will not register, send heartbeats, or pull bundles on its own.
->
-> Until native support lands in the proxy, the node-facing API described below has to be driven by an external process you run next to the proxy — a sidecar script, cron job, or your own tooling. The control plane's built-in node simulator speaks the same API, which is how the end-to-end workflow is exercised today. Section 2 describes what a minimal sidecar must do.
->
-> See the [README status section](../README.md#status) for the overall project status.
+> The rest of this guide describes the node API, for writing your own client or for debugging.
 
 ## Prerequisites
 
@@ -67,9 +63,11 @@ curl -X POST http://localhost:4000/api/v1/projects/my-project/nodes/register \
 
 **Important:** The `node_key` is returned only once. Store it securely — it cannot be retrieved again.
 
-## 2. Connect the Proxy (external sidecar required today)
+## 2. Connect the Proxy
 
-The proxy has no native control-plane settings yet (see the status note at the top). The credentials from registration are consumed by whatever process you run alongside the proxy to speak the node API on its behalf:
+`zentinel-cp-agent` does this for you; see the note at the top. Its configuration is described in [`agent/README.md`](../agent/README.md).
+
+A client of your own uses the values from registration:
 
 | Value | Purpose |
 |-------|---------|
@@ -77,10 +75,10 @@ The proxy has no native control-plane settings yet (see the status note at the t
 | `node_id` from the registration response | Identifies the node in every API path |
 | `node_key` from the registration response | Authenticates heartbeats, bundle polling, and event reporting |
 
-A minimal sidecar loop must:
+A client must:
 
 1. **Heartbeat** — `POST /api/v1/nodes/:node_id/heartbeat` every `poll_interval_s` seconds (see section 3 for the payload) so the node shows as "online".
-2. **Poll for bundles** — `GET /api/v1/nodes/:node_id/bundles/latest`; when a rollout assigns a new bundle, download it from the presigned URL, verify the checksum, unpack the KDL config, and reload the proxy with it.
+2. **Poll for bundles** — `GET /api/v1/nodes/:node_id/bundles/latest`; when a rollout assigns a new bundle, download it from `download_path` (node-authenticated, served by the control plane), verify the checksum and, if configured, the `signature`, unpack the KDL config, and reload the proxy with it.
 3. **Report back** — include the `active_bundle_id` in the next heartbeat so the rollout engine can track progress, and optionally report events and metrics (section 6).
 
 All calls authenticate with the `X-Zentinel-Node-Key` header (or a JWT, see section 4). Example heartbeat:
