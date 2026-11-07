@@ -26,7 +26,12 @@ defmodule ZentinelCp.Portal do
   @doc """
   Gets an OpenAPI spec by ID.
   """
-  def get_spec(id), do: Repo.get(OpenApiSpec, id)
+  def get_spec(id) do
+    case Ecto.UUID.cast(id) do
+      {:ok, uuid} -> Repo.get(OpenApiSpec, uuid)
+      :error -> nil
+    end
+  end
 
   @doc """
   Extracts paths from an OpenAPI spec for documentation rendering.

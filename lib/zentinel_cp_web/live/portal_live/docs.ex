@@ -1,6 +1,8 @@
 defmodule ZentinelCpWeb.PortalLive.Docs do
   use ZentinelCpWeb, :live_view
 
+  on_mount {ZentinelCpWeb.LiveHelpers, :portal_access}
+
   alias ZentinelCp.{Portal, Projects.Project}
   import ZentinelCpWeb.PortalLive.Components
 
@@ -25,7 +27,7 @@ defmodule ZentinelCpWeb.PortalLive.Docs do
         spec_id ->
           spec = Portal.get_spec(spec_id)
 
-          if spec do
+          if spec && spec.project_id == project.id do
             eps = Portal.get_spec_paths(spec)
             schemas = Portal.get_spec_schemas(spec)
             {spec, eps, schemas}

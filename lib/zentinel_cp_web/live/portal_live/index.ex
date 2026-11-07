@@ -1,6 +1,8 @@
 defmodule ZentinelCpWeb.PortalLive.Index do
   use ZentinelCpWeb, :live_view
 
+  on_mount {ZentinelCpWeb.LiveHelpers, :portal_access}
+
   alias ZentinelCp.{Portal, Projects.Project}
   import ZentinelCpWeb.PortalLive.Components
 
