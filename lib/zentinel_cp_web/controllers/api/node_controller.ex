@@ -124,6 +124,11 @@ defmodule ZentinelCpWeb.Api.NodeController do
             version: bundle.version,
             checksum: bundle.checksum,
             size_bytes: bundle.size_bytes,
+            # Served by the control plane with node authentication, so nodes
+            # need no route to the object store.
+            download_path: "/api/v1/nodes/#{node.id}/bundles/#{bundle.id}/download",
+            signature: bundle.signature && Base.encode64(bundle.signature),
+            signing_key_id: bundle.signing_key_id,
             download_url: download_url,
             traffic_weight: get_traffic_weight(node),
             poll_after_s: 30
@@ -138,6 +143,34 @@ defmodule ZentinelCpWeb.Api.NodeController do
         conn
         |> put_status(:ok)
         |> json(%{no_update: true, poll_after_s: 30})
+    end
+  end
+
+  @doc """
+  GET /api/v1/nodes/:node_id/bundles/:bundle_id/download
+
+  Streams a bundle archive to a node. A node can download only bundles of its
+  own project that are staged for it, active on it, or pinned to it.
+  """
+  def download_bundle(conn, %{"bundle_id" => bundle_id}) do
+    node = conn.assigns.current_node
+
+    with true <-
+           bundle_id in [node.staged_bundle_id, node.active_bundle_id, node.pinned_bundle_id],
+         %{project_id: project_id, storage_key: key} = bundle
+         when project_id == node.project_id and is_binary(key) <-
+           ZentinelCp.Bundles.get_bundle(bundle_id),
+         {:ok, archive} <- ZentinelCp.Bundles.Storage.download(key) do
+      conn
+      |> put_resp_content_type("application/octet-stream")
+      |> put_resp_header("x-bundle-checksum", bundle.checksum || "")
+      |> send_resp(200, archive)
+    else
+      {:error, _reason} ->
+        conn |> put_status(:bad_gateway) |> json(%{error: "Bundle storage unavailable"})
+
+      _ ->
+        conn |> put_status(:not_found) |> json(%{error: "Bundle not found"})
     end
   end
 

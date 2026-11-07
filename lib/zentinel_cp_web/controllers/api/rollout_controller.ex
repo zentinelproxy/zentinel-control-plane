@@ -31,9 +31,17 @@ defmodule ZentinelCpWeb.Api.RolloutController do
         changes: %{bundle_id: rollout.bundle_id, strategy: rollout.strategy}
       )
 
+      # Starts it as the UI does. A rollout that cannot start yet, such as one
+      # matching no nodes, stays pending and can be started later.
+      body =
+        case Rollouts.start_rollout(rollout) do
+          {:ok, started} -> rollout_to_json(started)
+          {:error, reason} -> Map.put(rollout_to_json(rollout), :start_error, to_string(reason))
+        end
+
       conn
       |> put_status(:created)
-      |> json(rollout_to_json(rollout))
+      |> json(body)
     else
       {:error, :project_not_found} ->
         conn |> put_status(:not_found) |> json(%{error: "Project not found"})
@@ -100,6 +108,51 @@ defmodule ZentinelCpWeb.Api.RolloutController do
         conn |> put_status(:not_found) |> json(%{error: "Rollout not found"})
     end
   end
+
+  @doc """
+  POST /api/v1/projects/:project_slug/rollouts/:id/start
+  Starts a pending rollout, for example one created before its nodes existed.
+  """
+  def start(conn, %{"project_slug" => project_slug, "id" => rollout_id}) do
+    with {:ok, project} <- get_project(project_slug),
+         {:ok, rollout} <- get_rollout(rollout_id, project.id),
+         {:ok, started} <- Rollouts.start_rollout(rollout),
+         :ok <- check_not_awaiting_approval(started) do
+      Audit.log_api_key_action(
+        conn.assigns.current_api_key,
+        "rollout.started",
+        "rollout",
+        rollout.id,
+        project_id: project.id
+      )
+
+      conn |> put_status(:ok) |> json(rollout_to_json(started))
+    else
+      {:error, :project_not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Project not found"})
+
+      {:error, :rollout_not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Rollout not found"})
+
+      {:error, :no_target_nodes} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "No nodes match the target selector"})
+
+      {:error, :approval_required} ->
+        conn |> put_status(:conflict) |> json(%{error: "Rollout is awaiting approval"})
+
+      {:error, _reason} ->
+        conn
+        |> put_status(:conflict)
+        |> json(%{error: "Rollout cannot be started in its current state"})
+    end
+  end
+
+  defp check_not_awaiting_approval(%{approval_state: "pending_approval"}),
+    do: {:error, :approval_required}
+
+  defp check_not_awaiting_approval(_rollout), do: :ok
 
   @doc """
   POST /api/v1/projects/:project_slug/rollouts/:id/pause
@@ -304,6 +357,7 @@ defmodule ZentinelCpWeb.Api.RolloutController do
       progress_deadline_seconds: rollout.progress_deadline_seconds,
       health_gates: rollout.health_gates,
       state: rollout.state,
+      approval_state: rollout.approval_state,
       deployment_slot: rollout.deployment_slot,
       blue_green_config: rollout.blue_green_config,
       traffic_step_index: rollout.traffic_step_index,

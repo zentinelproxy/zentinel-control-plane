@@ -40,18 +40,15 @@ API and a GraphQL API.
 works end to end. Multi-tenancy, audit logging, drift detection, approval
 workflows and the LiveView UI are implemented and being hardened.
 
-"End to end" means end to end *on the control-plane side*. The
-[zentinel proxy](https://github.com/zentinelproxy/zentinel) does not yet ship a
-control-plane client: there are no `control_plane_url`, `node_id` or `node_key`
-settings in its configuration, and a stock proxy will not register, send
-heartbeats or pull bundles on its own. Connecting real proxies today needs an
-external sidecar that speaks the node API (the same API the built-in node
-simulator uses). [PROXY-REGISTRATION.md](docs/PROXY-REGISTRATION.md) describes
-what that involves.
+The [zentinel proxy](https://github.com/zentinelproxy/zentinel) has no
+control-plane client of its own. [`zentinel-cp-agent`](agent/README.md) runs next
+to a stock proxy, registers it, installs the bundles rolled out to it and reloads
+it. [`test/stack/run.sh`](test/stack/run.sh) runs the whole system, with a real
+proxy, and CI runs it on every change.
 
 ## Quick start
 
-Docker Compose starts the control plane, PostgreSQL and MinIO, and runs the
+Docker Compose starts the control plane, PostgreSQL and RustFS (S3-compatible storage), and runs the
 database migrations on start:
 
 ```bash
@@ -73,8 +70,8 @@ mise run setup      # deps, database, seeds, assets
 mise run dev        # iex -S mix phx.server
 ```
 
-Bundle compilation shells out to `zentinel validate --config <file>`, so a
-`zentinel` binary on `PATH` is needed to compile real bundles; MinIO for local
+Bundle compilation shells out to `zentinel test --config <file>`, so a
+`zentinel` binary on `PATH` is needed to compile real bundles; S3-compatible storage for local
 development starts with `mise run dev:services` (Docker).
 
 ## How it works
@@ -83,7 +80,7 @@ development starts with `mise run dev:services` (Docker).
 KDL config → validate & compile → signed, immutable bundle → rollout → nodes pull & activate
 ```
 
-1. **Upload** a KDL configuration; it is validated with `zentinel validate`.
+1. **Upload** a KDL configuration; it is validated with `zentinel test`.
 2. **Compile** it into an immutable bundle (tar.zst with manifest, checksums
    and a CycloneDX SBOM), signed with Ed25519.
 3. **Create a rollout** that targets nodes by label selector.
@@ -107,7 +104,7 @@ KDL config → validate & compile → signed, immutable bundle → rollout → n
 │  └────┬──────────────┬────────────────────────┘ │
 │       │              │                          │
 │  ┌────┴─────┐  ┌─────┴──────┐                   │
-│  │ Postgres │  │  S3/MinIO  │                   │
+│  │ Postgres │  │  S3 storage  │                   │
 │  │  (state) │  │ (bundles)  │                   │
 │  └──────────┘  └────────────┘                   │
 └─────────────────────────────────────────────────┘
@@ -207,7 +204,7 @@ versions CI and the container image use); `mix.exs` requires Elixir `~> 1.15`.
 
 ```bash
 mise run dev              # interactive dev server (iex -S mix phx.server)
-mise run dev:up           # start MinIO, then the dev server
+mise run dev:up           # start local S3 storage, then the dev server
 mise run test             # test suite
 mise run test:coverage    # tests with coverage
 mise run check            # format check, credo --strict, tests

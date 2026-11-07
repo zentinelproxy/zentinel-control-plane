@@ -31,6 +31,64 @@ defmodule ZentinelCpWeb.Api.RolloutControllerTest do
       assert is_binary(id)
     end
 
+    test "starts the rollout when nodes match", %{conn: conn, project: project, bundle: bundle} do
+      node_fixture(%{project: project})
+
+      body =
+        conn
+        |> post("/api/v1/projects/#{project.slug}/rollouts", %{"bundle_id" => bundle.id})
+        |> json_response(201)
+
+      assert body["state"] == "running"
+      assert Rollouts.get_rollout!(body["id"]).state == "running"
+    end
+
+    test "a rollout matching no nodes stays pending and can be started later", %{
+      conn: conn,
+      project: project,
+      bundle: bundle
+    } do
+      body =
+        conn
+        |> post("/api/v1/projects/#{project.slug}/rollouts", %{"bundle_id" => bundle.id})
+        |> json_response(201)
+
+      assert body["state"] == "pending"
+      assert body["start_error"] == "no_target_nodes"
+
+      node_fixture(%{project: project})
+
+      started =
+        conn
+        |> post("/api/v1/projects/#{project.slug}/rollouts/#{body["id"]}/start")
+        |> json_response(200)
+
+      assert started["state"] == "running"
+    end
+
+    test "a rollout needing approval waits for it", %{
+      conn: conn,
+      project: project,
+      bundle: bundle
+    } do
+      node_fixture(%{project: project})
+
+      {:ok, _} =
+        ZentinelCp.Projects.update_project(project, %{settings: %{"approval_required" => true}})
+
+      body =
+        conn
+        |> post("/api/v1/projects/#{project.slug}/rollouts", %{"bundle_id" => bundle.id})
+        |> json_response(201)
+
+      assert body["state"] == "pending"
+      assert body["approval_state"] == "pending_approval"
+
+      assert conn
+             |> post("/api/v1/projects/#{project.slug}/rollouts/#{body["id"]}/start")
+             |> json_response(409)
+    end
+
     test "returns 404 for unknown project", %{conn: conn, bundle: bundle} do
       conn =
         post(conn, "/api/v1/projects/nonexistent/rollouts", %{

@@ -112,7 +112,8 @@ defmodule ZentinelCpWeb.Integration.Api.PerNodeConfigTest do
 
       # Plan and execute
       rollout = Rollouts.get_rollout!(frontend_rollout_id)
-      {:ok, {_planned, _steps}} = Rollouts.plan_rollout(rollout)
+      # Creating the rollout through the API starts it.
+      assert rollout.state == "running"
 
       # Verify only frontend nodes were targeted
       detailed = Rollouts.get_rollout_with_details(frontend_rollout_id)
@@ -144,7 +145,8 @@ defmodule ZentinelCpWeb.Integration.Api.PerNodeConfigTest do
       backend_rollout_id = backend_rollout_resp["id"]
 
       rollout = Rollouts.get_rollout!(backend_rollout_id)
-      {:ok, {_planned, _steps}} = Rollouts.plan_rollout(rollout)
+      # Creating the rollout through the API starts it.
+      assert rollout.state == "running"
 
       # Verify only backend nodes targeted
       detailed = Rollouts.get_rollout_with_details(backend_rollout_id)
@@ -223,7 +225,8 @@ defmodule ZentinelCpWeb.Integration.Api.PerNodeConfigTest do
         |> json_response!(201)
 
       rollout = Rollouts.get_rollout!(rollout_resp["id"])
-      {:ok, {_planned, _steps}} = Rollouts.plan_rollout(rollout)
+      # Creating the rollout through the API starts it.
+      assert rollout.state == "running"
 
       # Verify node1 was excluded (pinned to different bundle)
       detailed = Rollouts.get_rollout_with_details(rollout.id)
@@ -283,7 +286,8 @@ defmodule ZentinelCpWeb.Integration.Api.PerNodeConfigTest do
         |> json_response!(201)
 
       rollout = Rollouts.get_rollout!(rollout_resp["id"])
-      {:ok, {_planned, _steps}} = Rollouts.plan_rollout(rollout)
+      # Creating the rollout through the API starts it.
+      assert rollout.state == "running"
 
       # Verify only group members are targeted
       detailed = Rollouts.get_rollout_with_details(rollout.id)

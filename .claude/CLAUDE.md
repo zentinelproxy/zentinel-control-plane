@@ -39,7 +39,7 @@ mise run test
        │     └───────────────┘    │               │
        │                          │               │
        │              ┌───────────┴───────────────┤
-       │              │      MinIO / S3           │
+       │              │      S3 storage           │
        │              │   (Bundle Storage)        │
        │              └───────────────────────────┘
        │
@@ -79,9 +79,9 @@ lib/
 
 ### Bundles
 Immutable, content-addressed configuration artifacts:
-- Validated via `zentinel validate`
+- Validated via `zentinel test`
 - Compressed as `.tar.zst`
-- Stored in S3/MinIO
+- Stored in S3-compatible storage
 - Identified by SHA256 hash
 
 ### Rollouts
@@ -189,7 +189,7 @@ When implementing features:
 | `PHX_HOST` | Public hostname | `localhost` |
 | `PORT` | HTTP port | `4000` |
 | `S3_BUCKET` | Bundle storage bucket | `zentinel-bundles` |
-| `S3_ENDPOINT` | S3/MinIO endpoint | `http://localhost:9000` |
+| `S3_ENDPOINT` | S3 endpoint | `http://localhost:9000` |
 | `S3_ACCESS_KEY_ID` | S3 access key | - |
 | `S3_SECRET_ACCESS_KEY` | S3 secret key | - |
 | `ZENTINEL_BINARY` | Path to `zentinel` CLI binary | `zentinel` |

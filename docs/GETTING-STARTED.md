@@ -6,14 +6,14 @@
 
 **Local development (Option B):**
 - Elixir 1.16+ and Erlang/OTP 26+ (managed via [mise](https://mise.jdx.dev/))
-- Docker — for MinIO (bundle storage)
+- Docker, optional, for S3-compatible bundle storage
 - `zentinel` CLI binary — for configuration validation and compilation
 
 **Standalone / production deployment:** If you have your own PostgreSQL and S3, see the [standalone Docker and bare-metal options in DEPLOYMENT.md](DEPLOYMENT.md#standalone-docker).
 
 ## Docker Compose
 
-Starts the control plane, PostgreSQL 17, and MinIO with one command:
+Starts the control plane, PostgreSQL 17, and RustFS (S3-compatible storage) with one command:
 
 ```bash
 git clone https://github.com/zentinelproxy/zentinel-control-plane.git
@@ -27,13 +27,12 @@ What happens:
 1. Multi-stage Dockerfile builds the Elixir release (base: `hexpm/elixir:1.19.5-erlang-28.3.1-debian-bookworm`)
 2. The `zentinel` binary is downloaded and verified during image build — bundle validation works out-of-the-box
 3. PostgreSQL 17 starts (port 5432 on this host only, user: `zentinel`, password from `.env`)
-4. MinIO starts (ports 9000 API and 9001 console, on this host only)
-5. `minio-init` container creates the `zentinel-bundles` bucket
+4. RustFS starts, reachable only from the app
+5. `storage-init` creates the `zentinel-bundles` bucket
 6. App runs Ecto migrations, retrying until PostgreSQL is ready
 7. First admin and default org created from `ADMIN_EMAIL` and `ADMIN_PASSWORD`
 8. Control plane available at **http://localhost:4000**
 
-MinIO console: **http://localhost:9001** (credentials from `.env`)
 
 Tear down (including volumes):
 
@@ -47,8 +46,8 @@ docker compose down -v
 |---------|------|---------|
 | `app` | 4000 | Control plane |
 | `postgres` | 5432 | PostgreSQL 17 |
-| `minio` | 9000, 9001 | S3-compatible storage |
-| `minio-init` | — | Creates bundle bucket on startup |
+| `storage` | — | S3-compatible storage (RustFS) |
+| `storage-init` | — | Creates the bundle bucket on startup |
 
 ### Environment Variables (Docker)
 
@@ -57,10 +56,10 @@ docker compose down -v
 | `DATABASE_URL` | Built from `POSTGRES_PASSWORD` in `.env` | PostgreSQL connection |
 | `SECRET_KEY_BASE` | Required in `.env` | Phoenix secret key |
 | `ENCRYPTION_KEY` | Required in `.env` | Encrypts stored secrets |
-| `S3_ENDPOINT` | `http://minio:9000` | MinIO endpoint |
+| `S3_ENDPOINT` | `http://storage:9000` | Storage endpoint |
 | `S3_BUCKET` | `zentinel-bundles` | Bundle storage bucket |
-| `S3_ACCESS_KEY_ID` | `MINIO_ROOT_USER` from `.env` | MinIO access key |
-| `S3_SECRET_ACCESS_KEY` | `MINIO_ROOT_PASSWORD` from `.env` | MinIO secret key |
+| `S3_ACCESS_KEY_ID` | `STORAGE_ACCESS_KEY` from `.env` | Storage access key |
+| `S3_SECRET_ACCESS_KEY` | `STORAGE_SECRET_KEY` from `.env` | Storage secret key |
 | `S3_REGION` | `us-east-1` | S3 region |
 | `PORT` | `4000` | HTTP listen port |
 | `ZENTINEL_VERSION` | `26.02_13` | Zentinel binary version (Docker build arg) |
@@ -78,7 +77,7 @@ mise run setup        # Fetch deps, create DB, migrate, seed
 mise run dev          # Start Phoenix dev server with hot reload
 ```
 
-Uses SQLite (zero configuration). MinIO starts via `docker-compose.dev.yml` for bundle storage.
+Uses SQLite and stores bundles on the local filesystem, so it needs no other services. `docker-compose.dev.yml` provides S3-compatible storage for working on the S3 code path.
 
 Control plane starts at **http://localhost:4000**.
 

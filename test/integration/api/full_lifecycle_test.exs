@@ -130,7 +130,7 @@ defmodule ZentinelCpWeb.Integration.Api.FullLifecycleTest do
       # ── Phase 4: Plan the rollout (creates batched steps) ──────────────
 
       rollout = Rollouts.get_rollout!(rollout_id)
-      {:ok, {planned_rollout, _steps}} = Rollouts.plan_rollout(rollout)
+      planned_rollout = rollout
 
       assert planned_rollout.state == "running"
 
@@ -251,7 +251,8 @@ defmodule ZentinelCpWeb.Integration.Api.FullLifecycleTest do
 
       # Plan and start
       rollout = Rollouts.get_rollout!(rollout_id)
-      {:ok, {_planned, _steps}} = Rollouts.plan_rollout(rollout)
+      # Creating the rollout through the API starts it.
+      assert rollout.state == "running"
 
       # Complete batch 1: tick to start, activate nodes, tick to verify+complete
       detailed = Rollouts.get_rollout_with_details(rollout_id)
@@ -346,7 +347,8 @@ defmodule ZentinelCpWeb.Integration.Api.FullLifecycleTest do
 
       rollout_id = create_resp["id"]
       rollout = Rollouts.get_rollout!(rollout_id)
-      {:ok, {_planned, _steps}} = Rollouts.plan_rollout(rollout)
+      # Creating the rollout through the API starts it.
+      assert rollout.state == "running"
 
       # Tick once to start step 1
       rollout = Rollouts.get_rollout!(rollout_id)

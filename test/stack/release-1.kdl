@@ -1,0 +1,28 @@
+system {
+    worker-threads 1
+}
+
+listeners {
+    listener "http" {
+        address "0.0.0.0:8080"
+        protocol "http"
+    }
+}
+
+routes {
+    route "health" {
+        priority "high"
+        matches {
+            path "/health"
+        }
+        builtin-handler "health"
+    }
+
+    route "release-1" {
+        priority "high"
+        matches {
+            path "/release-1"
+        }
+        builtin-handler "status"
+    }
+}

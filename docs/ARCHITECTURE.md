@@ -14,7 +14,7 @@
 └──────┬──────┬─────────────┴───────┬─────┴────────┬─────────┘
        │      │                     │              │
        │   ┌──┴─────────────┐   ┌──┴──────────────┘
-       │   │  PostgreSQL     │   │  MinIO / S3
+       │   │  PostgreSQL     │   │  S3 storage
        │   │  (SQLite dev)   │   │  (Bundle Storage)
        │   └─────────────────┘   └────────────────────
        │
@@ -110,9 +110,9 @@ Operator creates bundle
         │
         ▼
   CompileWorker (Oban)
-   ├─ zentinel validate (KDL)
+   ├─ zentinel test (KDL)
    ├─ Assemble .tar.zst
-   ├─ Upload to S3/MinIO
+   ├─ Upload to S3 storage
    ├─ Sign with Ed25519 (optional)
    └─ Score risk vs. previous
         │
@@ -201,7 +201,7 @@ Selected at compile time via `config :zentinel_cp, :ecto_adapter`. Transparent t
 Bundle artifacts in S3-compatible object storage:
 
 - **Path**: `bundles/{project_id}/{bundle_id}.tar.zst`
-- **Dev**: MinIO at `localhost:9000`
+- **Dev**: the local filesystem, or RustFS at `localhost:9000` from `docker-compose.dev.yml`
 - **Prod**: AWS S3 or compatible
 - **Download**: Presigned URLs (no proxy through control plane)
 

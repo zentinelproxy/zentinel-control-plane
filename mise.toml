@@ -97,7 +97,7 @@ description = "Build a release"
 run = "MIX_ENV=prod mix release"
 
 [tasks."dev:services"]
-description = "Start dev dependencies (MinIO) in background"
+description = "Start dev dependencies (S3-compatible storage) in background"
 run = "docker compose -f docker-compose.dev.yml up -d"
 
 [tasks."dev:services:stop"]

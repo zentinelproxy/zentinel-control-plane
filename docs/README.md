@@ -10,7 +10,7 @@ Fleet management control plane for [Zentinel](https://zentinel.dev) reverse prox
 | Web | Phoenix 1.8, LiveView 1.1 |
 | Background Jobs | Oban 2.19 |
 | Database | PostgreSQL 15+ (prod), SQLite (dev) via Ecto |
-| Object Storage | S3-compatible (AWS S3 prod, MinIO dev) |
+| Object Storage | S3-compatible (AWS S3 or another store in prod, local filesystem in dev) |
 | GraphQL | Absinthe 1.7 |
 | Auth | Argon2, Ed25519 (JOSE), TOTP, OIDC, SAML |
 | Observability | PromEx (Prometheus), OpenTelemetry |
@@ -58,6 +58,6 @@ Fleet management control plane for [Zentinel](https://zentinel.dev) reverse prox
 | Elixir | 1.16+ | 1.16+ |
 | Erlang/OTP | 26+ | 26+ |
 | Database | SQLite (zero config) | PostgreSQL 15+ |
-| Object Storage | MinIO (docker-compose.dev.yml) | AWS S3 or S3-compatible |
+| Object Storage | Local filesystem, or RustFS (docker-compose.dev.yml) | AWS S3 or S3-compatible |
 | `zentinel` CLI | Required for bundle compilation | Required |
-| Docker | Optional (for MinIO) | Optional (containerized deploy) |
+| Docker | Optional (for S3 storage) | Optional (containerized deploy) |

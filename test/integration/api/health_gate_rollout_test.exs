@@ -75,7 +75,8 @@ defmodule ZentinelCpWeb.Integration.Api.HealthGateRolloutTest do
 
       # Plan rollout
       rollout = Rollouts.get_rollout!(rollout_id)
-      {:ok, {_planned, _steps}} = Rollouts.plan_rollout(rollout)
+      # Creating the rollout through the API starts it.
+      assert rollout.state == "running"
 
       detailed = Rollouts.get_rollout_with_details(rollout_id)
       [step1, step2] = detailed.steps
@@ -196,7 +197,8 @@ defmodule ZentinelCpWeb.Integration.Api.HealthGateRolloutTest do
       rollout_id = create_resp["id"]
 
       rollout = Rollouts.get_rollout!(rollout_id)
-      {:ok, {_planned, _steps}} = Rollouts.plan_rollout(rollout)
+      # Creating the rollout through the API starts it.
+      assert rollout.state == "running"
 
       detailed = Rollouts.get_rollout_with_details(rollout_id)
       [step1] = detailed.steps
@@ -288,7 +290,8 @@ defmodule ZentinelCpWeb.Integration.Api.HealthGateRolloutTest do
       rollout_id = create_resp["id"]
 
       rollout = Rollouts.get_rollout!(rollout_id)
-      {:ok, {_planned, _steps}} = Rollouts.plan_rollout(rollout)
+      # Creating the rollout through the API starts it.
+      assert rollout.state == "running"
 
       detailed = Rollouts.get_rollout_with_details(rollout_id)
       [step1] = detailed.steps
