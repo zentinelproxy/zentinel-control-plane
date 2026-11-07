@@ -1,0 +1,41 @@
+# Runs a stock Zentinel proxy managed by the control plane.
+#
+#   1. In the control plane, create a project and a registration token for it
+#      (Nodes page, "Create registration token").
+#   2. Set ZCP_URL, ZCP_PROJECT and ZCP_REGISTRATION_TOKEN below or in .env.
+#   3. Roll out a bundle to the project. The proxy starts once the agent has
+#      installed its first config.
+services:
+  agent:
+    image: ${ZCP_AGENT_IMAGE:-ghcr.io/zentinelproxy/zentinel-cp-agent:main}
+    # build: .
+    environment:
+      ZCP_URL: "${ZCP_URL:?set ZCP_URL}"
+      ZCP_PROJECT: "${ZCP_PROJECT:?set ZCP_PROJECT}"
+      ZCP_REGISTRATION_TOKEN: "${ZCP_REGISTRATION_TOKEN:?set ZCP_REGISTRATION_TOKEN}"
+      ZCP_NODE_NAME: "${ZCP_NODE_NAME:-proxy-1}"
+      ZCP_LABELS: "${ZCP_LABELS:-env=dev}"
+      # ZCP_PUBLIC_KEY: Base64 Ed25519 key, to verify bundle signatures
+      # ZCP_REQUIRE_SIGNATURE: "true"
+    volumes:
+      - config:/etc/zentinel
+      - state:/var/lib/zentinel-cp-agent
+    restart: unless-stopped
+
+  proxy:
+    image: ${ZENTINEL_IMAGE:-ghcr.io/zentinelproxy/zentinel:latest}
+    # Shares the agent's process namespace, so the agent can send it SIGHUP
+    # after installing a bundle.
+    pid: "service:agent"
+    depends_on:
+      agent:
+        condition: service_healthy
+    volumes:
+      - config:/etc/zentinel:ro
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+volumes:
+  config:
+  state:
