@@ -137,23 +137,26 @@ Roles are per-organization. A user can have different roles in different orgs.
 
 ## First Steps After Login
 
-1. **Create an Organization** — Organizations > New Organization. Enter a name; a URL-safe slug is auto-generated.
+1. **Pick an organization** — In production the first admin starts with an organization named Default. You can create more under Organizations > New Organization.
 
-2. **Create a Project** — From the org dashboard, click New Project. Projects group related proxy configs, nodes, and bundles.
+2. **Create a project** — From the org dashboard, click New Project. Projects group related proxy configs, nodes, and bundles.
 
-3. **Configure Services** — Services > New Service. Define route paths and upstreams (e.g., `/api/*` → `http://api.internal:8080`).
-
-4. **Compile a Bundle** — Bundles > New Bundle. Enter KDL configuration or generate from services. Compilation runs in background.
-
-5. **Register a Node** — Register a Zentinel proxy instance via the API. Production also needs an `X-Registration-Token` header; see [PROXY-REGISTRATION.md](PROXY-REGISTRATION.md):
+3. **Connect a proxy** — On the project's Nodes page, click Create registration token and copy the token. It is shown once. Then run a stock Zentinel proxy with the agent, which registers it and installs what you roll out:
    ```bash
-   curl -X POST http://localhost:4000/api/v1/projects/my-project/nodes/register \
-     -H "Content-Type: application/json" \
-     -d '{"name": "proxy-1", "labels": {"env": "dev"}}'
+   cd agent
+   ZCP_URL=https://cp.example.com ZCP_PROJECT=my-project \
+   ZCP_REGISTRATION_TOKEN=zcp_nrt_... \
+     docker compose -f docker-compose.example.yml up -d
    ```
-   Store the returned `node_key` — it is only shown once. See [PROXY-REGISTRATION.md](PROXY-REGISTRATION.md) for the full guide on connecting proxies, configuring JWT auth, and deploying bundles.
+   The node appears on the Nodes page within a few seconds. The proxy itself starts once its first bundle is installed. See [`agent/README.md`](../agent/README.md) for configuration, and [PROXY-REGISTRATION.md](PROXY-REGISTRATION.md) for the node API.
 
-6. **Deploy with a Rollout** — Rollouts > New Rollout. Select bundle, choose strategy (rolling, canary, blue-green, all-at-once), configure health gates, start.
+4. **Configure services** — Services > New Service. Define route paths and upstreams (e.g., `/api/*` → `http://api.internal:8080`).
+
+5. **Compile a bundle** — Bundles > New Bundle. Enter KDL configuration or generate it from your services. It is checked with `zentinel test`, in the background.
+
+6. **Roll it out** — Rollouts > New Rollout. Select the bundle, choose a strategy (rolling, canary, blue-green, all-at-once) and health gates, and start it. The agent installs the bundle and reloads the proxy, and the rollout advances as each node reports the new bundle.
+
+The same steps can be automated through the REST API: see [API.md](API.md). [`test/stack/run.sh`](../test/stack/run.sh) is a working example of the whole flow, run in CI.
 
 ## Next Steps
 
