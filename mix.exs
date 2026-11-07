@@ -133,7 +133,7 @@ defmodule ZentinelCp.MixProject do
       {:opentelemetry, "~> 1.4"},
       {:opentelemetry_api, "~> 1.3"},
       {:opentelemetry_exporter, "~> 1.7"},
-      {:opentelemetry_phoenix, "~> 1.2"},
+      {:opentelemetry_phoenix, "~> 2.0"},
       {:opentelemetry_ecto, "~> 1.2"},
 
       # GraphQL
