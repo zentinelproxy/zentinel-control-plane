@@ -714,6 +714,7 @@ defmodule ZentinelCpWeb.Router do
 
     scope "/projects/:project_slug" do
       post "/rollouts", RolloutController, :create
+      post "/rollouts/:id/start", RolloutController, :start
       post "/rollouts/:id/pause", RolloutController, :pause
       post "/rollouts/:id/resume", RolloutController, :resume
       post "/rollouts/:id/cancel", RolloutController, :cancel

@@ -300,7 +300,8 @@ defmodule ZentinelCpWeb.Integration.Api.AgentRoutingTest do
         |> json_response!(201)
 
       rollout = Rollouts.get_rollout!(rollout_resp["id"])
-      {:ok, {_planned, _steps}} = Rollouts.plan_rollout(rollout)
+      # Creating the rollout through the API starts it.
+      assert rollout.state == "running"
 
       node_ids = Enum.map(nodes, & &1.id)
       set_active_bundle(node_ids, bundle.id)

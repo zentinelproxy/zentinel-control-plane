@@ -140,11 +140,11 @@ defmodule ZentinelCpWeb.Integration.Api.MultiBackendConfigTest do
       # ── Plan and tick both rollouts ─────────────────────────────────────
 
       rollout_a = Rollouts.get_rollout!(rollout_a_id)
-      {:ok, {planned_a, _steps_a}} = Rollouts.plan_rollout(rollout_a)
+      planned_a = rollout_a
       assert planned_a.state == "running"
 
       rollout_b = Rollouts.get_rollout!(rollout_b_id)
-      {:ok, {planned_b, _steps_b}} = Rollouts.plan_rollout(rollout_b)
+      planned_b = rollout_b
       assert planned_b.state == "running"
 
       # Tick to start step assignments

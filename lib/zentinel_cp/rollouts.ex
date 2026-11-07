@@ -533,6 +533,35 @@ defmodule ZentinelCp.Rollouts do
 
   def plan_rollout(%Rollout{}), do: {:error, :invalid_state}
 
+  @doc """
+  Starts a newly created rollout the way the UI does: submits it for approval,
+  then plans it unless it is scheduled or still awaiting approval.
+
+  Returns `{:ok, rollout}` with the rollout's resulting state, or the planning
+  error, such as `{:error, :no_target_nodes}`, leaving the rollout pending.
+  """
+  def start_rollout(%Rollout{state: "pending"} = rollout) do
+    with {:ok, rollout} <- submit_if_new(rollout) do
+      cond do
+        rollout.scheduled_at ->
+          {:ok, rollout}
+
+        can_start_rollout?(rollout) ->
+          with {:ok, _} <- plan_rollout(rollout), do: {:ok, get_rollout!(rollout.id)}
+
+        true ->
+          {:ok, rollout}
+      end
+    end
+  end
+
+  def start_rollout(%Rollout{}), do: {:error, :invalid_state}
+
+  defp submit_if_new(%Rollout{approval_state: "not_required"} = rollout),
+    do: submit_for_approval(rollout)
+
+  defp submit_if_new(rollout), do: {:ok, rollout}
+
   defp do_plan_rollout(rollout) do
     node_ids = resolve_target_nodes(rollout.project_id, rollout.target_selector)
 
