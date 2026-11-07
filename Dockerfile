@@ -60,7 +60,10 @@ RUN mix release
 # ---- Runtime Stage ----
 FROM ${RUNNER_IMAGE}
 
+# Upgrade first: the base image is pinned, so its packages fall behind on
+# security fixes, which the publish job's image scan rejects.
 RUN apt-get update -y && \
+    apt-get upgrade -y && \
     apt-get install -y libstdc++6 openssl libncurses5 locales ca-certificates curl zstd && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
