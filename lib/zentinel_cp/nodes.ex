@@ -98,9 +98,15 @@ defmodule ZentinelCp.Nodes do
         |> put_reported_active_bundle(node, attrs)
         |> Repo.update()
 
-      # Record heartbeat history
+      # Record heartbeat history. Bundle IDs come from the node, and a value
+      # that is not a UUID would fail to insert into a UUID column.
       %NodeHeartbeat{}
-      |> NodeHeartbeat.changeset(Map.merge(attrs, %{node_id: node.id}))
+      |> NodeHeartbeat.changeset(
+        attrs
+        |> Map.merge(%{node_id: node.id})
+        |> sanitize_bundle_id(:active_bundle_id)
+        |> sanitize_bundle_id(:staged_bundle_id)
+      )
       |> Repo.insert!()
 
       # Extract circuit breaker statuses if present
@@ -136,6 +142,13 @@ defmodule ZentinelCp.Nodes do
 
       updated_node
     end)
+  end
+
+  defp sanitize_bundle_id(attrs, key) do
+    case Ecto.UUID.cast(attrs[key] || attrs[Atom.to_string(key)] || "") do
+      {:ok, uuid} -> attrs |> Map.delete(Atom.to_string(key)) |> Map.put(key, uuid)
+      :error -> attrs |> Map.delete(Atom.to_string(key)) |> Map.put(key, nil)
+    end
   end
 
   # The bundle a node reports as running is what rollouts wait for. Only a

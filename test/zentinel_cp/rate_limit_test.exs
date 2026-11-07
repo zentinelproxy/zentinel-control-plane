@@ -1,4 +1,6 @@
 defmodule ZentinelCp.RateLimitTest do
+  @configured_limits Application.compile_env(:zentinel_cp, :rate_limits, %{})
+
   use ExUnit.Case, async: false
 
   alias ZentinelCp.RateLimit
@@ -9,6 +11,13 @@ defmodule ZentinelCp.RateLimitTest do
     RateLimit.reset_all()
     :ok
   end
+
+  # Other tests rely on the limits in config/test.exs, so they are restored, not deleted.
+  defp put_limits(limits) do
+    Application.put_env(:zentinel_cp, :rate_limits, Map.merge(@configured_limits, limits))
+  end
+
+  defp restore_limits, do: Application.put_env(:zentinel_cp, :rate_limits, @configured_limits)
 
   describe "check_rate/3" do
     test "allows requests under the limit" do
@@ -36,7 +45,7 @@ defmodule ZentinelCp.RateLimitTest do
 
     test "denies requests over the limit" do
       # Set a very low limit for testing
-      Application.put_env(:zentinel_cp, :rate_limits, %{"test_scope" => 3})
+      put_limits(%{"test_scope" => 3})
 
       assert {:allow, 2, 3, _} = RateLimit.check_rate("deny-key", "test_scope")
       assert {:allow, 1, 3, _} = RateLimit.check_rate("deny-key", "test_scope")
@@ -44,21 +53,21 @@ defmodule ZentinelCp.RateLimitTest do
       assert {:deny, 3, _reset} = RateLimit.check_rate("deny-key", "test_scope")
 
       # Clean up
-      Application.delete_env(:zentinel_cp, :rate_limits)
+      restore_limits()
     end
 
     test "returns correct remaining count" do
-      Application.put_env(:zentinel_cp, :rate_limits, %{"count_scope" => 5})
+      put_limits(%{"count_scope" => 5})
 
       assert {:allow, 4, 5, _} = RateLimit.check_rate("count-key", "count_scope")
       assert {:allow, 3, 5, _} = RateLimit.check_rate("count-key", "count_scope")
       assert {:allow, 2, 5, _} = RateLimit.check_rate("count-key", "count_scope")
 
-      Application.delete_env(:zentinel_cp, :rate_limits)
+      restore_limits()
     end
 
     test "applies cost multipliers" do
-      Application.put_env(:zentinel_cp, :rate_limits, %{"bundles:write" => 10})
+      put_limits(%{"bundles:write" => 10})
 
       # Compilation costs 10x via the action multiplier
       assert {:allow, _, 10, _} =
@@ -70,7 +79,7 @@ defmodule ZentinelCp.RateLimitTest do
       assert {:deny, _, _} =
                RateLimit.check_rate("cost-key", "bundles:write", action: "bundles:compile")
 
-      Application.delete_env(:zentinel_cp, :rate_limits)
+      restore_limits()
     end
 
     test "returns reset timestamp in the future" do
@@ -91,9 +100,9 @@ defmodule ZentinelCp.RateLimitTest do
     end
 
     test "prefers application config over defaults" do
-      Application.put_env(:zentinel_cp, :rate_limits, %{"nodes:read" => 5000})
+      put_limits(%{"nodes:read" => 5000})
       assert RateLimit.get_limit("nodes:read") == 5000
-      Application.delete_env(:zentinel_cp, :rate_limits)
+      restore_limits()
     end
   end
 

@@ -110,9 +110,6 @@ defmodule ZentinelCpWeb.Api.RolloutController do
   end
 
   @doc """
-  POST /api/v1/projects/:project_slug/rollouts/:id/pause
-  """
-  @doc """
   POST /api/v1/projects/:project_slug/rollouts/:id/start
   Starts a pending rollout, for example one created before its nodes existed.
   """
@@ -157,6 +154,9 @@ defmodule ZentinelCpWeb.Api.RolloutController do
 
   defp check_not_awaiting_approval(_rollout), do: :ok
 
+  @doc """
+  POST /api/v1/projects/:project_slug/rollouts/:id/pause
+  """
   def pause(conn, %{"project_slug" => project_slug, "id" => rollout_id}) do
     with {:ok, project} <- get_project(project_slug),
          {:ok, rollout} <- get_rollout(rollout_id, project.id),
