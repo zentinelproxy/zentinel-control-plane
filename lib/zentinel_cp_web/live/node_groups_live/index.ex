@@ -351,8 +351,7 @@ defmodule ZentinelCpWeb.NodeGroupsLive.Index do
                   <span
                     class="w-3 h-3 rounded-full"
                     style={"background-color: #{group.color || "#6366f1"}"}
-                  >
-                  </span>
+                  ></span>
                   <span class="font-medium">{group.name}</span>
                 </div>
               </td>

@@ -322,8 +322,7 @@ defmodule ZentinelCpWeb.EnvironmentsLive.Index do
                 <span
                   class="w-3 h-3 rounded-full"
                   style={"background-color: #{env.color || "#6366f1"}"}
-                >
-                </span>
+                ></span>
                 <h3 class="card-title text-base">{env.name}</h3>
               </div>
               <span class="badge badge-sm badge-ghost">#{env.ordinal}</span>

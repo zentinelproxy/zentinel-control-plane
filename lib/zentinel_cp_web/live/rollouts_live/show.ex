@@ -710,8 +710,7 @@ defmodule ZentinelCpWeb.RolloutsLive.Show do
               class="progress progress-success w-full"
               value={traffic_progress_pct(@rollout)}
               max="100"
-            >
-            </progress>
+            ></progress>
 
             <div :if={validating_step(@rollout)} class="text-sm text-info">
               Validating — started {Calendar.strftime(

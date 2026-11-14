@@ -115,8 +115,7 @@ defmodule ZentinelCpWeb.SlosLive.Show do
               class={["progress w-full h-4", budget_color(@slo.error_budget_remaining)]}
               value={budget_value(@slo.error_budget_remaining)}
               max="100"
-            >
-            </progress>
+            ></progress>
 
             <div class="grid grid-cols-2 gap-4 pt-2">
               <div>

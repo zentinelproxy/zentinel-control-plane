@@ -90,8 +90,7 @@ defmodule ZentinelCpWeb.SlosLive.Index do
                 class={["progress w-full", budget_color(slo.error_budget_remaining)]}
                 value={budget_value(slo.error_budget_remaining)}
                 max="100"
-              >
-              </progress>
+              ></progress>
             </div>
 
             <div class="flex justify-between text-xs text-base-content/50">
