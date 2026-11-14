@@ -94,6 +94,11 @@ Batch span processor wraps:
 - Webhook processing
 - Node heartbeats
 
+Every HTTP request gets a server span from `opentelemetry_bandit`, named
+`METHOD /route` (for example `GET /api/v1/projects/:project_slug/nodes`) by
+`opentelemetry_phoenix`. LiveView mounts and events, and Ecto queries, get
+spans of their own.
+
 Config in `config/runtime.exs`:
 ```elixir
 config :opentelemetry,
