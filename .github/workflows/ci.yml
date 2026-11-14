@@ -128,7 +128,7 @@ jobs:
       # phx-click / phx-change in the tests is a no-op.
       - name: Build assets
         run: mix assets.setup && mix assets.build
-      - uses: browser-actions/setup-chrome@v1
+      - uses: browser-actions/setup-chrome@v2
         with:
           chrome-version: stable
       - uses: nanasess/setup-chromedriver@v2
