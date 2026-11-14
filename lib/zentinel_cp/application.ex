@@ -8,7 +8,9 @@ defmodule ZentinelCp.Application do
   @impl true
   def start(_type, _args) do
     # Set up OpenTelemetry auto-instrumentation
-    OpentelemetryPhoenix.setup()
+    # Bandit opens the HTTP server span; Phoenix adds the route to it.
+    OpentelemetryBandit.setup()
+    OpentelemetryPhoenix.setup(adapter: :bandit)
     OpentelemetryEcto.setup([:zentinel_cp, :repo])
 
     children = [
