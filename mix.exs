@@ -35,9 +35,6 @@ defmodule ZentinelCp.MixProject do
       "EEF-CVE-2026-115701",
       "EEF-CVE-2026-113431",
       "EEF-CVE-2026-43966",
-      # ecto: query cache growth from interpolated JSON paths and splices. No
-      # query uses either.
-      "EEF-CVE-2026-118391",
       # hackney and tesla are test-only dependencies of wallaby.
       "EEF-CVE-2026-115693",
       "EEF-CVE-2026-47069",
@@ -93,7 +90,7 @@ defmodule ZentinelCp.MixProject do
       {:phoenix_live_reload, "~> 1.2", only: :dev},
       {:phoenix_live_view, "~> 1.1.0"},
       {:lazy_html, ">= 0.1.0", only: :test},
-      {:phoenix_live_dashboard, "~> 0.8.3"},
+      {:phoenix_live_dashboard, "~> 0.9.1"},
       {:esbuild, "~> 0.10", runtime: Mix.env() == :dev},
       {:tailwind, "~> 0.3", runtime: Mix.env() == :dev},
       {:heroicons,
