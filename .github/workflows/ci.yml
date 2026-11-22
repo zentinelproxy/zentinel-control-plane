@@ -281,6 +281,7 @@ jobs:
           tags: |
             type=ref,event=branch
             type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
             type=sha
       - id: push
         uses: docker/build-push-action@v6
@@ -288,7 +289,8 @@ jobs:
           context: agent
           platforms: linux/amd64,linux/arm64
           push: true
-          build-args: VERSION=${{ github.sha }}
+          # The release version on a tag (0.2.0), the branch name on main.
+          build-args: VERSION=${{ steps.meta.outputs.version }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=agent
