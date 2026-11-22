@@ -94,7 +94,6 @@ defmodule ZentinelCp.ClusterTest do
         :policies,
         :slos,
         :alert_rules,
-        :federation_peers,
         :cluster_info,
         :generated_at
       ]

@@ -71,8 +71,7 @@ defmodule ZentinelCp.Application do
     ZentinelCp.Analytics.WafBaselineWorker,
     ZentinelCp.Analytics.WafAnomalyWorker,
     ZentinelCp.Observability.SliWorker,
-    ZentinelCp.Observability.AlertEvaluator,
-    ZentinelCp.Federation.SyncWorker
+    ZentinelCp.Observability.AlertEvaluator
   ]
 
   @doc false

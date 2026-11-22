@@ -6,6 +6,23 @@ Notable changes to the Zentinel Control Plane. The format follows
 
 ## [Unreleased]
 
+### Upgrade notes
+
+- **The federation tables are dropped.** The migration
+  `20261122120000_drop_federation_infrastructure` drops `federation_peers`,
+  `regional_storages` and `bundle_replications` with any data in them, removes
+  the unused `region`, `region_strategy`, `region_order` and
+  `current_region_index` columns from `rollouts`, and deletes queued
+  `ZentinelCp.Federation.SyncWorker` jobs. Rolling back recreates the tables
+  and columns empty; the data is not restored. No API routes, UI pages or
+  permissions are removed, since federation never had any.
+
+### Removed
+
+- Federation (multi-cluster hub and spoke), which was a stub: peers, regional
+  storage, bundle replication tracking and the sync job that ran every 60
+  seconds without applying anything (#36).
+
 ## [0.2.0] - 2026-11-22
 
 The first versioned release. Images are published as

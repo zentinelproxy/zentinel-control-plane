@@ -26,7 +26,6 @@ defmodule ZentinelCp.Cluster.Backup do
       policies: count_resource("policies"),
       slos: count_resource("slos"),
       alert_rules: count_resource("alert_rules"),
-      federation_peers: count_resource("federation_peers"),
       cluster_info: ZentinelCp.Cluster.Health.cluster_info()
     }
   end

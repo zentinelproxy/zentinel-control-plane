@@ -12,7 +12,6 @@ defmodule ZentinelCp.SecretRotation do
   alias ZentinelCp.Auth.{Encryption, OidcProvider, SigningKey}
   alias ZentinelCp.Accounts.UserTotp
   alias ZentinelCp.Events.Channel
-  alias ZentinelCp.Federation.RegionalStorage
   alias ZentinelCp.Repo
   alias ZentinelCp.Secrets.{Secret, SecretCrypto, VaultConfig}
   alias ZentinelCp.Services.{Certificate, CertificateCrypto, InternalCa, IssuedCertificate}
@@ -22,8 +21,7 @@ defmodule ZentinelCp.SecretRotation do
     {SigningKey, :private_key_encrypted},
     {UserTotp, :secret},
     {Channel, :config},
-    {Channel, :signing_secret},
-    {RegionalStorage, :secret_access_key_encrypted}
+    {Channel, :signing_secret}
   ]
 
   # Binary columns encrypted by the caller.
