@@ -7,7 +7,7 @@
 #      installed its first config.
 services:
   agent:
-    image: ${ZCP_AGENT_IMAGE:-ghcr.io/zentinelproxy/zentinel-cp-agent:main}
+    image: ${ZCP_AGENT_IMAGE:-ghcr.io/zentinelproxy/zentinel-cp-agent:0.2.0}
     # build: .
     environment:
       ZCP_URL: "${ZCP_URL:?set ZCP_URL}"
@@ -23,7 +23,7 @@ services:
     restart: unless-stopped
 
   proxy:
-    image: ${ZENTINEL_IMAGE:-ghcr.io/zentinelproxy/zentinel:latest}
+    image: ${ZENTINEL_IMAGE:-ghcr.io/zentinelproxy/zentinel:26.11_4}
     # Shares the agent's process namespace, so the agent can send it SIGHUP
     # after installing a bundle.
     pid: "service:agent"

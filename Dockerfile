@@ -6,7 +6,7 @@ ARG BUILDER_IMAGE="hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-$
 ARG RUNNER_IMAGE="debian:${DEBIAN_VERSION}"
 # Bundles are validated with the proxy's own binary, so they are checked by the
 # version nodes run. Pin this to the proxy version you deploy.
-ARG ZENTINEL_IMAGE=ghcr.io/zentinelproxy/zentinel:latest
+ARG ZENTINEL_IMAGE=ghcr.io/zentinelproxy/zentinel:26.11_4
 
 FROM ${ZENTINEL_IMAGE} AS zentinel
 

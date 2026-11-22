@@ -5,7 +5,7 @@
 # managed PostgreSQL with backups, and terminate TLS in front of the app.
 services:
   app:
-    image: ${ZENTINEL_CP_IMAGE:-ghcr.io/zentinelproxy/zentinel-control-plane:main}
+    image: ${ZENTINEL_CP_IMAGE:-ghcr.io/zentinelproxy/zentinel-control-plane:0.2.0}
     # To build locally instead, comment out `image` and uncomment:
     # build: .
     ports:

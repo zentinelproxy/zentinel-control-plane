@@ -1,6 +1,6 @@
 # Agent image. It includes the zentinel binary from the proxy image, so bundles
 # are checked with `zentinel test` before they are installed.
-ARG ZENTINEL_IMAGE=ghcr.io/zentinelproxy/zentinel:latest
+ARG ZENTINEL_IMAGE=ghcr.io/zentinelproxy/zentinel:26.11_4
 
 FROM golang:1.25-bookworm AS build
 WORKDIR /src
