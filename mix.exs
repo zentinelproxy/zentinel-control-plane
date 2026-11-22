@@ -30,11 +30,6 @@ defmodule ZentinelCp.MixProject do
       # esaml: unbounded decompression. Responses use the POST binding, which is
       # not compressed, and their size is capped.
       "EEF-CVE-2026-93471",
-      # cowboy and cowlib are only present because esaml depends on them. HTTP is
-      # served by Bandit, so their HTTP parsers never see a request.
-      "EEF-CVE-2026-115701",
-      "EEF-CVE-2026-113431",
-      "EEF-CVE-2026-43966",
       # hackney and tesla are test-only dependencies of wallaby.
       "EEF-CVE-2026-115693",
       "EEF-CVE-2026-47069",
@@ -146,6 +141,11 @@ defmodule ZentinelCp.MixProject do
       {:nimble_options, "~> 1.1"},
       {:yaml_elixir, "~> 2.11"},
       {:ymlr, "~> 5.0"},
+
+      # idna < 8.0.0 decodes a punycode label before checking its length
+      # (EEF-CVE-2026-117678), and Swoosh puts it in the release. hackney 1.x,
+      # a test-only dependency of wallaby, still asks for ~> 6.1.0.
+      {:idna, "~> 8.0", override: true},
 
       # Dev/Test tools
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
