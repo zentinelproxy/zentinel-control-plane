@@ -156,6 +156,17 @@ if config_env() == :prod do
          :allow_private_outbound,
          System.get_env("ALLOW_PRIVATE_OUTBOUND") in ~w(true 1)
 
+  # The control plane's own Kubernetes service account is used for a project's
+  # service discovery, or sent to a project's Vault for Kubernetes auth, only
+  # when the operator allows it. Off, a project must supply its own credentials.
+  config :zentinel_cp,
+         :k8s_discovery_in_cluster,
+         System.get_env("K8S_DISCOVERY_IN_CLUSTER") in ~w(true 1)
+
+  config :zentinel_cp,
+         :vault_kubernetes_in_cluster_jwt,
+         System.get_env("VAULT_KUBERNETES_IN_CLUSTER_JWT") in ~w(true 1)
+
   # Bundle signing, which also signs audit checkpoints.
   if System.get_env("BUNDLE_SIGNING_ENABLED") in ~w(true 1) do
     config :zentinel_cp, :bundle_signing,

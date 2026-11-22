@@ -248,24 +248,28 @@ defmodule ZentinelCp.Notifications do
     end
   end
 
+  # A project's notification webhook is a tenant's URL: it must resolve to a
+  # public address, and a redirect is not followed to somewhere else.
   defp do_http_post(url, body, _headers) do
-    url_charlist = String.to_charlist(url)
-    content_type = ~c"application/json"
+    with :ok <- ZentinelCp.Net.UrlGuard.check(url) do
+      url_charlist = String.to_charlist(url)
+      content_type = ~c"application/json"
 
-    case :httpc.request(
-           :post,
-           {url_charlist, [], content_type, body},
-           [timeout: @http_timeout],
-           []
-         ) do
-      {:ok, {{_, status, _}, _, _}} when status in 200..299 ->
-        {:ok, status}
+      case :httpc.request(
+             :post,
+             {url_charlist, [], content_type, body},
+             [timeout: @http_timeout, autoredirect: false],
+             []
+           ) do
+        {:ok, {{_, status, _}, _, _}} when status in 200..299 ->
+          {:ok, status}
 
-      {:ok, {{_, status, _}, _, response_body}} ->
-        {:error, {:http_error, status, response_body}}
+        {:ok, {{_, status, _}, _, _response_body}} ->
+          {:error, {:http_error, status}}
 
-      {:error, reason} ->
-        {:error, reason}
+        {:error, reason} ->
+          {:error, reason}
+      end
     end
   end
 end

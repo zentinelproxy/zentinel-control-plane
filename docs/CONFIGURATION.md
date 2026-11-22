@@ -211,6 +211,8 @@ Supported providers: GitHub, GitLab, Bitbucket, Gitea, generic (HMAC-verified).
 | `DATABASE_SSL` | Recommended | `false` | `true` to connect to PostgreSQL over verified TLS |
 | `DATABASE_CA_CERT` | No | OS trust store | CA file for `DATABASE_SSL` |
 | `ALLOW_PRIVATE_OUTBOUND` | No | `false` | `true` to allow webhooks and health checks to reach private and local addresses |
+| `K8S_DISCOVERY_IN_CLUSTER` | No | `false` | `true` to let Kubernetes service discovery use the control plane's own service account when a project gives no `api_url` and `token` |
+| `VAULT_KUBERNETES_IN_CLUSTER_JWT` | No | `false` | `true` to send the control plane's own service account token to a project's Vault for Kubernetes auth when the project gives no `jwt` |
 | `BUNDLE_SIGNING_ENABLED` | Recommended | `false` | `true` to sign bundles and audit checkpoints |
 | `BUNDLE_SIGNING_KEY_ID` | No | `default` | Key ID recorded with signatures |
 | `BUNDLE_SIGNING_PRIVATE_KEY_PATH` | With signing | — | File with a Base64 Ed25519 private key |
