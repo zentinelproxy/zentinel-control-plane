@@ -106,7 +106,7 @@ curl http://localhost:4000/api/v1/projects/my-project/bundles/:id/verify \
 
 ## Encryption at Rest
 
-Sensitive data is encrypted with AES-256-GCM using `ENCRYPTION_KEY`: TLS and ACME private keys, the internal CA key, node signing keys, project secrets, Vault credentials, OIDC client secrets, TOTP secrets, notification channel settings, webhook signing secrets and federation storage keys.
+Sensitive data is encrypted with AES-256-GCM using `ENCRYPTION_KEY`: TLS and ACME private keys, the internal CA key, node signing keys, project secrets, Vault credentials, OIDC client secrets, TOTP secrets, notification channel settings and webhook signing secrets.
 
 Each value stores the ID of the key that encrypted it, a unique 12-byte IV and a 16-byte authentication tag. Recovery codes and API keys are stored as hashes.
 
