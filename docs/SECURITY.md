@@ -124,7 +124,7 @@ Token-bucket rate limiting on API endpoints. See [AUTHENTICATION.md § Rate Limi
 
 ## Outbound Requests
 
-Webhook and notification URLs must resolve to public addresses. Health check URLs may use private networks but not loopback or link-local addresses, which blocks cloud metadata endpoints. `ALLOW_PRIVATE_OUTBOUND=true` disables these checks. The address is resolved again when the request is sent, so also restrict egress at the network.
+Webhook and notification URLs must resolve to public addresses. Health check URLs, and the Consul, Kubernetes and Vault addresses a project configures, may use private networks but not loopback or link-local addresses, which blocks cloud metadata endpoints. These requests do not follow redirects, and when one fails the project sees its status, not the response body. The control plane's own Kubernetes service account is used for a project's discovery or Vault login only with `K8S_DISCOVERY_IN_CLUSTER` or `VAULT_KUBERNETES_IN_CLUSTER_JWT`. `ALLOW_PRIVATE_OUTBOUND=true` disables these checks. The address is resolved again when the request is sent, so also restrict egress at the network.
 
 ## Audit Log
 
